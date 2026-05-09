@@ -73,9 +73,9 @@ defineEmits(['open']);
 .rotating-border {
     background: conic-gradient(from 0deg,
             transparent 0%,
-            rgba(194, 49, 162, 0.44) 25%,
-            rgba(56, 189, 248, 0.4) 50%,
-            rgba(192, 43, 155, 0.4) 75%,
+            #c231a2 25%,
+            #38bdf8 50%,
+            #c02b9b 75%,
             transparent 100%);
     animation: rotate 8s linear infinite;
 }
