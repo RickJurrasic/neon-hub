@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, ref } from 'vue';
-import { Cpu, Activity, Terminal } from '@lucide/vue';
+import { Cpu, Activity } from '@lucide/vue';
 
 // Simulace náhodných grafů
 const bars = ref(Array(15).fill(40));
