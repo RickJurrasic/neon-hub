@@ -25,6 +25,8 @@ declare module 'vue' {
     NeonOverlay: typeof import('./resources/js/Components/NeonOverlay.vue')['default']
     NeonSocialActions: typeof import('./resources/js/Components/NeonSocialActions.vue')['default']
     NeonSocialCore: typeof import('./resources/js/Components/NeonSocialCore.vue')['default']
+    NeonSocialFeed: typeof import('./resources/js/Components/NeonSocialFeed.vue')['default']
+    NeonSocialPost: typeof import('./resources/js/Components/NeonSocialPost.vue')['default']
     NeonTechDashboard: typeof import('./resources/js/Components/NeonTechDashboard.vue')['default']
     PrimaryButton: typeof import('./resources/js/Components/PrimaryButton.vue')['default']
     ResponsiveNavLink: typeof import('./resources/js/Components/ResponsiveNavLink.vue')['default']
