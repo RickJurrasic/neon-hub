@@ -7,12 +7,13 @@ defineEmits(['open']);
 </script>
 
 <template>
-    <div class="absolute inset-0 z-[120] flex flex-col pointer-events-none transition-all duration-[1000ms] ease-in-out"
+    <div class="absolute inset-0 flex flex-col pointer-events-none transition-all duration-[1000ms] ease-in-out"
         :class="[isOpened ? 'opacity-0 translate-y-8 pointer-events-none' : 'opacity-100 translate-y-0']">
         <div class="h-[35vh]"></div>
 
         <!-- KARTA S MANIFESTEM -->
-        <div class="flex-1 flex items-center justify-center w-full pointer-events-auto px-6">
+        <div class="flex-1 flex items-center justify-center w-full px-6"
+            :class="isOpened ? 'pointer-events-none' : 'pointer-events-auto'">
             <div
                 class="relative group p-[2px] rounded-[2.5rem] overflow-hidden max-w-lg w-full shadow-2xl shadow-purple-900/20 scale-[0.92]">
                 <div
@@ -53,7 +54,8 @@ defineEmits(['open']);
         </div>
 
         <!-- TLAČÍTKO ENTER -->
-        <div class="h-[28vh] flex flex-col items-center justify-center pointer-events-auto">
+        <div class="h-[28vh] flex flex-col items-center justify-center"
+            :class="isOpened ? 'pointer-events-none' : 'pointer-events-auto'">
             <button @click="$emit('open')"
                 class="group relative px-16 py-6 bg-sky-500 text-black font-black uppercase tracking-[0.6em] text-xs hover:bg-white transition-all duration-500 shadow-[0_0_50px_rgba(56,189,248,0.4)] active:scale-95">
                 ENTER SYSTEM
