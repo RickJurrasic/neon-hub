@@ -5,11 +5,10 @@ import { Cpu, Activity, Wifi, Terminal, Zap } from 'lucide-vue-next';
 <template>
     <header class="fixed top-0 left-0 w-full z-[60]">
         <!-- MASTER WRAPPER (h-16 pro vzdušnost) -->
-        <div class="neon-panel-wrapper h-16 border-b border-white/5">
+        <div class="neon-panel-wrapper nav-wrapper h-16 border-b border-white/5">
 
             <!-- ROTUJÍCÍ BORDER (Zpět v akci, ale s upraveným měřítkem v CSS) -->
-            <div class="neon-border-active"></div>
-
+            <div class="nav-light-scanner"></div>
             <!-- VNITŘNÍ SKLO -->
             <div class="neon-glass-core !flex-row items-center px-12 bg-[#050914]/95">
 
@@ -100,18 +99,56 @@ import { Cpu, Activity, Wifi, Terminal, Zap } from 'lucide-vue-next';
 </template>
 
 <style scoped>
-/* Přepsání globálního rotujícího borderu pro potřeby úzké lišty */
-:deep(.neon-border-active) {
-    /* Musí být extrémně široký a nízký, aby rotace na w-full nepůsobila chaoticky */
-    width: 200% !important;
-    height: 800% !important;
-    top: -350% !important;
-    left: -50% !important;
-    animation-duration: 12s !important;
-    /* Pomalejší rotace pro eleganci */
+.nav-wrapper {
+    padding: 0;
+    position: relative;
+    background: transparent;
 }
 
-.font-mono {
-    text-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+.nav-light-scanner {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+
+    /* Gradient, který má v sobě několik barevných bodů a opakuje se */
+    background: linear-gradient(90deg,
+            rgba(56, 189, 248, 1) 0%,
+            /* Modrá */
+            rgba(192, 43, 155, 1) 25%,
+            /* Fialová */
+            rgba(56, 189, 248, 1) 50%,
+            /* Modrá */
+            rgba(192, 43, 155, 1) 75%,
+            /* Fialová */
+            rgba(56, 189, 248, 1) 100%
+            /* Modrá (konec navazuje na začátek) */
+        );
+
+    /* Roztáhneme pozadí na 200 %, aby bylo kam se posouvat */
+    background-size: 200% 100%;
+
+    /* Animace plynulého posunu barev */
+    animation: liquid-line 8s linear infinite;
+    pointer-events: none;
+
+    /* Záře pod celou linkou */
+    box-shadow: 0 1px 10px rgba(56, 189, 248, 0.3);
+}
+
+@keyframes liquid-line {
+    from {
+        background-position: 0% 0;
+    }
+
+    to {
+        background-position: 200% 0;
+    }
+}
+
+.neon-glass-core {
+    /* Spodní linka jako decentní podklad pro ten neon */
+    @apply border-b border-white/5;
 }
 </style>

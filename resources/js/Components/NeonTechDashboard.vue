@@ -18,7 +18,7 @@ onMounted(() => {
 
             <div class="neon-border-active"></div>
 
-            <div class="neon-glass-core rounded-[2.8rem] p-6 flex flex-col gap-6">
+            <div class="neon-glass-core rounded-[3rem] py-16 flex flex-col items-center justify-between h-full">
 
                 <!-- HEADER SEKTCE -->
                 <div class="flex items-center gap-3 border-b border-white/5 pb-4">

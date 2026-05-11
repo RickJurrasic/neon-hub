@@ -11,7 +11,7 @@ import { UserPlus, MessageSquareCode, BellDot } from '@lucide/vue';
             <div class="neon-border-active"></div>
 
             <!-- VNITŘNÍ SKLO (Globální třída) -->
-            <div class="neon-glass-core rounded-[7.8rem] py-10">
+            <div class="neon-glass-core rounded-[7.8rem] py-16 flex flex-col items-center justify-between h-full">
 
                 <!-- Dekorační horní linka -->
                 <h2
