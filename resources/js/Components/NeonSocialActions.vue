@@ -1,5 +1,6 @@
 <script setup>
-import { UserPlus, MessageSquareCode, BellDot } from '@lucide/vue';
+import { UserPlus, MessageSquareCode, BellDot, Home } from '@lucide/vue';
+defineEmits(['change-view']);
 </script>
 
 <template>
@@ -22,8 +23,16 @@ import { UserPlus, MessageSquareCode, BellDot } from '@lucide/vue';
                 <!-- IKONY -->
                 <div class="flex-1 h-full flex flex-col justify-around w-full items-center relative">
 
+                    <!-- HOME / FEED (Nové!) -->
+                    <div class="action-item group" @click="$emit('change-view', 'feed')">
+                        <span class="label">SYSTEM_CORE</span>
+                        <div class="icon-style">
+                            <Home :size="32" :stroke-width="1.5" />
+                        </div>
+                    </div>
+
                     <!-- FRIENDS -->
-                    <div class="action-item group">
+                    <div class="action-item group" @click="$emit('change-view', 'friends')">
                         <span class="label">FRIENDS</span>
                         <div class="icon-style">
                             <UserPlus :size="32" :stroke-width="1.5" />
@@ -31,7 +40,7 @@ import { UserPlus, MessageSquareCode, BellDot } from '@lucide/vue';
                     </div>
 
                     <!-- UPLINK -->
-                    <div class="action-item group">
+                    <div class="action-item group" @click="$emit('change-view', 'messages')">
                         <span class="label">MESSAGES</span>
                         <div class="icon-style">
                             <MessageSquareCode :size="32" :stroke-width="1.5" />
@@ -39,7 +48,7 @@ import { UserPlus, MessageSquareCode, BellDot } from '@lucide/vue';
                     </div>
 
                     <!-- ALERTS -->
-                    <div class="action-item group">
+                    <div class="action-item group" @click="$emit('change-view', 'notifications')">
                         <span class="label">ALERTS</span>
                         <div class="icon-style relative">
                             <BellDot :size="32" :stroke-width="1.5" />

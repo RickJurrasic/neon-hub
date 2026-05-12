@@ -1,100 +1,137 @@
 <script setup>
-import { onMounted, ref } from 'vue';
-import { Cpu, Activity } from '@lucide/vue';
+import { ref, watch, onUnmounted, computed } from 'vue';
+import { Cpu, Activity, Bell, ShieldAlert, ChevronLeft } from '@lucide/vue';
 
-// Simulace náhodných grafů
+const props = defineProps({
+    isOpened: Boolean,
+    mode: String // Místo activeTab přijímá 'stats' nebo 'alerts'
+});
+
 const bars = ref(Array(15).fill(40));
-onMounted(() => {
-    setInterval(() => {
+const notifications = ref([
+    { id: 1, type: 'alert', title: 'SECURITY_BREACH', msg: 'Unauthorized uplink from sector 7G.', time: '14:20' },
+    { id: 2, type: 'info', title: 'SYSTEM_SYNC', msg: 'Neural networks are 100% stable.', time: '12:05' },
+    { id: 3, type: 'alert', title: 'DATA_ENCRYPTION', msg: 'Incoming packet needs decryption.', time: '09:45' }
+]);
+
+// Je dashboard v režimu "seznam notifikací"?
+const isAlertMode = computed(() => props.mode === 'alerts');
+
+let intervalId = null;
+
+const startSimulation = () => {
+    if (intervalId) return;
+    intervalId = setInterval(() => {
         bars.value = bars.value.map(() => Math.floor(Math.random() * 80) + 20);
     }, 2000);
+};
+
+watch(() => props.isOpened, (newVal) => {
+    if (newVal) setTimeout(startSimulation, 1500);
+}, { immediate: false });
+
+onUnmounted(() => {
+    if (intervalId) clearInterval(intervalId);
 });
 </script>
 
 <template>
     <aside class="fixed right-8 top-1/2 -translate-y-1/2 z-50">
-        <!-- MASTER WRAPPER (Větší šířka pro data) -->
-        <div class="neon-panel-wrapper h-[80vh] w-72 rounded-[3rem]">
+        <div class="neon-panel-wrapper h-[85vh] w-72 rounded-[3rem]">
+            <div class="neon-border-active"
+                :class="{ '!border-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.3)]': isAlertMode }"></div>
 
-            <div class="neon-border-active"></div>
+            <div class="neon-glass-core rounded-[3rem] py-12 flex flex-col h-full overflow-hidden relative">
 
-            <div class="neon-glass-core rounded-[3rem] py-16 flex flex-col items-center justify-between h-full">
-
-                <!-- HEADER SEKTCE -->
-                <div class="flex items-center gap-3 border-b border-white/5 pb-4">
-                    <Cpu class="text-sky-400 animate-pulse" :size="18" />
-                    <h3 class="text-[10px] font-black uppercase tracking-[0.3em] text-white/70">
-                        Core_Engine_v.13
+                <!-- HEADER (DYNAMICKÝ) -->
+                <div
+                    class="flex items-center gap-3 border-b border-white/5 pb-4 mb-6 w-full px-6 transition-all duration-500">
+                    <component :is="isAlertMode ? ShieldAlert : Cpu"
+                        class="animate-pulse transition-colors duration-500"
+                        :class="isAlertMode ? 'text-rose-500' : 'text-sky-400'" :size="18" />
+                    <h3 class="text-[10px] font-black uppercase tracking-[0.3em] transition-colors"
+                        :class="isAlertMode ? 'text-rose-400' : 'text-white/70'">
+                        {{ isAlertMode ? 'Alert_Center' : 'Core_Engine_v.13' }}
                     </h3>
                 </div>
 
-                <!-- 1. SEKCE: AI OBSERVER LOGS -->
-                <div class="flex-1 overflow-hidden">
-                    <div class="flex items-center justify-between mb-3">
-                        <span class="text-[8px] text-slate-500 uppercase tracking-widest font-bold">Observer_Logs</span>
-                        <span class="text-[8px] text-emerald-500 animate-pulse font-mono">LIVE</span>
-                    </div>
-                    <div class="space-y-3 font-mono text-[9px] bg-black/20 p-3 rounded-xl border border-white/5">
-                        <div class="flex gap-2">
-                            <span class="text-emerald-500/50">01</span>
-                            <span class="text-slate-300">[OK] Injecting feed_v2.0</span>
+                <!-- HLAVNÍ OBSAH S TRANSITION -->
+                <div class="flex-1 w-full px-6 overflow-hidden relative">
+                    <transition name="fade-slide" mode="out-in">
+
+                        <!-- REŽIM DIAGNOSTIKA (Default) -->
+                        <div v-if="!isAlertMode" key="diag" class="flex flex-col h-full space-y-8">
+                            <!-- Observer Logs -->
+                            <div>
+                                <div
+                                    class="flex items-center justify-between mb-3 text-[8px] font-bold uppercase tracking-widest text-slate-500">
+                                    <span>Observer_Logs</span>
+                                    <span class="text-emerald-500 animate-pulse">Live</span>
+                                </div>
+                                <div
+                                    class="space-y-2 font-mono text-[9px] bg-black/20 p-3 rounded-xl border border-white/5">
+                                    <div class="flex gap-2 text-slate-300"><span class="text-emerald-500/50">01</span>
+                                        [OK] Injecting feed_v2</div>
+                                    <div class="flex gap-2 text-slate-300"><span class="text-sky-500/50">02</span> [OK]
+                                        Auth_Gateway</div>
+                                    <div class="flex gap-2 text-purple-400 animate-pulse"><span
+                                            class="text-purple-500/50">03</span> Analyzing...</div>
+                                </div>
+                            </div>
+
+                            <!-- Neural Load -->
+                            <div>
+                                <div
+                                    class="flex items-center gap-2 mb-3 text-[8px] font-bold uppercase tracking-widest text-slate-500">
+                                    <Activity :size="14" class="text-fuchsia-500" />
+                                    <span>Neural_Load</span>
+                                </div>
+                                <div
+                                    class="h-16 flex items-end gap-1.5 px-2 bg-black/10 rounded-lg py-1 border border-white/5 overflow-hidden">
+                                    <div v-for="(height, i) in bars" :key="i"
+                                        class="flex-1 bg-gradient-to-t from-fuchsia-600/40 to-sky-400/60 rounded-full transition-all duration-[2000ms]"
+                                        :style="{ height: height + '%' }">
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="flex gap-2">
-                            <span class="text-sky-500/50">02</span>
-                            <span class="text-slate-300">[OK] Auth_Gateway_Secure</span>
+
+                        <!-- REŽIM NOTIFIKACE (Po kliku na Alerts) -->
+                        <div v-else key="alerts" class="flex flex-col h-full">
+                            <div class="space-y-3 overflow-y-auto pr-1 custom-scroll">
+                                <div v-for="notif in notifications" :key="notif.id"
+                                    class="group p-3 border border-white/5 bg-white/5 hover:bg-rose-500/10 hover:border-rose-500/30 rounded-xl transition-all duration-300 cursor-pointer">
+                                    <div class="flex justify-between items-start mb-1">
+                                        <span class="text-[7px] font-black uppercase tracking-tighter"
+                                            :class="notif.type === 'alert' ? 'text-rose-500' : 'text-sky-500'">
+                                            {{ notif.title }}
+                                        </span>
+                                        <span class="text-[7px] text-white/20 font-mono">{{ notif.time }}</span>
+                                    </div>
+                                    <p class="text-[9px] text-white/60 leading-tight group-hover:text-white/90">{{
+                                        notif.msg }}</p>
+                                </div>
+                            </div>
+
+                            <!-- Nápověda pro návrat -->
+                            <div class="mt-auto pt-4 text-center">
+                                <p class="text-[7px] text-slate-600 font-mono animate-bounce uppercase">
+                                    Click Home to return to Diag
+                                </p>
+                            </div>
                         </div>
-                        <div class="flex gap-2">
-                            <span class="text-purple-500/50">03</span>
-                            <span class="text-purple-400 animate-pulse">Analyzing_Sentiment...</span>
-                        </div>
-                        <div class="flex gap-2">
-                            <span class="text-slate-700">04</span>
-                            <span class="text-slate-600">> Waiting for uplink...</span>
-                        </div>
-                    </div>
+                    </transition>
                 </div>
 
-                <!-- 2. SEKCE: ACTIVITY GRAPH -->
-                <div class="h-32">
-                    <div class="flex items-center gap-2 mb-3">
-                        <Activity class="text-fuchsia-500" :size="14" />
-                        <span class="text-[8px] text-slate-500 uppercase tracking-widest font-bold">Neural_Load</span>
-                    </div>
-                    <div class="h-16 flex items-end gap-1.5 px-2">
-                        <div v-for="(height, i) in bars" :key="i"
-                            class="flex-1 bg-gradient-to-t from-fuchsia-600/40 to-sky-400/60 rounded-full transition-all duration-[2000ms] ease-in-out"
-                            :style="{ height: height + '%' }">
-                        </div>
-                    </div>
-                    <div class="flex justify-between mt-2 font-mono text-[7px] text-slate-600">
-                        <span>0.0ms</span>
-                        <span>4.2ghz</span>
-                        <span>128-bit</span>
-                    </div>
-                </div>
-
-                <!-- 3. SEKCE: TECH STACK STATUS -->
-                <div class="pt-4 border-t border-white/5">
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="bg-white/5 p-2 rounded-lg border border-white/5 flex flex-col">
-                            <span class="text-[7px] text-slate-500 uppercase">Laravel</span>
-                            <span class="text-[9px] text-sky-400 font-bold tracking-tighter italic">V.13.0.2</span>
-                        </div>
-                        <div class="bg-white/5 p-2 rounded-lg border border-white/5 flex flex-col">
-                            <span class="text-[7px] text-slate-500 uppercase">Vue_Core</span>
-                            <span class="text-[9px] text-fuchsia-400 font-bold tracking-tighter italic">V.3.4.0</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- BOTTOM STATUS -->
-                <div class="mt-2 flex justify-between items-center opacity-40">
+                <!-- FOOTER -->
+                <div
+                    class="mt-6 pt-4 border-t border-white/5 w-full px-6 flex justify-between items-center opacity-40 text-[8px] font-mono text-slate-500">
                     <div class="flex gap-1">
-                        <div class="w-1 h-1 bg-sky-500 rounded-full"></div>
-                        <div class="w-1 h-1 bg-sky-500 rounded-full"></div>
-                        <div class="w-1 h-1 bg-slate-700 rounded-full"></div>
+                        <div class="w-1.5 h-1.5 rounded-full"
+                            :class="isAlertMode ? 'bg-rose-500 animate-ping' : 'bg-sky-500 animate-ping'"></div>
+                        <div class="w-1.5 h-1.5 rounded-full" :class="isAlertMode ? 'bg-rose-500' : 'bg-sky-500'"></div>
                     </div>
-                    <span class="text-[8px] font-mono text-slate-500">SYS_TEMP: 32°C</span>
+                    <span>{{ isAlertMode ? 'SECURITY_MODE' : 'SYSTEM_IDLE' }}</span>
                 </div>
 
             </div>
@@ -103,8 +140,31 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* Pokud chceš ještě nějaký extra detail, tak třeba jemný scanline efekt přes logy */
-.font-mono {
-    text-shadow: 0 0 5px rgba(56, 189, 248, 0.3);
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fade-slide-enter-from {
+    opacity: 0;
+    transform: translateX(20px);
+}
+
+.fade-slide-leave-to {
+    opacity: 0;
+    transform: translateX(-20px);
+}
+
+.custom-scroll::-webkit-scrollbar {
+    width: 2px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+.neon-panel-wrapper {
+    transition: all 0.5s ease;
 }
 </style>
