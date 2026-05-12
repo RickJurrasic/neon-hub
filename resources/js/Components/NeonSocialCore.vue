@@ -58,9 +58,9 @@ watch(() => props.isOpened, (newVal) => {
 </script>
 
 <template>
+    <div id="neon-scanline-layer"></div>
     <div class="absolute inset-0 transition-all duration-[1200ms] ease-out overflow-hidden"
         :class="[isOpened ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none']">
-
         <template v-if="stage1">
             <!-- UI PANELY -->
             <template v-if="stage2">

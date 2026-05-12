@@ -111,3 +111,39 @@
 .animating .neon-border-active {
     animation-duration: 20s;
 }
+
+#neon-scanline-layer {
+    display: block !important;
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 9999 !important;
+    /* Maximální možný z-index */
+    pointer-events: none !important;
+    opacity: 0.2 !important;
+    /* Zvýšeno pro jistotu testu */
+
+    background: repeating-linear-gradient(0deg,
+            rgba(0, 0, 0, 0.6) 0px,
+            rgba(0, 0, 0, 0.6) 2px,
+            transparent 2px,
+            transparent 4px) !important;
+
+    box-shadow: inset 0 0 150px rgba(0, 0, 0, 0.8) !important;
+    animation: focal_flicker 0.1s infinite !important;
+}
+
+@keyframes focal_flicker {
+    0% {
+        opacity: 0.15;
+    }
+
+    50% {
+        opacity: 0.25;
+    }
+
+    100% {
+        opacity: 0.15;
+    }
+}

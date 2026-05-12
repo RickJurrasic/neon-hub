@@ -10,7 +10,7 @@ import { Cpu, Activity, Wifi, Terminal, Zap } from 'lucide-vue-next';
             <!-- ROTUJÍCÍ BORDER (Zpět v akci, ale s upraveným měřítkem v CSS) -->
             <div class="nav-light-scanner"></div>
             <!-- VNITŘNÍ SKLO -->
-            <div class="neon-glass-core !flex-row items-center px-12 bg-[#050914]/95">
+            <div class="neon-glass-core h-full !flex-row items-center px-12 bg-[#050914]/95">
 
                 <!-- LEVÁ ČÁST (Logo) - Fixní šířka, aby netlačila na data -->
                 <div class="flex items-center gap-3 w-64">
@@ -107,34 +107,30 @@ import { Cpu, Activity, Wifi, Terminal, Zap } from 'lucide-vue-next';
 
 .nav-light-scanner {
     position: absolute;
-    bottom: 0;
+    /* Změna z bottom: 0 na top: 100% */
+    top: 100%;
     left: 0;
     right: 0;
-    height: 2px;
+    height: 1px;
+    /* 2px jsou někdy moc, 1px vypadá víc "tech" */
 
-    /* Gradient, který má v sobě několik barevných bodů a opakuje se */
+    /* Přidej transformaci pro jemné vycentrování na hranu */
+    transform: translateY(-50%);
+
     background: linear-gradient(90deg,
             rgba(56, 189, 248, 1) 0%,
-            /* Modrá */
             rgba(192, 43, 155, 1) 25%,
-            /* Fialová */
             rgba(56, 189, 248, 1) 50%,
-            /* Modrá */
             rgba(192, 43, 155, 1) 75%,
-            /* Fialová */
-            rgba(56, 189, 248, 1) 100%
-            /* Modrá (konec navazuje na začátek) */
-        );
-
-    /* Roztáhneme pozadí na 200 %, aby bylo kam se posouvat */
+            rgba(56, 189, 248, 1) 100%);
     background-size: 200% 100%;
-
-    /* Animace plynulého posunu barev */
     animation: liquid-line 8s linear infinite;
     pointer-events: none;
 
-    /* Záře pod celou linkou */
-    box-shadow: 0 1px 10px rgba(56, 189, 248, 0.3);
+    /* Větší záře, aby to nevypadalo jen jako čára */
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+    z-index: 70;
+    /* Aby byla nad sklem */
 }
 
 @keyframes liquid-line {
