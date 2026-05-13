@@ -6,55 +6,61 @@ import NeonTechDashboard from './NeonTechDashboard.vue';
 import NeonSocialFeed from './NeonSocialFeed.vue';
 import NeonMessages from './NeonMessages.vue';
 import NeonFriends from './NeonFriends.vue';
+import NeonUserProfile from './NeonUserProfile.vue'; // Nezapomeň na import!
 
 const props = defineProps({
     isOpened: { type: Boolean, default: false }
 });
 
-// --- TADY BYLY CHYBY, TEĎ JE TO OPRAVENÉ ---
-
-// 1. Stav pro to, co je uprostřed (Feed / Messages / Friends)
+// --- STAVY PRO NAVIGACI ---
 const activeTab = ref('feed');
-
-// 2. Stav pro to, co ukazuje pravý panel (Stats / Alerts)
 const dashboardMode = ref('stats');
+const selectedEntityId = ref(null);
 
-// Fáze probouzení systému
+// --- STAVY PRO FÁZE (Tohle ti tam chybělo/rozbilo se) ---
 const stage1 = ref(false);
 const stage2 = ref(false);
 const stage3 = ref(false);
 
+// --- LOGIKA PŘEPÍNÁNÍ ---
 const handleViewChange = (view) => {
     if (!stage3.value) return;
 
-    // Logika pro notifikace: Změní jen pravý panel, střed nechá být
     if (view === 'notifications') {
         dashboardMode.value = 'alerts';
         return;
     }
 
-    // Logika pro ostatní: Změní střed
     activeTab.value = view;
 
-    // Pokud se vracíme na Home, chceme vyresetovat i pravý panel na grafy
     if (view === 'feed') {
         dashboardMode.value = 'stats';
+        selectedEntityId.value = null;
     }
 };
 
+const openEntityProfile = (id) => {
+    selectedEntityId.value = id;
+    activeTab.value = 'profile';
+};
+
+// --- WATCHER PRO SPOUŠTĚNÍ SYSTÉMU ---
 watch(() => props.isOpened, (newVal) => {
     if (newVal) {
+        // Postupné zapínání panelů
         setTimeout(() => { stage1.value = true; }, 100);
         setTimeout(() => { stage2.value = true; }, 500);
         setTimeout(() => { stage3.value = true; }, 900);
     } else {
+        // Okamžitý reset při zavření
         stage1.value = false;
         stage2.value = false;
         stage3.value = false;
         activeTab.value = 'feed';
-        dashboardMode.value = 'stats'; // Reset dashboardu při zavření
+        dashboardMode.value = 'stats';
+        selectedEntityId.value = null;
     }
-});
+}, { immediate: true }); // immediate zajistí, že se to zkontroluje i při mountu
 </script>
 
 <template>
@@ -90,7 +96,13 @@ watch(() => props.isOpened, (newVal) => {
 
                         <!-- FRIENDS -->
                         <div v-else-if="activeTab === 'friends'" key="friends" class="w-full flex justify-center">
-                            <NeonFriends @back="activeTab = 'feed'" />
+                            <!-- Tady zachytíme emit z NeonFriends -->
+                            <NeonFriends @back="activeTab = 'feed'" @view-profile="openEntityProfile" />
+                        </div>
+
+                        <!-- USER PROFILE (Nový hloubkový pohled) -->
+                        <div v-else-if="activeTab === 'profile'" key="profile" class="w-full flex justify-center">
+                            <NeonUserProfile :entityId="selectedEntityId" @back="activeTab = 'friends'" />
                         </div>
 
                     </transition>

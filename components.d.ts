@@ -30,6 +30,7 @@ declare module 'vue' {
     NeonSocialFeed: typeof import('./resources/js/Components/NeonSocialFeed.vue')['default']
     NeonSocialPost: typeof import('./resources/js/Components/NeonSocialPost.vue')['default']
     NeonTechDashboard: typeof import('./resources/js/Components/NeonTechDashboard.vue')['default']
+    NeonUserProfile: typeof import('./resources/js/Components/NeonUserProfile.vue')['default']
     PrimaryButton: typeof import('./resources/js/Components/PrimaryButton.vue')['default']
     ResponsiveNavLink: typeof import('./resources/js/Components/ResponsiveNavLink.vue')['default']
     SecondaryButton: typeof import('./resources/js/Components/SecondaryButton.vue')['default']
