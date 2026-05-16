@@ -84,8 +84,21 @@ watch(() => props.isOpened, (newVal) => {
                         </div>
 
                         <div v-else-if="activeTab === 'messages'" key="messages"
-                            class="w-full flex flex-col items-stretch grow justify-center max-w-4xl mx-auto h-full">
-                            <NeonMessages @back="activeTab = 'feed'" class="w-full h-full" />
+                            class="w-full h-full overflow-y-auto no-scrollbar pt-[12vh] pb-[6vh] px-4 flex justify-center items-center max-w-4xl mx-auto grow">
+                            <NeonMessages @back="activeTab = 'feed'"
+                                class="w-full animate-in zoom-in-95 fade-in duration-700" />
+                        </div>
+
+                        <div v-else-if="activeTab === 'friends'" key="friends"
+                            class="w-full h-full overflow-y-auto no-scrollbar pt-[12vh] pb-[6vh] px-4 flex justify-center items-center max-w-4xl mx-auto grow">
+                            <NeonFriends @back="activeTab = 'feed'" @view-profile="openEntityProfile"
+                                class="w-full animate-in zoom-in-95 fade-in duration-700" />
+                        </div>
+
+                        <div v-else-if="activeTab === 'profile'" key="profile"
+                            class="w-full h-full overflow-y-auto no-scrollbar pt-[12vh] pb-[6vh] px-4 flex justify-center items-center max-w-4xl mx-auto grow">
+                            <NeonUserProfile :entityId="selectedEntityId" @back="activeTab = 'friends'"
+                                class="w-full animate-in zoom-in-95 fade-in duration-700" />
                         </div>
 
                     </transition>
