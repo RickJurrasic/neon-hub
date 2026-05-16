@@ -71,10 +71,11 @@ watch(() => props.isOpened, (newVal) => {
             <template v-if="stage2">
                 <NeonNav class="animate-in fade-in duration-700" />
 
-                <NeonSocialActions :active-tab="activeTab" @change-view="handleViewChange" />
+                <NeonSocialActions class="hidden md:block" :active-tab="activeTab" @change-view="handleViewChange" />
 
                 <NeonSocialActions class="block md:hidden" :is-mobile="true" :active-tab="activeTab"
                     @change-view="handleViewChange" />
+
                 <NeonTechDashboard :isOpened="isOpened" :mode="dashboardMode"
                     class="hidden md:block animate-in fade-in duration-700" />
             </template>
@@ -137,6 +138,7 @@ watch(() => props.isOpened, (newVal) => {
     filter: blur(12px);
 }
 
+/* ⚠️ TYHLE TŘÍDY JSOU KLÍČOVÉ PRO SPRÁVNÝ HYBRIDNÍ SCROLL FEEDU - NESMAZAT */
 .animate-in {
     animation-fill-mode: forwards;
 }
