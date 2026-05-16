@@ -13,9 +13,9 @@ const posts = ref([
 
 <template>
     <main
-        class="w-full h-full overflow-y-auto no-scrollbar flex justify-center items-start pt-[12vh] pb-[20vh] snap-y snap-mandatory scroll-pt-[15vh]">
+        class="w-full h-full overflow-y-auto no-scrollbar flex justify-center items-start pt-[12vh] pb-[20vh] snap-y snap-mandatory scroll-pt-[14vh]">
 
-        <div class="w-full max-w-4xl mx-auto px-4 md:px-12 flex flex-col items-stretch gap-20 pb-12">
+        <div class="w-full max-w-4xl mx-auto px-2 md:px-12 flex flex-col items-stretch gap-8 md:gap-20 pb-12">
 
             <NeonSocialPost v-for="post in posts" :key="post.id" :post="post" class="w-full snap-center" />
 
