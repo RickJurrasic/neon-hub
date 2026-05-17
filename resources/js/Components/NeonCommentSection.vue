@@ -24,7 +24,7 @@ const handleSubmit = () => {
 </script>
 
 <template>
-    <div class="w-full mt-6 bg-[#03060d]/60 border border-white/5 rounded-[1.5rem] p-6 md:p-8 space-y-6">
+    <div class="w-full mt-6 bg-[#03060d]/60 border border-white/5 rounded-[1.5rem] p-6 md:p-8 pb-8 md:pb-8 space-y-6">
 
         <div class="flex justify-between items-center border-b border-white/5 pb-4">
             <span class="font-mono text-[10px] text-fuchsia-400 tracking-[0.3em] uppercase font-bold">
@@ -35,7 +35,7 @@ const handleSubmit = () => {
             </span>
         </div>
 
-        <div class="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+        <div class="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar overscroll-contain">
             <div v-for="comment in comments" :key="comment.id"
                 class="group/comment flex flex-col gap-2 p-4 bg-[#070c1a]/40 border border-white/[0.02] rounded-[1rem] transition-colors hover:bg-[#070c1a]/80">
 
@@ -68,7 +68,7 @@ const handleSubmit = () => {
 </template>
 
 <style scoped>
-/* Čistý sci-fi scrollbar, žádný tlustý systémový hnus */
+/* Čistý sci-fi scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
     width: 4px;
 }
@@ -84,5 +84,10 @@ const handleSubmit = () => {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(217, 70, 239, 0.3);
+}
+
+/* ZMĚNA: Přidán nativní fallback pro starší prohlížeče (i když na 2026 už overscroll-contain funguje všude) */
+.overscroll-contain {
+    overscroll-behavior: contain;
 }
 </style>
