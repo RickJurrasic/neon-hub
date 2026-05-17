@@ -10,50 +10,9 @@ const isVisible = ref(false);
 const showComments = ref(false);
 
 
-const toggleComments = async () => {
-    const scrollContainer = cardRef.value?.closest('main');
-
-    if (!scrollContainer) {
-        showComments.value = !showComments.value;
-        return;
-    }
-
-    // 1. Uložíme si přesnou pozici karty vůči oknu PŘED změnou
-    const rectBefore = cardRef.value.getBoundingClientRect();
-    const isOpening = !showComments.value;
-
-    // Zjistíme, jestli jsme úplně nahoře feedu (první post)
-    const isFirstPost = scrollContainer.scrollTop === 0;
-
-    // 2. Přepneme viditelnost
+const toggleComments = () => {
+    // Prostě jenom otočíme true/false a zbytek necháme na přírodě.
     showComments.value = !showComments.value;
-
-    // 3. Počkáme na překreslení DOMu
-    await nextTick();
-
-    if (isOpening) {
-        // Pokud jsme na prvním postu a už je nahoře, netřeba scrolovat vůbec
-        if (isFirstPost && rectBefore.top > 0) {
-            return;
-        }
-
-        // Jinak necháme prohlížeč plynule srovnat jen to, co utíká z obrazovky
-        cardRef.value.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest'
-        });
-    } else {
-        // PŘI ZAVÍRÁNÍ:
-        // Změříme novou pozici po smrštění karty
-        const rectAfter = cardRef.value.getBoundingClientRect();
-        const diff = rectBefore.top - rectAfter.top;
-
-        // Dorovnáme pozici pouze tehdy, pokud se karta reálně pohnula vůči oknu
-        // A zároveň nejsme limitováni absolutním vrškem feedu
-        if (diff !== 0 && scrollContainer.scrollTop > 0) {
-            scrollContainer.scrollTop -= diff;
-        }
-    }
 };
 
 onMounted(() => {
