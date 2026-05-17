@@ -26,15 +26,22 @@ const stage3 = ref(false);
 const handleViewChange = (view) => {
     if (!stage3.value) return;
 
+    // Pokud klikneš na ALERTS (notifications)
     if (view === 'notifications') {
-        dashboardMode.value = 'alerts';
+        // Tady se děje ten nezávislý switch obsahu uvnitř dashboardu
+        dashboardMode.value = dashboardMode.value === 'alerts' ? 'stats' : 'alerts';
+
+        // Na mobilu ale chceme přepnout kartu, aby se dashboard zobrazil
+        activeTab.value = 'notifications';
         return;
     }
 
+    // Pro ostatní pohledy (feed, messages, friends) nastavíme aktivní tab normálně
     activeTab.value = view;
 
     if (view === 'feed') {
-        dashboardMode.value = 'stats';
+        // ❌ ODEBRÁNO: dashboardMode.value = 'stats'
+        // Dashboard si teď pamatuje svůj stav a nereaguje na Home tlačítko
         selectedEntityId.value = null;
     }
 };
@@ -85,8 +92,21 @@ watch(() => props.isOpened, (newVal) => {
                     <transition name="depth-zoom" mode="out-in">
 
                         <div v-if="activeTab === 'feed' || activeTab === 'notifications'" key="feed"
-                            class="w-full flex flex-col items-stretch grow justify-center max-w-4xl mx-auto h-full">
-                            <NeonSocialFeed class="animate-in zoom-in-95 fade-in duration-700 w-full h-full" />
+                            class="w-full flex flex-col items-stretch grow justify-center max-w-4xl mx-auto h-full relative">
+
+                            <NeonSocialFeed class="animate-in zoom-in-95 fade-in duration-700 w-full h-full"
+                                :class="activeTab === 'notifications' ? 'hidden md:block' : 'block'" />
+
+                            <div v-if="activeTab === 'notifications'"
+                                class="absolute inset-0 flex md:hidden items-center justify-center p-6 animate-in zoom-in-95 fade-in duration-300 z-10">
+
+                                <div class="w-full max-w-sm max-h-[70vh] flex items-center justify-center">
+                                    <NeonTechDashboard :isOpened="isOpened" :mode="dashboardMode"
+                                        class="w-full h-full" />
+                                </div>
+
+                            </div>
+
                         </div>
 
                         <div v-else-if="activeTab === 'messages'" key="messages"

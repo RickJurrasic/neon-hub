@@ -1,14 +1,14 @@
 <template>
     <div
-        class="w-full max-w-md bg-black/60 border border-purple-500/30 p-6 font-mono backdrop-blur-xl shadow-[0_0_30px_rgba(168,85,247,0.15)]">
-        <div class="flex justify-between mb-6 border-b border-purple-500/20 pb-2">
+        class="w-[82vw] max-w-xs md:w-full md:max-w-md bg-black/60 border border-purple-500/30 p-6 font-mono backdrop-blur-xl shadow-[0_0_30px_rgba(168,85,247,0.15)] rounded-[2rem] flex flex-col max-h-[75vh] overflow-hidden">
+
+        <div class="flex justify-between mb-6 border-b border-purple-500/20 pb-2 shrink-0">
             <span class="text-purple-400 text-xs tracking-tighter">>> NEON_NETWORK_ENTITIES</span>
             <button @click="$emit('back')" class="text-[9px] hover:text-white text-purple-700">TERMINATE_LINK</button>
         </div>
 
-        <div class="space-y-4">
-            <!-- Přidán @click, který odpálí emit 'view-profile' s ID entity -->
-            <div v-for="i in 3" :key="i" @click="$emit('view-profile', i)"
+        <div class="space-y-4 overflow-y-auto no-scrollbar grow pr-1">
+            <div v-for="i in 30" :key="i" @click="$emit('view-profile', i)"
                 class="group flex items-center justify-between p-3 border border-white/5 hover:border-purple-500/50 transition-all cursor-pointer bg-white/5">
 
                 <div class="flex items-center gap-4">
@@ -29,3 +29,16 @@
         </div>
     </div>
 </template>
+
+<style scoped>
+/* Přidej na konec komponent */
+.no-scrollbar::-webkit-scrollbar {
+    width: 2px;
+}
+
+.no-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(168, 85, 247, 0.2);
+    /* Jemná fialová/kyanová podle komponenty */
+    border-radius: 10px;
+}
+</style>

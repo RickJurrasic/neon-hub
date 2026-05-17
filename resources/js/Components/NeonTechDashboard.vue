@@ -36,8 +36,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <aside class="fixed right-8 top-1/2 -translate-y-1/2 z-50">
-        <div class="neon-panel-wrapper h-[85vh] w-72 rounded-[3rem]">
+    <aside class="md:fixed md:right-8 md:top-1/2 md:-translate-y-1/2 md:z-50 flex items-center justify-center">
+
+        <div class="neon-panel-wrapper md:h-[85vh] h-[70vh] md:w-72 w-[80vw] max-w-xs rounded-[3rem]">
+
             <div class="neon-border-active"
                 :class="{ '!border-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.3)]': isAlertMode }"></div>
 
