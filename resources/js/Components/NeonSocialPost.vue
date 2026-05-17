@@ -18,33 +18,39 @@ const toggleComments = async () => {
         return;
     }
 
-    // 1. KROK: Uložíme si přesnou pozici karty vůči oknu PŘED změnou
+    // 1. Uložíme si přesnou pozici karty vůči oknu PŘED změnou
     const rectBefore = cardRef.value.getBoundingClientRect();
     const isOpening = !showComments.value;
 
-    // 2. KROK: Přepneme viditelnost komentářů
+    // Zjistíme, jestli jsme úplně nahoře feedu (první post)
+    const isFirstPost = scrollContainer.scrollTop === 0;
+
+    // 2. Přepneme viditelnost
     showComments.value = !showComments.value;
 
-    // 3. KROK: Počkáme, až Vue překreslí DOM (komentáře se objeví nebo zmizí)
+    // 3. Počkáme na překreslení DOMu
     await nextTick();
 
     if (isOpening) {
-        // PŘI OTEVÍRÁNÍ:
-        // Necháme prohlížeč, ať se sám postará o to, aby nově rozbalený spodek karty
-        // nezůstal schovaný pod dolním okrajem. Pokud se tam vejde, scroll se ani nehne!
+        // Pokud jsme na prvním postu a už je nahoře, netřeba scrolovat vůbec
+        if (isFirstPost && rectBefore.top > 0) {
+            return;
+        }
+
+        // Jinak necháme prohlížeč plynule srovnat jen to, co utíká z obrazovky
         cardRef.value.scrollIntoView({
             behavior: 'smooth',
             block: 'nearest'
         });
     } else {
         // PŘI ZAVÍRÁNÍ:
-        // Komentáře zmizely, karta se bleskově smrštila.
-        // Změříme novou pozici a okamžitě posuneme scrollbar o ten rozdíl zpátky.
-        // Tím naprosto vymažeme jakékoliv škubnutí a karta zůstane pro oči nehybná.
+        // Změříme novou pozici po smrštění karty
         const rectAfter = cardRef.value.getBoundingClientRect();
         const diff = rectBefore.top - rectAfter.top;
 
-        if (diff !== 0) {
+        // Dorovnáme pozici pouze tehdy, pokud se karta reálně pohnula vůči oknu
+        // A zároveň nejsme limitováni absolutním vrškem feedu
+        if (diff !== 0 && scrollContainer.scrollTop > 0) {
             scrollContainer.scrollTop -= diff;
         }
     }
