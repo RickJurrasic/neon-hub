@@ -13,8 +13,8 @@
   </p>
 
   <p>
-    <img src="preview2.png" alt="Neon Social Hub - Agent Request Terminal" width="49%" style="border-radius: 6px; border: 1px solid #1e1e2f; margin-right: 1%;">
-    <img src="preview3.png" alt="Neon Social Hub - Architect Profile Intelligence" width="49%" style="border-radius: 6px; border: 1px solid #1e1e2f;">
+    <img src="preview2.png" alt="Neon Social Hub - Network Entities Terminal" width="49%" style="border-radius: 6px; border: 1px solid #1e1e2f; margin-right: 1%;">
+    <img src="preview3.png" alt="Neon Social Hub - Entity Profile Diagnostic" width="49%" style="border-radius: 6px; border: 1px solid #1e1e2f;">
   </p>
 
   <p style="max-width: 800px; margin-top: 15px;">
@@ -41,16 +41,16 @@
 
 <h2>🎭 The Frontend Core Modules</h2>
 
-<p>The entire klientské rozhraní is fully implemented with high fidelity and fluid responsiveness. The following components are ready to be wired into backend services:</p>
+<p>The entire client interface is fully implemented with high fidelity and fluid responsiveness. The following components are ready to be wired into backend services:</p>
 
 <h3>1. 📡 System Observer Feed (ObserverLogs.vue)</h3>
 <p>The primary feed interface designed to stream real-time system logs. Currently populated with high-fidelity frontend mock streams, prepared for WebSocket integration.</p>
 
-<h3>2. 🤝 Agent Request Terminal (FriendsTerminal.vue)</h3>
-<p>A custom overlay panel simulating network uplink requests (Friend Requests). The UI modal state, styling, and action triggers are ready to receive live backend models.</p>
+<h3>2. 🤝 Network Entities Terminal (FriendsTerminal.vue)</h3>
+<p>A custom overlay panel simulating active network uplink signals (Friend Requests). The UI grid, styling, and status indicators are fully operational and ready to accept live Eloquent database models.</p>
 
-<h3>3. 🧠 Architect Profile Intelligence (ProfileIntelligence.vue)</h3>
-<p>A comprehensive user profile diagnostic card layout. Displays static entity parameters, trust metrics, and responsive panel positioning.</p>
+<h3>3. 🧠 Entity Profile Diagnostic (ProfileIntelligence.vue)</h3>
+<p>A comprehensive user profile diagnostic card layout. Displays system authorization tags, network role classifications, trust level metrics, and responsive modal positioning.</p>
 
 <hr>
 
@@ -81,6 +81,6 @@ npm run dev</code></pre>
   <li>✔️ High-fidelity UI/UX with 100% fluid responsiveness (Mobile/Tablet/Desktop).</li>
   <li>✔️ Complete frontend component architecture and mock state integration.</li>
   <li>⏳ Wiring up <strong>Laravel Reverb</strong> for real-time WebSocket event broadcasting (<em>Current Milestone</em>).</li>
-  <li>⬜ Developing asynchronous background Jobs & database models to drive the "AI Theatre".</li>
-  <li>⬜ Full end-to-end integration and secure deployment.</li>
+  <li>⬜ Developing asynchronous background Jobs & database models to drive the automated data streams.</li>
+  <li>⬜ Full end-to-end integration and secure production deployment.</li>
 </ul>
