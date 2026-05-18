@@ -1,76 +1,98 @@
-🌌 Neon Cyber Hub (Inertia Full-Stack SPA)
-Project Status: 🛠️ In Active Development (Currently integrating the real-time event infrastructure)
+<div align="center">
 
-Neon Cyber Hub is an advanced, highly responsive Single Page Application (SPA) wrapped in a dark cyberpunk operational interface. The project serves as a flagship technical demonstration simulating a live cybernetic operating system driven by autonomous AI agents running asynchronously in the background.
+  <h1>🌌 Neon Social Hub</h1>
+  <h3>Full-Stack Inertia.js SPA Demonstration</h3>
 
-The primary architectural goal of this project is to demonstrate a seamless, monolithic coupling of a robust PHP backend with a reactive client-side interface without the overhead of building and maintaining a decoupled REST API, fully leveraging the modern Laravel ecosystem.
+  <p>
+    <img src="https://img.shields.io/badge/Status-In--Development-orange?style=for-the-badge&logo=laravel" alt="Status">
+    <img src="https://img.shields.io/badge/Stack-Laravel_12_%2B_Vue_3-6366f1?style=for-the-badge&logo=vue.js" alt="Tech Stack">
+  </p>
 
-🏗️ Architecture & Technology Stack
-The application is engineered around a modern monolithic SPA architecture with a strict separation of concerns:
+  <p>
+    <img src="preview.png" alt="Neon Social Hub Dashboard Preview" width="800" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+  </p>
 
-Backend: Laravel 12 (PHP 8.2+) – Handles session management, state authorization, backend routing, and asynchronous background processing.
+  <p>
+    <strong>Neon Social Hub</strong> is a high-performance, responsive Single Page Application (SPA) showcasing a sophisticated cybernetic interface. It simulates a live social operating system driven by autonomous AI agents running asynchronously via a Laravel backend.
+  </p>
 
-Frontend Bridge: Inertia.js – Eliminates the need for traditional Axios/Fetch client-side requests and duplicate routing. It seamlessly synchronizes server-side state directly into Vue props.
+</div>
 
-Frontend: Vue 3 (Composition API, <script setup>) + Vite 7 – An ultra-fast, reactive client interface providing granular control over DOM rendering and state transitions.
+<hr>
 
-Styling: Tailwind CSS 4 – A utility-first framework utilized to construct a highly complex, hardware-accelerated sci-fi UI (neon glows, glitch typography, fluid layouts).
+<h2>🏗️ Architectural Overview</h2>
 
-🎭 Core Architectural Concepts (The AI Theatre)
-Instead of serving static data, the application simulates a living network ecosystem through the following mechanisms:
+<p>The project demonstrates a seamless monolithic SPA architecture, bridging the gap between a robust PHP backend and a highly reactive frontend without the complexity of a decoupled REST API.</p>
 
-1. Entry Authentication (The Neon Gate Sub-routine)
-   Upon initialization, the user is intercepted by the NeonGate.vue and NeonOverlay.vue gateway components. Clicking ENTER SYSTEM triggers an asynchronous handshake with the backend.
+<ul>
+  <li><strong>Core Engine:</strong> Laravel 12 (PHP 8.2+)</li>
+  <li><strong>Reactive Bridge:</strong> Inertia.js (SSR Enabled)</li>
+  <li><strong>Client Interface:</strong> Vue 3 (Composition API) + Vite 7</li>
+  <li><strong>Real-time Layer:</strong> Laravel Reverb (Native WebSockets)</li>
+  <li><strong>Visual Framework:</strong> Tailwind CSS 4 (High-performance hardware-accelerated UI)</li>
+</ul>
 
-2. Asynchronous Background Queues (Laravel Queues & Jobs)
-   To avoid blocking the main execution thread and to allow the frontend to instantly fire the intensive 3D/CSS gate-opening animation, the controller dispatches a dedicated InitializeAiTheatreJob to the background queue. This Job acts as the director for the AI agents' timeline scenario.
+<hr>
 
-3. Real-Time Event Broadcasting (Laravel Reverb & Echo)
-   As the background AI agents execute actions over time (generating incoming chat requests, triggering network intrusion alerts in the ALERT_CENTER, or spawning system logs), these backend events are broadcasted instantly via Laravel Reverb (the low-latency, native WebSocket server). On the client side, Laravel Echo listens to the channel and dynamically pushes new payloads into the Vue reactive state without any HTTP polling.
+<h2>🎭 The "AI Theatre" Concept</h2>
 
-📁 Key Component Layout (Frontend)
-Components are organized modularly, emphasizing style encapsulation and rendering performance (utilizing CSS properties like will-change and contain: strict to ensure fluid 60 FPS transitions across mobile, tablet, and desktop viewports):
+<p>Unlike traditional static dashboards, <strong>Neon Social Hub</strong> simulates an active network environment:</p>
 
-Plaintext
-resources/js/Pages/
-├── NeonTechDashboard.vue # Main operations command center & real-time state management
-└── Components/
-├── NeonGate.vue # Animated mechanical wings of the entry gateway
-├── NeonOverlay.vue # Fullstack Core Manifesto & AI sequence trigger
-├── ObserverLogs.vue # Live stream of low-level system logs broadcasted from PHP
-└── AlertCenter.vue # Crisis management interface handled by background bot actions
-🛠️ Local Installation & Environment Setup
-Clone the repository and install dependencies:
+<ol>
+  <li><strong>Handshake:</strong> The <code>NeonGate.vue</code> and <code>NeonOverlay.vue</code> handle initial authentication and system entry.</li>
+  <li><strong>Asynchronous Timeline:</strong> Triggering the <em>ENTER SYSTEM</em> command dispatches an <code>InitializeAiTheatreJob</code> to the background queue.</li>
+  <li><strong>Live Broadcasting:</strong> Background AI agents (e.g., <em>BOT_EPSILON</em>) generate real-time events. These events are broadcasted via <strong>Laravel Reverb</strong> and captured instantly by <strong>Laravel Echo</strong> on the client side.</li>
+</ol>
 
-Bash
-git clone https://github.com/RickJurrasic/neon-hub
-cd neon-hub
-composer install
-npm install
-Configure the environment file:
+<hr>
 
-Bash
-cp .env.example .env
-php artisan key:generate
-Prepare the database and run seeds:
+<h2>📁 Key System Components</h2>
 
-Bash
-php artisan migrate --seed
-Launch development environment (Requires 3 active terminals):
+<p>Designed with modularity and 60 FPS performance in mind:</p>
 
-Terminal 1 (App Server & Vite Compiler): php artisan serve & npm run dev
+<ul>
+  <li><code>NeonTechDashboard.vue</code>: Central command & real-time state coordinator.</li>
+  <li><code>NeonGate.vue</code>: Mechanical animation logic for system entry.</li>
+  <li><code>ObserverLogs.vue</code>: Live system log stream broadcasted from the server.</li>
+  <li><code>AlertCenter.vue</code>: Critical state management and bot action handling.</li>
+</ul>
 
-Terminal 2 (WebSocket Daemon): php artisan reverb:start
+<hr>
 
-Terminal 3 (Asynchronous Queue Worker): php artisan queue:work
+<h2>🛠️ Installation & Daemon Setup</h2>
 
-🗺️ Roadmap & Milestone Tracking
-[x] Complete end-to-end UI/UX layout, cyberpunk typography, and 100% fluid responsiveness (Mobile, Tablet, Desktop layouts).
+<ol>
+  <li>
+    <strong>Clone & Dependencies:</strong>
+    <pre><code>git clone https://github.com/RickJurrasic/neon-hub
+composer install && npm install</code></pre>
+  </li>
+  <li>
+    <strong>Environment:</strong>
+    <pre><code>cp .env.example .env && php artisan key:generate</code></pre>
+  </li>
+  <li>
+    <strong>Database:</strong>
+    <pre><code>php artisan migrate --seed</code></pre>
+  </li>
+  <li>
+    <strong>Execution (Requires 3 active terminals):</strong>
+    <ul>
+      <li><strong>App & Frontend:</strong> <code>php artisan serve</code> & <code>npm run dev</code></li>
+      <li><strong>WebSockets:</strong> <code>php artisan reverb:start</code></li>
+      <li><strong>Queues:</strong> <code>php artisan queue:work</code></li>
+    </ul>
+  </li>
+</ol>
 
-[x] Implement local reactive state objects for mock data handling.
+<hr>
 
-[ ] Establish and configure the Laravel Reverb infrastructure layer (Current Phase).
+<h2>🗺️ Roadmap</h2>
 
-[ ] Program autonomous AI behavior timelines (Jobs) and link with Eloquent DB models.
-
-[ ] Deploy production build with full secure WebSockets (WSS) routing.
+<ul>
+  <li>✔️ High-fidelity UI/UX with 100% responsiveness (Mobile/Tablet/Desktop).</li>
+  <li>✔️ Reactive state architecture for local mock data.</li>
+  <li>⏳ Integration of <strong>Laravel Reverb</strong> real-time broadcasting layer (<em>Current Milestone</em>).</li>
+  <li>⬜ Backend AI Logic: Autonomous Jobs linked to Eloquent models.</li>
+  <li>⬜ Production Deployment with WSS (Secure WebSockets) support.</li>
+</ul>
