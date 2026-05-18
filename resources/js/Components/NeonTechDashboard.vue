@@ -36,9 +36,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <aside class="md:fixed md:right-8 md:top-1/2 md:-translate-y-1/2 md:z-50 flex items-center justify-center">
+    <aside class="xl:fixed xl:right-8 xl:top-1/2 xl:-translate-y-1/2 xl:z-50 flex items-center justify-center">
 
-        <div class="neon-panel-wrapper md:h-[85vh] h-[70vh] md:w-72 w-[80vw] max-w-xs rounded-[3rem]">
+        <div class="neon-panel-wrapper xl:h-[85vh] h-full xl:w-72 w-full max-w-none rounded-[3rem]">
 
             <div class="neon-border-active"
                 :class="{ '!border-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.3)]': isAlertMode }"></div>

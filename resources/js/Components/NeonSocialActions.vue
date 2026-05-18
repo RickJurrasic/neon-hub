@@ -17,7 +17,7 @@ defineEmits(['change-view']);
 
 <template>
     <component :is="isMobile ? 'div' : 'aside'"
-        :class="isMobile ? 'mobile-dock-position z-50 w-[92%] max-w-sm' : 'fixed left-8 top-1/2 -translate-y-1/2 z-50 hidden md:block'">
+        :class="isMobile ? 'mobile-dock-position z-50 w-[92%] max-w-sm' : 'fixed left-8 top-1/2 -translate-y-1/2 z-50 hidden xl:block'">
 
         <div class="neon-panel-wrapper"
             :class="isMobile ? 'h-16 w-full rounded-full !p-[1px]' : 'h-[75vh] w-40 rounded-[8rem]'">
@@ -65,7 +65,7 @@ defineEmits(['change-view']);
 
                     <div class="action-item group"
                         :class="{ 'is-active': activeTab === 'notifications', 'is-mobile-item': isMobile }"
-                        @click="$emit('change-view', 'notifications')">
+                        @click="$emit('change-view', { view: 'notifications', fromMobile: isMobile })">
                         <span class="label">ALERTS</span>
                         <div class="icon-style relative">
                             <BellDot :size="isMobile ? 22 : 32" :stroke-width="1.5" />

@@ -23,27 +23,25 @@ const stage2 = ref(false);
 const stage3 = ref(false);
 
 // --- LOGIKA PŘEPÍNÁNÍ ---
-const handleViewChange = (view) => {
+const handleViewChange = (payload) => {
     if (!stage3.value) return;
 
-    // Pokud klikneš na ALERTS (notifications)
+    // Rozbalíme si data z payloadu (podpora pro starý string i nový objekt)
+    const view = typeof payload === 'string' ? payload : payload.view;
+    const fromMobile = payload?.fromMobile || false;
+
     if (view === 'notifications') {
-        // Tady se děje ten nezávislý switch obsahu uvnitř dashboardu
         dashboardMode.value = dashboardMode.value === 'alerts' ? 'stats' : 'alerts';
 
-        // Na mobilu ale chceme přepnout kartu, aby se dashboard zobrazil
-        activeTab.value = 'notifications';
+        // Žádné window.matchMedia! Čistá stavová logika z emitu
+        if (fromMobile) {
+            activeTab.value = 'notifications';
+        }
         return;
     }
 
-    // Pro ostatní pohledy (feed, messages, friends) nastavíme aktivní tab normálně
     activeTab.value = view;
-
-    if (view === 'feed') {
-        // ❌ ODEBRÁNO: dashboardMode.value = 'stats'
-        // Dashboard si teď pamatuje svůj stav a nereaguje na Home tlačítko
-        selectedEntityId.value = null;
-    }
+    if (view === 'feed') selectedEntityId.value = null;
 };
 
 const openEntityProfile = (id) => {
@@ -78,13 +76,13 @@ watch(() => props.isOpened, (newVal) => {
             <template v-if="stage2">
                 <NeonNav class="animate-in fade-in duration-700" />
 
-                <NeonSocialActions class="hidden md:block" :active-tab="activeTab" @change-view="handleViewChange" />
+                <NeonSocialActions class="hidden xl:block" :active-tab="activeTab" @change-view="handleViewChange" />
 
-                <NeonSocialActions class="block md:hidden" :is-mobile="true" :active-tab="activeTab"
+                <NeonSocialActions class="block xl:hidden" :is-mobile="true" :active-tab="activeTab"
                     @change-view="handleViewChange" />
 
                 <NeonTechDashboard :isOpened="isOpened" :mode="dashboardMode"
-                    class="hidden md:block animate-in fade-in duration-700" />
+                    class="hidden xl:block animate-in fade-in duration-700" />
             </template>
 
             <div class="h-full w-full flex justify-center items-stretch md:px-0">
@@ -95,28 +93,27 @@ watch(() => props.isOpened, (newVal) => {
                             class="w-full flex flex-col items-stretch grow justify-center max-w-4xl mx-auto h-full relative">
 
                             <NeonSocialFeed class="animate-in zoom-in-95 fade-in duration-700 w-full h-full"
-                                :class="activeTab === 'notifications' ? 'hidden md:block' : 'block'" />
+                                :class="activeTab === 'notifications' ? 'hidden xl:block' : 'block'" />
 
                             <div v-if="activeTab === 'notifications'"
-                                class="absolute inset-0 flex md:hidden items-center justify-center p-6 animate-in zoom-in-95 fade-in duration-300 z-10">
+                                class="absolute inset-0 flex xl:hidden items-center justify-center p-6 pb-28 animate-in zoom-in-95 fade-in duration-300 z-10">
 
-                                <div class="w-full max-w-sm max-h-[70vh] flex items-center justify-center">
+                                <div
+                                    class="w-full max-w-[290px] md:max-w-md lg:max-w-2xl h-full max-h-[62vh] md:max-h-[55vh] lg:max-h-[65vh] flex items-center justify-center">
                                     <NeonTechDashboard :isOpened="isOpened" :mode="dashboardMode"
                                         class="w-full h-full" />
                                 </div>
-
                             </div>
-
                         </div>
 
                         <div v-else-if="activeTab === 'messages'" key="messages"
-                            class="w-full h-full overflow-y-auto no-scrollbar pt-[12vh] pb-[12vh] px-4 flex justify-center items-start md:items-center max-w-4xl mx-auto grow">
+                            class="w-full h-full overflow-y-auto no-scrollbar pt-[12vh] pb-[12vh] px-4 flex justify-center items-start md:items-center max-w-2xl mx-auto grow">
                             <NeonMessages @back="activeTab = 'feed'"
                                 class="w-full animate-in zoom-in-95 fade-in duration-700" />
                         </div>
 
                         <div v-else-if="activeTab === 'friends'" key="friends"
-                            class="w-full h-full overflow-y-auto no-scrollbar pt-[12vh] pb-[12vh] px-4 flex justify-center items-start md:items-center max-w-4xl mx-auto grow">
+                            class="w-full h-full overflow-y-auto no-scrollbar pt-[12vh] pb-[12vh] px-4 flex justify-center items-start md:items-center max-w-2xl mx-auto grow">
                             <NeonFriends @back="activeTab = 'feed'" @view-profile="openEntityProfile"
                                 class="w-full animate-in zoom-in-95 fade-in duration-700" />
                         </div>
