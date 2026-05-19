@@ -9,6 +9,11 @@ defineProps({
     isMobile: {
         type: Boolean,
         default: false
+    },
+    // Nová propka, kterou bude řídit rodič (a později WebSocket / Pinia)
+    hasAlert: {
+        type: Boolean,
+        default: false
     }
 });
 
@@ -69,7 +74,9 @@ defineEmits(['change-view']);
                         <span class="label">ALERTS</span>
                         <div class="icon-style relative">
                             <BellDot :size="isMobile ? 22 : 32" :stroke-width="1.5" />
-                            <div class="absolute bg-rose-500 rounded-full animate-pulse shadow-[0_0_10px_#f43f5e]"
+
+                            <div v-if="hasAlert"
+                                class="absolute bg-rose-500 rounded-full animate-pulse shadow-[0_0_10px_#f43f5e]"
                                 :class="isMobile ? '-top-0.5 -right-0.5 w-1.5 h-1.5' : '-top-0.5 -right-0.5 w-2 h-2'">
                             </div>
                         </div>

@@ -26,14 +26,15 @@ const stage3 = ref(false);
 const handleViewChange = (payload) => {
     if (!stage3.value) return;
 
-    // Rozbalíme si data z payloadu (podpora pro starý string i nový objekt)
     const view = typeof payload === 'string' ? payload : payload.view;
     const fromMobile = payload?.fromMobile || false;
 
     if (view === 'notifications') {
         dashboardMode.value = dashboardMode.value === 'alerts' ? 'stats' : 'alerts';
 
-        // Žádné window.matchMedia! Čistá stavová logika z emitu
+        // JAKMILE KLIKNE NA ALERTS, TEČKA ZHASNE
+        hasUnreadAlerts.value = false;
+
         if (fromMobile) {
             activeTab.value = 'notifications';
         }
@@ -64,6 +65,8 @@ watch(() => props.isOpened, (newVal) => {
         selectedEntityId.value = null;
     }
 }, { immediate: true });
+
+const hasUnreadAlerts = ref(true);
 </script>
 
 <template>
@@ -76,10 +79,11 @@ watch(() => props.isOpened, (newVal) => {
             <template v-if="stage2">
                 <NeonNav class="animate-in fade-in duration-700" />
 
-                <NeonSocialActions class="hidden xl:block" :active-tab="activeTab" @change-view="handleViewChange" />
+                <NeonSocialActions class="hidden xl:block" :active-tab="activeTab" :has-alert="hasUnreadAlerts"
+                    @change-view="handleViewChange" />
 
                 <NeonSocialActions class="block xl:hidden" :is-mobile="true" :active-tab="activeTab"
-                    @change-view="handleViewChange" />
+                    :has-alert="hasUnreadAlerts" @change-view="handleViewChange" />
 
                 <NeonTechDashboard :isOpened="isOpened" :mode="dashboardMode"
                     class="hidden xl:block animate-in fade-in duration-700" />
