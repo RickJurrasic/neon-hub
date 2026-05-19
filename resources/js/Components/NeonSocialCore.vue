@@ -1,5 +1,6 @@
 <script setup>
-import { ref, watch } from 'vue';
+// 1. Přidány importy onMounted a onUnmounted pro řízení WebSocket posluchačů
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 import NeonNav from './NeonNav.vue';
 import NeonSocialActions from './NeonSocialActions.vue';
 import NeonTechDashboard from './NeonTechDashboard.vue';
@@ -66,7 +67,24 @@ watch(() => props.isOpened, (newVal) => {
     }
 }, { immediate: true });
 
-const hasUnreadAlerts = ref(true);
+// 2. Pro účely Tracer Bulletu měníme výchozí stav na false. Chceme vidět, jak se rozsvítí sama!
+const hasUnreadAlerts = ref(false);
+
+// 3. Aktivace mostu po namontování komponenty
+onMounted(() => {
+    console.log('📡 WebSocket most inicializován, čekám na signál...');
+
+    window.Echo.channel('system-alerts')
+        // 🚨 ZMĚNA: Přesný název události z logu včetně tečky na začátku:
+        .listen('.App\\Events\\SystemAlertTriggered', (e) => {
+            hasUnreadAlerts.value = true;
+        });
+});
+
+// 4. Čisté odpojení při destrukci komponenty (prevence paměťových leaků)
+onUnmounted(() => {
+    window.Echo.leaveChannel('system-alerts');
+});
 </script>
 
 <template>

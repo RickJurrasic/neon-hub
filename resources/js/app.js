@@ -7,6 +7,23 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 
+// --- INICIALIZACE LARAVEL ECHO (TRACER BULLET) ---
+import Echo from 'laravel-echo';
+import Pusher from 'pusher-js';
+
+window.Pusher = Pusher;
+
+window.Echo = new Echo({
+    broadcaster: 'reverb',
+    key: import.meta.env.VITE_REVERB_APP_KEY,
+    wsHost: 'neon-hub.test', // 👈 Změna z 127.0.0.1 na doménu, pro kterou máš SSL certifikát
+    wsPort: 8080,
+    wssPort: 8080,
+    forceTLS: true, // 🔒 Ponechat true (vyžaduje wss://)
+    enabledTransports: ['ws', 'wss'],
+});
+// --------------------------------------------------
+
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({
