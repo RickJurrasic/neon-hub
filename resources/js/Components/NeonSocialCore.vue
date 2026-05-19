@@ -23,6 +23,17 @@ const stage1 = ref(false);
 const stage2 = ref(false);
 const stage3 = ref(false);
 
+
+const notifications = ref([
+    { id: 1, type: 'alert', title: 'SECURITY_BREACH', msg: 'Unauthorized uplink from sector 7G.', time: '14:20' },
+    { id: 2, type: 'info', title: 'SYSTEM_SYNC', msg: 'Neural networks are 100% stable.', time: '12:05' },
+    { id: 3, type: 'alert', title: 'DATA_ENCRYPTION', msg: 'Incoming packet needs decryption.', time: '09:45' }
+]);
+
+// -- STAV PRO ALERT --
+const hasUnreadAlerts = ref(false);
+
+
 // --- LOGIKA PŘEPÍNÁNÍ ---
 const handleViewChange = (payload) => {
     if (!stage3.value) return;
@@ -67,16 +78,25 @@ watch(() => props.isOpened, (newVal) => {
     }
 }, { immediate: true });
 
-// 2. Pro účely Tracer Bulletu měníme výchozí stav na false. Chceme vidět, jak se rozsvítí sama!
-const hasUnreadAlerts = ref(false);
-
 // 3. Aktivace mostu po namontování komponenty
 onMounted(() => {
-    console.log('📡 WebSocket most inicializován, čekám na signál...');
-
     window.Echo.channel('system-alerts')
-        // 🚨 ZMĚNA: Přesný název události z logu včetně tečky na začátku:
         .listen('.App\\Events\\SystemAlertTriggered', (e) => {
+            console.log('📡 Reverb zachycen:', e.message);
+
+            const nyni = new Date();
+            const formatovanyCas = nyni.getHours().toString().padStart(2, '0') + ':' + nyni.getMinutes().toString().padStart(2, '0');
+
+            // 2. Tady se děje ta magie - přidáme novou zprávu na začátek pole
+            notifications.value.unshift({
+                id: Date.now(),
+                type: 'alert',
+                title: 'SYSTEM_PUSH',
+                msg: e.message,
+                time: formatovanyCas
+            });
+
+            // Rozsvítíme červenou tečku na panelu
             hasUnreadAlerts.value = true;
         });
 });
@@ -103,7 +123,7 @@ onUnmounted(() => {
                 <NeonSocialActions class="block xl:hidden" :is-mobile="true" :active-tab="activeTab"
                     :has-alert="hasUnreadAlerts" @change-view="handleViewChange" />
 
-                <NeonTechDashboard :isOpened="isOpened" :mode="dashboardMode"
+                <NeonTechDashboard :isOpened="isOpened" :mode="dashboardMode" :notifications="notifications"
                     class="hidden xl:block animate-in fade-in duration-700" />
             </template>
 
@@ -123,7 +143,7 @@ onUnmounted(() => {
                                 <div
                                     class="w-full max-w-[290px] md:max-w-md lg:max-w-2xl h-full max-h-[62vh] md:max-h-[55vh] lg:max-h-[65vh] flex items-center justify-center">
                                     <NeonTechDashboard :isOpened="isOpened" :mode="dashboardMode"
-                                        class="w-full h-full" />
+                                        :notifications="notifications" class="w-full h-full" />
                                 </div>
                             </div>
                         </div>

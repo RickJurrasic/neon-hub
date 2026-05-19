@@ -4,15 +4,15 @@ import { Cpu, Activity, Bell, ShieldAlert, ChevronLeft } from '@lucide/vue';
 
 const props = defineProps({
     isOpened: Boolean,
-    mode: String // Místo activeTab přijímá 'stats' nebo 'alerts'
+    mode: String,
+    notifications: {
+        type: Array,
+        default: () => []
+    }
 });
 
 const bars = ref(Array(15).fill(40));
-const notifications = ref([
-    { id: 1, type: 'alert', title: 'SECURITY_BREACH', msg: 'Unauthorized uplink from sector 7G.', time: '14:20' },
-    { id: 2, type: 'info', title: 'SYSTEM_SYNC', msg: 'Neural networks are 100% stable.', time: '12:05' },
-    { id: 3, type: 'alert', title: 'DATA_ENCRYPTION', msg: 'Incoming packet needs decryption.', time: '09:45' }
-]);
+
 
 // Je dashboard v režimu "seznam notifikací"?
 const isAlertMode = computed(() => props.mode === 'alerts');

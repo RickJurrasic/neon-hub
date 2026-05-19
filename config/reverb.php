@@ -32,7 +32,7 @@ return [
             'host' => env('REVERB_SERVER_HOST', '127.0.0.1'),
             'port' => env('REVERB_SERVER_PORT', 8080),
             'path' => env('REVERB_SERVER_PATH', ''),
-            'hostname' => env('REVERB_HOST', '127.0.0.1'),
+            'hostname' => env('REVERB_HOST', 'neon-hub.test'),
             'options' => [
                 'tls' => [
                     'local_cert' => 'C:\Users\jurra\.config\herd\config\valet\Certificates\neon-hub.test.crt',
