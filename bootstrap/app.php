@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AutoLoginDemoUser;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -13,13 +14,15 @@ return Application::configure(basePath: dirname(__DIR__))
         channels: __DIR__.'/../routes/channels.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware): void {
+    ->withMiddleware(function (Middleware $middleware) {
+        // 1. Zruš ten prepend, ten nám shazuje session!
+
+        // 2. Všechno naskládáme do "append" v přesném pořadí, v jakém to má jít po sobě:
         $middleware->web(append: [
-            HandleInertiaRequests::class,
+            AutoLoginDemoUser::class,     // První se přihlásí uživatel (session už běží z jádra web skupiny)
+            HandleInertiaRequests::class,  // Druhá se spustí Inertia a už uvidí přihlášeného uživatele
             AddLinkHeadersForPreloadedAssets::class,
         ]);
-
-        //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

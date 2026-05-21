@@ -3,16 +3,16 @@
 use App\Events\SystemAlertTriggered;
 use Illuminate\Support\Facades\Event;
 
-test('testovaci routa uspesne odpaluje websocket event do reverbu', function () {
-    // 1. Zastavíme reálné střílení do sítě (vytvoříme bezpečný "fake")
+test('test route successfully dispatches websocket event to reverb', function () {
+    // 1. Prevent real broadcasting by creating a safe event fake
     Event::fake();
 
-    // 2. Simulujeme, že uživatel v prohlížeči navštívil /test-signal
+    // 2. Simulate hitting the /test-signal endpoint
     $response = $this->get('/test-signal');
 
-    // 3. Ověříme, že backend odpověděl úspěchem (HTTP kód 200)
+    // 3. Assert that the backend responds with a success status (HTTP 200)
     $response->assertStatus(200);
 
-    // 4. Ověříme, že ten náš konkrétní Event byl reálně odeslán k vysílání
+    // 4. Assert that the specific event was actually dispatched
     Event::assertDispatched(SystemAlertTriggered::class);
 });

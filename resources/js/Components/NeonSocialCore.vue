@@ -197,7 +197,6 @@ onUnmounted(() => {
     filter: blur(12px);
 }
 
-/* ⚠️ TYHLE TŘÍDY JSOU KLÍČOVÉ PRO SPRÁVNÝ HYBRIDNÍ SCROLL FEEDU - NESMAZAT */
 .animate-in {
     animation-fill-mode: forwards;
 }

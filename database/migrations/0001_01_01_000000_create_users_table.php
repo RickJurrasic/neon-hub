@@ -15,6 +15,12 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
+
+            // 🌌 RECRUITER CYBERPUNK EXTENSIONS
+            $table->string('handle')->unique()->nullable();  // Např. @recruiter_alpha
+            $table->string('faction')->nullable();          // Např. CORPO_ELITE
+            $table->string('avatar_url')->nullable();       // Cesta k profilovce rekrutera
+
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->rememberToken();

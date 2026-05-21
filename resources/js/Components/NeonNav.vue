@@ -1,5 +1,5 @@
 <script setup>
-import { Cpu, Activity, Wifi, Terminal, Zap } from 'lucide-vue-next';
+import { Cpu, Activity, Wifi, Zap } from 'lucide-vue-next';
 </script>
 
 <template>
@@ -65,21 +65,37 @@ import { Cpu, Activity, Wifi, Terminal, Zap } from 'lucide-vue-next';
 
                 </div>
 
-                <div class="flex items-center justify-end gap-3 md:gap-6 md:w-64">
-                    <div class="hidden sm:flex flex-col items-end">
-                        <span class="text-[9px] font-black text-white/90 tracking-tighter uppercase">Admin_Root</span>
-                        <span class="text-[7px] font-mono text-sky-500/50 tracking-widest italic">0x882_ALPHA</span>
+                <div
+                    class="flex items-center justify-end gap-3 md:gap-4 md:w-64 max-w-[180px] xs:max-w-[220px] sm:max-w-none">
+
+                    <div class="flex flex-col items-end max-w-[90px] xs:max-w-[140px] sm:max-w-[200px]">
+                        <span
+                            class="text-[9px] font-black text-white/90 tracking-tighter uppercase truncate w-full text-right">
+                            {{ $page.props.auth?.user?.name || 'Admin_Root' }}
+                        </span>
+                        <span
+                            class="text-[7px] font-mono text-sky-500/70 tracking-widest italic truncate w-full text-right">
+                            {{ $page.props.auth?.user?.handle || '0x882_ALPHA' }}
+                        </span>
                     </div>
 
-                    <button
-                        class="p-2 rounded-lg bg-white/5 border border-white/10 hover:border-sky-500/50 transition-all">
-                        <Terminal :size="14" class="text-slate-400 hover:text-sky-400" />
-                    </button>
+                    <div class="relative group">
+                        <div
+                            class="absolute -inset-0.5 bg-gradient-to-tr from-sky-500 to-fuchsia-500 rounded-full blur-xs opacity-40 group-hover:opacity-100 transition-opacity">
+                        </div>
 
-                    <div
-                        class="w-8 h-8 md:w-9 md:h-9 rounded-full bg-gradient-to-tr from-fuchsia-600 to-sky-400 p-[1px] shadow-[0_0_15px_rgba(56,189,248,0.2)] shrink-0">
-                        <div class="w-full h-full rounded-full bg-[#050914] flex items-center justify-center">
-                            <span class="text-[9px] md:text-[10px] font-bold text-white">RH</span>
+                        <div
+                            class="relative w-8 h-8 md:w-9 md:h-9 rounded-full bg-gradient-to-tr from-fuchsia-600 to-sky-400 p-[1px] shrink-0">
+                            <div class="w-full h-full rounded-full bg-[#050914] flex items-center justify-center">
+                                <span class="text-[9px] md:text-[10px] font-bold text-white tracking-wider">
+                                    {{$page.props.auth?.user?.name ? $page.props.auth.user.name.split(' ').map(n =>
+                                        n[0]).join('').substring(0, 2).toUpperCase() : 'RH'}}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div v-if="$page.props.auth?.user?.faction"
+                            class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-[#050914] bg-amber-400 shadow-[0_0_6px_#f59e0b]">
                         </div>
                     </div>
                 </div>
