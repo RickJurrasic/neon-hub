@@ -2,22 +2,26 @@
 
 namespace App\Events;
 
-use Illuminate\Broadcasting\InteractsWithSockets; // Změna: PrivateChannel
+use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class SystemAlertTriggered implements ShouldBroadcastNow
+class MessageReceived implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    // Musíme přijmout userId v konstruktoru
-    public function __construct(public int $userId, public string $message) {}
+    /**
+     * @param  array  $data  {sender: string, text: string}
+     */
+    public function __construct(public int $userId, public array $data)
+    {
+        //
+    }
 
     public function broadcastOn(): array
     {
-        // Tohle se musí shodovat s window.Echo.private(...) ve frontend servisu
         return [
             new PrivateChannel('App.Models.User.'.$this->userId),
         ];

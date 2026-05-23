@@ -1,28 +1,13 @@
 import '../css/app.css';
 import '../css/neon-ui.css';
-import './bootstrap';
+import './bootstrap'; // Tady je teď Echo konfigurace
 
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
-
-// --- INICIALIZACE LARAVEL ECHO (TRACER BULLET) ---
-import Echo from 'laravel-echo';
-import Pusher from 'pusher-js';
-
-window.Pusher = Pusher;
-
-window.Echo = new Echo({
-    broadcaster: 'reverb',
-    key: import.meta.env.VITE_REVERB_APP_KEY,
-    wsHost: 'neon-hub.test', // 👈 Změna z 127.0.0.1 na doménu, pro kterou máš SSL certifikát
-    wsPort: 8080,
-    wssPort: 8080,
-    forceTLS: true, // 🔒 Ponechat true (vyžaduje wss://)
-    enabledTransports: ['ws', 'wss'],
-});
-// --------------------------------------------------
+import { createPinia } from 'pinia';
+import { initNotificationService } from '@/Services/NotificationService';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -34,10 +19,22 @@ createInertiaApp({
             import.meta.glob('./Pages/**/*.vue'),
         ),
     setup({ el, App, props, plugin }) {
-        return createApp({ render: () => h(App, props) })
-            .use(plugin)
-            .use(ZiggyVue)
-            .mount(el);
+        const pinia = createPinia();
+        const app = createApp({ render: () => h(App, props) });
+
+        app.use(plugin)
+           .use(pinia)
+           .use(ZiggyVue)
+           .mount(el);
+
+        // --- INICIALIZACE SLUŽEB ---
+        // Předpokládáme, že ID uživatele máš v props (např. z Inertia Share)
+        const userId = props.initialPage.props.auth?.user?.id;
+        if (userId) {
+            initNotificationService(userId);
+        }
+
+        return app;
     },
     progress: {
         color: '#4B5563',

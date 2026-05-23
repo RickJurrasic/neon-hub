@@ -44,7 +44,6 @@ The content is organized as follows:
 .env.example
 .gitattributes
 .gitignore
-.npmrc
 .nvmrc
 app/Events/SystemAlertTriggered.php
 app/Http/Controllers/Auth/AuthenticatedSessionController.php
@@ -58,6 +57,7 @@ app/Http/Controllers/Auth/RegisteredUserController.php
 app/Http/Controllers/Auth/VerifyEmailController.php
 app/Http/Controllers/Controller.php
 app/Http/Controllers/ProfileController.php
+app/Http/Middleware/AutoLoginDemoUser.php
 app/Http/Middleware/HandleInertiaRequests.php
 app/Http/Requests/Auth/LoginRequest.php
 app/Http/Requests/ProfileUpdateRequest.php
@@ -142,6 +142,8 @@ resources/js/Pages/Profile/Partials/DeleteUserForm.vue
 resources/js/Pages/Profile/Partials/UpdatePasswordForm.vue
 resources/js/Pages/Profile/Partials/UpdateProfileInformationForm.vue
 resources/js/Pages/Welcome.vue
+resources/js/Services/NotificationService.js
+resources/js/Stores/useNotificationStore.js
 resources/views/app.blade.php
 routes/auth.php
 routes/console.php
@@ -165,6 +167,7 @@ tests/Feature/Auth/PasswordResetTest.php
 tests/Feature/Auth/PasswordUpdateTest.php
 tests/Feature/Auth/RegistrationTest.php
 tests/Feature/ExampleTest.php
+tests/Feature/NeonHubAuthTest.php
 tests/Feature/ProfileTest.php
 tests/Feature/SystemAlertTest.php
 tests/Pest.php
@@ -175,6 +178,86 @@ vite.config.js
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="resources/js/Services/NotificationService.js">
+import { useNotificationStore } from '@/Stores/useNotificationStore';
+
+export const initNotificationService = (userId) => {
+    const store = useNotificationStore();
+
+    console.log(`📡 Inicializace Echo pro kanál: App.Models.User.${userId}`);
+
+    // Musí přesně odpovídat definici v routes/channels.php
+    window.Echo.private(`App.Models.User.${userId}`)
+        .listen('MessageReceived', (e) => {
+            console.log('📩 Nová zpráva přijata:', e);
+            store.addMessage(e.message);
+        })
+        .listen('FriendRequestReceived', (e) => {
+            console.log('🤝 Nová žádost o přátelství:', e);
+            store.addFriendRequest(e.request);
+        })
+    .listen('SystemAlertTriggered', (e) => {
+    console.log('📡 Systémový alert zachycen:', e.message);
+
+    // Tady musíme přidat vše, co dashboard očekává
+    store.addAlert({
+        id: Date.now(),            // Unikátní ID (aby v-for fungoval)
+        title: 'CRITICAL_ALERT',   // Nadpis, který se zobrazí
+        msg: e.message             // Samotná zpráva
+    });
+})
+        .error((error) => {
+            console.error('❌ Echo chyba:', error);
+        });
+};
+</file>
+
+<file path="resources/js/Stores/useNotificationStore.js">
+import { defineStore } from 'pinia';
+
+export const useNotificationStore = defineStore('notifications', {
+    state: () => ({
+        messages: [],
+        friendRequests: [],
+        alerts: [], // Přidáno pro tvé SystemAlerts
+    }),
+
+    getters: {
+        // Jednotlivé indikátory pro tvoje tečky
+        hasUnreadMessages: (state) => state.messages.length > 0,
+        hasUnreadRequests: (state) => state.friendRequests.length > 0,
+        hasUnreadAlerts: (state) => state.alerts.length > 0,
+
+        // Celkový počet pro badge v menu
+        totalUnreadCount: (state) =>
+            state.messages.length + state.friendRequests.length + state.alerts.length
+    },
+
+    actions: {
+        addMessage(message) {
+            this.messages.push(message);
+        },
+        addFriendRequest(request) {
+            this.friendRequests.push(request);
+        },
+        addAlert(alert) {
+            this.alerts.push(alert);
+        },
+
+        // Akce pro "přečtení" - smaže tečku
+        clearMessages() {
+            this.messages = [];
+        },
+        clearFriendRequests() {
+            this.friendRequests = [];
+        },
+        clearAlerts() {
+            this.alerts = [];
+        }
+    }
+});
+</file>
 
 <file path=".editorconfig">
 root = true
@@ -309,11 +392,6 @@ Homestead.yaml
 Thumbs.db
 </file>
 
-<file path=".npmrc">
-ignore-scripts=true
-audit=true
-</file>
-
 <file path=".nvmrc">
 23
 </file>
@@ -323,35 +401,24 @@ audit=true
 
 namespace App\Events;
 
-use Illuminate\Broadcasting\Channel;
-use Illuminate\Broadcasting\InteractsWithSockets;
-// 🚨 ZMĚNA: Importujeme ShouldBroadcastNow místo ShouldBroadcast
+use Illuminate\Broadcasting\InteractsWithSockets; // Změna: PrivateChannel
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-// 🚨 ZMĚNA: Třída teď implementuje ShouldBroadcastNow
 class SystemAlertTriggered implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    /**
-     * Vytvoříme novou instanci události s veřejnou zprávou.
-     */
-    public function __construct(public string $message)
-    {
-        // PHP 8+ automaticky z proměnné v konstruktoru udělá vlastnost třídy
-    }
+    // Musíme přijmout userId v konstruktoru
+    public function __construct(public int $userId, public string $message) {}
 
-    /**
-     * Definujeme kanály, na kterých má událost vysílat.
-     *
-     * @return array<int, Channel>
-     */
     public function broadcastOn(): array
     {
+        // Tohle se musí shodovat s window.Echo.private(...) ve frontend servisu
         return [
-            new Channel('system-alerts'),
+            new PrivateChannel('App.Models.User.'.$this->userId),
         ];
     }
 }
@@ -828,44 +895,33 @@ class ProfileController extends Controller
 }
 </file>
 
-<file path="app/Http/Middleware/HandleInertiaRequests.php">
+<file path="app/Http/Middleware/AutoLoginDemoUser.php">
 <?php
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
+use Closure;
 use Illuminate\Http\Request;
-use Inertia\Middleware;
+use Illuminate\Support\Facades\Auth;
+use Symfony\Component\HttpFoundation\Response;
 
-class HandleInertiaRequests extends Middleware
+class AutoLoginDemoUser
 {
-    /**
-     * The root template that is loaded on the first page visit.
-     *
-     * @var string
-     */
-    protected $rootView = 'app';
-
-    /**
-     * Determine the current asset version.
-     */
-    public function version(Request $request): ?string
+    public function handle(Request $request, Closure $next): Response
     {
-        return parent::version($request);
-    }
+        // Pokud uživatel ještě není přihlášený, natvrdo ho přihlásíme jako demo usera
+        if (! Auth::check()) {
+            $demoUser = User::where('email', 'demo@neonhub.io')->first();
 
-    /**
-     * Define the props that are shared by default.
-     *
-     * @return array<string, mixed>
-     */
-    public function share(Request $request): array
-    {
-        return [
-            ...parent::share($request),
-            'auth' => [
-                'user' => $request->user(),
-            ],
-        ];
+            if ($demoUser) {
+                Auth::login($demoUser);
+                // Vygenerujeme session pro uložení stavu
+                $request->session()->regenerate();
+            }
+        }
+
+        return $next($request);
     }
 }
 </file>
@@ -988,41 +1044,6 @@ class ProfileUpdateRequest extends FormRequest
                 'max:255',
                 Rule::unique(User::class)->ignore($this->user()->id),
             ],
-        ];
-    }
-}
-</file>
-
-<file path="app/Models/User.php">
-<?php
-
-namespace App\Models;
-
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-
-#[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable
-{
-    /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
-
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
         ];
     }
 }
@@ -2546,58 +2567,6 @@ class UserFactory extends Factory
 }
 </file>
 
-<file path="database/migrations/0001_01_01_000000_create_users_table.php">
-<?php
-
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-
-return new class extends Migration
-{
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
-    {
-        Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->rememberToken();
-            $table->timestamps();
-        });
-
-        Schema::create('password_reset_tokens', function (Blueprint $table) {
-            $table->string('email')->primary();
-            $table->string('token');
-            $table->timestamp('created_at')->nullable();
-        });
-
-        Schema::create('sessions', function (Blueprint $table) {
-            $table->string('id')->primary();
-            $table->foreignId('user_id')->nullable()->index();
-            $table->string('ip_address', 45)->nullable();
-            $table->text('user_agent')->nullable();
-            $table->longText('payload');
-            $table->integer('last_activity')->index();
-        });
-    }
-
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
-        Schema::dropIfExists('sessions');
-    }
-};
-</file>
-
 <file path="database/migrations/0001_01_01_000001_create_cache_table.php">
 <?php
 
@@ -2694,34 +2663,6 @@ return new class extends Migration
         Schema::dropIfExists('failed_jobs');
     }
 };
-</file>
-
-<file path="database/seeders/DatabaseSeeder.php">
-<?php
-
-namespace Database\Seeders;
-
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
-
-class DatabaseSeeder extends Seeder
-{
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
-    public function run(): void
-    {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
-    }
-}
 </file>
 
 <file path="jsconfig.json">
@@ -2852,6 +2793,27 @@ import axios from 'axios';
 window.axios = axios;
 
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+
+/**
+ * Echo exposes an expressive API for subscribing to channels and listening
+ * for events that are broadcast by the server. Echo and the event
+ * broadcasting system provide your team with powerful real-time tools.
+ */
+
+import Echo from 'laravel-echo';
+import Pusher from 'pusher-js';
+
+window.Pusher = Pusher;
+
+window.Echo = new Echo({
+    broadcaster: 'reverb',
+    key: import.meta.env.VITE_REVERB_APP_KEY,
+    wsHost: import.meta.env.VITE_REVERB_HOST || 'neon-hub.test',
+    wsPort: import.meta.env.VITE_REVERB_PORT ?? 8080,
+    wssPort: import.meta.env.VITE_REVERB_PORT ?? 8080,
+    forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
+    enabledTransports: ['ws', 'wss'],
+});
 </file>
 
 <file path="resources/js/Components/ApplicationLogo.vue">
@@ -3300,88 +3262,72 @@ defineExpose({ focus: () => input.value.focus() });
 
 <file path="resources/js/Layouts/AuthenticatedLayout.vue">
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue'; // 1. Přidán onMounted
+import { usePage } from '@inertiajs/vue3'; // 2. Přidán usePage pro přístup k user ID
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import { Link } from '@inertiajs/vue3';
+import { initNotificationService } from '@/Services/NotificationService'; // 3. Import servisu
 
 const showingNavigationDropdown = ref(false);
+
+// 4. Inicializace notifikací při mountu komponenty
+onMounted(() => {
+    const user = usePage().props.auth?.user;
+    if (user) {
+        initNotificationService(user.id);
+    }
+});
 </script>
 
 <template>
     <div>
         <div class="min-h-screen bg-gray-100 dark:bg-gray-900">
-            <nav
-                class="border-b border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800"
-            >
-                <!-- Primary Navigation Menu -->
+            <nav class="border-b border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800">
                 <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     <div class="flex h-16 justify-between">
                         <div class="flex">
-                            <!-- Logo -->
                             <div class="flex shrink-0 items-center">
                                 <Link :href="route('dashboard')">
                                     <ApplicationLogo
-                                        class="block h-9 w-auto fill-current text-gray-800 dark:text-gray-200"
-                                    />
+                                        class="block h-9 w-auto fill-current text-gray-800 dark:text-gray-200" />
                                 </Link>
                             </div>
 
-                            <!-- Navigation Links -->
-                            <div
-                                class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex"
-                            >
-                                <NavLink
-                                    :href="route('dashboard')"
-                                    :active="route().current('dashboard')"
-                                >
+                            <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                                <NavLink :href="route('dashboard')" :active="route().current('dashboard')">
                                     Dashboard
                                 </NavLink>
                             </div>
                         </div>
 
                         <div class="hidden sm:ms-6 sm:flex sm:items-center">
-                            <!-- Settings Dropdown -->
                             <div class="relative ms-3">
                                 <Dropdown align="right" width="48">
                                     <template #trigger>
                                         <span class="inline-flex rounded-md">
-                                            <button
-                                                type="button"
-                                                class="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-500 transition duration-150 ease-in-out hover:text-gray-700 focus:outline-none dark:bg-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
-                                            >
+                                            <button type="button"
+                                                class="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-500 transition duration-150 ease-in-out hover:text-gray-700 focus:outline-none dark:bg-gray-800 dark:text-gray-400 dark:hover:text-gray-300">
                                                 {{ $page.props.auth.user.name }}
 
-                                                <svg
-                                                    class="-me-0.5 ms-2 h-4 w-4"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 20 20"
-                                                    fill="currentColor"
-                                                >
-                                                    <path
-                                                        fill-rule="evenodd"
+                                                <svg class="-me-0.5 ms-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg"
+                                                    viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd"
                                                         d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                                        clip-rule="evenodd"
-                                                    />
+                                                        clip-rule="evenodd" />
                                                 </svg>
                                             </button>
                                         </span>
                                     </template>
 
                                     <template #content>
-                                        <DropdownLink
-                                            :href="route('profile.edit')"
-                                        >
+                                        <DropdownLink :href="route('profile.edit')">
                                             Profile
                                         </DropdownLink>
-                                        <DropdownLink
-                                            :href="route('logout')"
-                                            method="post"
-                                            as="button"
-                                        >
+                                        <DropdownLink :href="route('logout')" method="post" as="button">
                                             Log Out
                                         </DropdownLink>
                                     </template>
@@ -3389,74 +3335,44 @@ const showingNavigationDropdown = ref(false);
                             </div>
                         </div>
 
-                        <!-- Hamburger -->
                         <div class="-me-2 flex items-center sm:hidden">
-                            <button
-                                @click="
-                                    showingNavigationDropdown =
-                                        !showingNavigationDropdown
+                            <button @click="
+                                showingNavigationDropdown =
+                                !showingNavigationDropdown
                                 "
-                                class="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-500 focus:bg-gray-100 focus:text-gray-500 focus:outline-none dark:text-gray-500 dark:hover:bg-gray-900 dark:hover:text-gray-400 dark:focus:bg-gray-900 dark:focus:text-gray-400"
-                            >
-                                <svg
-                                    class="h-6 w-6"
-                                    stroke="currentColor"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        :class="{
-                                            hidden: showingNavigationDropdown,
-                                            'inline-flex':
-                                                !showingNavigationDropdown,
-                                        }"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M4 6h16M4 12h16M4 18h16"
-                                    />
-                                    <path
-                                        :class="{
-                                            hidden: !showingNavigationDropdown,
-                                            'inline-flex':
-                                                showingNavigationDropdown,
-                                        }"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M6 18L18 6M6 6l12 12"
-                                    />
+                                class="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-500 focus:bg-gray-100 focus:text-gray-500 focus:outline-none dark:text-gray-500 dark:hover:bg-gray-900 dark:hover:text-gray-400 dark:focus:bg-gray-900 dark:focus:text-gray-400">
+                                <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
+                                    <path :class="{
+                                        hidden: showingNavigationDropdown,
+                                        'inline-flex':
+                                            !showingNavigationDropdown,
+                                    }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 6h16M4 12h16M4 18h16" />
+                                    <path :class="{
+                                        hidden: !showingNavigationDropdown,
+                                        'inline-flex':
+                                            showingNavigationDropdown,
+                                    }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Responsive Navigation Menu -->
-                <div
-                    :class="{
-                        block: showingNavigationDropdown,
-                        hidden: !showingNavigationDropdown,
-                    }"
-                    class="sm:hidden"
-                >
+                <div :class="{
+                    block: showingNavigationDropdown,
+                    hidden: !showingNavigationDropdown,
+                }" class="sm:hidden">
                     <div class="space-y-1 pb-3 pt-2">
-                        <ResponsiveNavLink
-                            :href="route('dashboard')"
-                            :active="route().current('dashboard')"
-                        >
+                        <ResponsiveNavLink :href="route('dashboard')" :active="route().current('dashboard')">
                             Dashboard
                         </ResponsiveNavLink>
                     </div>
 
-                    <!-- Responsive Settings Options -->
-                    <div
-                        class="border-t border-gray-200 pb-1 pt-4 dark:border-gray-600"
-                    >
+                    <div class="border-t border-gray-200 pb-1 pt-4 dark:border-gray-600">
                         <div class="px-4">
-                            <div
-                                class="text-base font-medium text-gray-800 dark:text-gray-200"
-                            >
+                            <div class="text-base font-medium text-gray-800 dark:text-gray-200">
                                 {{ $page.props.auth.user.name }}
                             </div>
                             <div class="text-sm font-medium text-gray-500">
@@ -3468,11 +3384,7 @@ const showingNavigationDropdown = ref(false);
                             <ResponsiveNavLink :href="route('profile.edit')">
                                 Profile
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink
-                                :href="route('logout')"
-                                method="post"
-                                as="button"
-                            >
+                            <ResponsiveNavLink :href="route('logout')" method="post" as="button">
                                 Log Out
                             </ResponsiveNavLink>
                         </div>
@@ -3480,17 +3392,12 @@ const showingNavigationDropdown = ref(false);
                 </div>
             </nav>
 
-            <!-- Page Heading -->
-            <header
-                class="bg-white shadow dark:bg-gray-800"
-                v-if="$slots.header"
-            >
+            <header class="bg-white shadow dark:bg-gray-800" v-if="$slots.header">
                 <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
                     <slot name="header" />
                 </div>
             </header>
 
-            <!-- Page Content -->
             <main>
                 <slot />
             </main>
@@ -4963,6 +4870,42 @@ it('returns a successful response', function () {
 });
 </file>
 
+<file path="tests/Feature/NeonHubAuthTest.php">
+<?php
+
+use App\Models\User;
+
+use function Pest\Laravel\actingAs;
+use function Pest\Laravel\assertAuthenticated;
+
+test('guest can access neon core and automatically get an authenticated session', function () {
+    // Vytvoříme testovacího uživatele
+    $user = User::factory()->create([
+        'name' => 'Radim Passer',
+    ]);
+
+    // Použijeme správný název routy 'dashboard'
+    $response = actingAs($user)->get(route('dashboard'));
+
+    // Ověříme, že stránka se v pořádku načte a uživatel je přihlášen
+    $response->assertStatus(200);
+    assertAuthenticated();
+});
+
+test('inertia page shares authenticated user data with neon components', function () {
+    $user = User::factory()->create([
+        'name' => 'Radim Passer',
+    ]);
+
+    // Ověříme, že Inertia správně sdílí data přihlášeného uživatele do frontendu
+    actingAs($user)
+        ->get(route('dashboard'))
+        ->assertInertia(fn ($page) => $page
+            ->where('auth.user.name', $user->name)
+        );
+});
+</file>
+
 <file path="tests/Feature/ProfileTest.php">
 <?php
 
@@ -5051,27 +4994,6 @@ test('correct password must be provided to delete account', function () {
 });
 </file>
 
-<file path="tests/Feature/SystemAlertTest.php">
-<?php
-
-use App\Events\SystemAlertTriggered;
-use Illuminate\Support\Facades\Event;
-
-test('testovaci routa uspesne odpaluje websocket event do reverbu', function () {
-    // 1. Zastavíme reálné střílení do sítě (vytvoříme bezpečný "fake")
-    Event::fake();
-
-    // 2. Simulujeme, že uživatel v prohlížeči navštívil /test-signal
-    $response = $this->get('/test-signal');
-
-    // 3. Ověříme, že backend odpověděl úspěchem (HTTP kód 200)
-    $response->assertStatus(200);
-
-    // 4. Ověříme, že ten náš konkrétní Event byl reálně odeslán k vysílání
-    Event::assertDispatched(SystemAlertTriggered::class);
-});
-</file>
-
 <file path="tests/Pest.php">
 <?php
 
@@ -5144,6 +5066,57 @@ abstract class TestCase extends BaseTestCase
 test('that true is true', function () {
     expect(true)->toBeTrue();
 });
+</file>
+
+<file path="app/Http/Middleware/HandleInertiaRequests.php">
+<?php
+
+namespace App\Http\Middleware;
+
+use Illuminate\Http\Request;
+use Inertia\Middleware;
+
+class HandleInertiaRequests extends Middleware
+{
+    /**
+     * The root template that is loaded on the first page visit.
+     *
+     * @var string
+     */
+    protected $rootView = 'app';
+
+    /**
+     * Determine the current asset version.
+     */
+    public function version(Request $request): ?string
+    {
+        return parent::version($request);
+    }
+
+    /**
+     * Define the props that are shared by default.
+     *
+     * @return array<string, mixed>
+     */
+    public function share(Request $request): array
+    {
+        return array_merge(parent::share($request), [
+            'auth' => [
+                'user' => $request->user() ? [
+                    'id' => $request->user()->id,
+                    'name' => $request->user()->name,
+                    'email' => $request->user()->email,
+                    // 🌌 Tvoje nové sloupce, které Vue komponenty potřebují:
+                    'handle' => $request->user()->handle,
+                    'faction' => $request->user()->faction,
+                    'status_text' => $request->user()->status_text,
+                    'avatar_url' => $request->user()->avatar_url,
+                    'bio' => $request->user()->bio,
+                ] : null,
+            ],
+        ]);
+    }
+}
 </file>
 
 <file path="composer.json">
@@ -5348,6 +5321,97 @@ return [
     ],
 
 ];
+</file>
+
+<file path="database/migrations/0001_01_01_000000_create_users_table.php">
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('users', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('email')->unique();
+
+            // 🌌 RECRUITER CYBERPUNK EXTENSIONS
+            $table->string('handle')->unique()->nullable();  // Např. @recruiter_alpha
+            $table->string('faction')->nullable();          // Např. CORPO_ELITE
+            $table->string('avatar_url')->nullable();       // Cesta k profilovce rekrutera
+
+            $table->timestamp('email_verified_at')->nullable();
+            $table->string('password');
+            $table->rememberToken();
+            $table->timestamps();
+        });
+
+        Schema::create('password_reset_tokens', function (Blueprint $table) {
+            $table->string('email')->primary();
+            $table->string('token');
+            $table->timestamp('created_at')->nullable();
+        });
+
+        Schema::create('sessions', function (Blueprint $table) {
+            $table->string('id')->primary();
+            $table->foreignId('user_id')->nullable()->index();
+            $table->string('ip_address', 45)->nullable();
+            $table->text('user_agent')->nullable();
+            $table->longText('payload');
+            $table->integer('last_activity')->index();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('users');
+        Schema::dropIfExists('password_reset_tokens');
+        Schema::dropIfExists('sessions');
+    }
+};
+</file>
+
+<file path="database/seeders/DatabaseSeeder.php">
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\User;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+
+class DatabaseSeeder extends Seeder
+{
+    use WithoutModelEvents;
+
+    /**
+     * Seed the application's database.
+     */
+    public function run(): void
+    {
+        // 🌌 Vytvoříme hlavního Demo rekrutera, kterého middleware automaticky přihlásí
+        User::create([
+            'name' => 'Recruiter Phantom',
+            'email' => 'demo@neonhub.io',
+            'handle' => '@recruiter_alpha',
+            'faction' => 'CORPO_ELITE',
+            'password' => Hash::make('neon-secret-password-2026'), // Heslo je fuk, auth je natvrdo
+        ]);
+
+        // Sem pak časem můžeme přisypat ty další entity (Elysia V, Vector Prime atd.)
+    }
+}
 </file>
 
 <file path="resources/js/Components/NeonCommentSection.vue">
@@ -5594,12 +5658,34 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::get('/test-signal', function () {
-    event(new SystemAlertTriggered('Krizový stav aktivován! Reverb funguje.'));
+    // Teď posíláme ID uživatele, aby Event věděl, kam broadcastovat
+    event(new SystemAlertTriggered(auth()->id(), 'Krizový stav aktivován!'));
 
-    return 'Signál odpálen do WebSocketu!';
+    return 'Signál odpálen!';
 });
 
 require __DIR__.'/auth.php';
+</file>
+
+<file path="tests/Feature/SystemAlertTest.php">
+<?php
+
+use App\Events\SystemAlertTriggered;
+use Illuminate\Support\Facades\Event;
+
+test('test route successfully dispatches websocket event to reverb', function () {
+    // 1. Prevent real broadcasting by creating a safe event fake
+    Event::fake();
+
+    // 2. Simulate hitting the /test-signal endpoint
+    $response = $this->get('/test-signal');
+
+    // 3. Assert that the backend responds with a success status (HTTP 200)
+    $response->assertStatus(200);
+
+    // 4. Assert that the specific event was actually dispatched
+    Event::assertDispatched(SystemAlertTriggered::class);
+});
 </file>
 
 <file path="vite.config.js">
@@ -5636,61 +5722,69 @@ export default defineConfig({
 });
 </file>
 
-<file path="bootstrap/app.php">
+<file path="app/Models/User.php">
 <?php
 
-use App\Http\Middleware\HandleInertiaRequests;
-use Illuminate\Foundation\Application;
-use Illuminate\Foundation\Configuration\Exceptions;
-use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+namespace App\Models;
 
-return Application::configure(basePath: dirname(__DIR__))
-    ->withRouting(
-        web: __DIR__.'/../routes/web.php',
-        commands: __DIR__.'/../routes/console.php',
-        channels: __DIR__.'/../routes/channels.php',
-        health: '/up',
-    )
-    ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->web(append: [
-            HandleInertiaRequests::class,
-            AddLinkHeadersForPreloadedAssets::class,
-        ]);
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 
-        //
-    })
-    ->withExceptions(function (Exceptions $exceptions): void {
-        //
-    })->create();
+class User extends Authenticatable
+{
+    use HasFactory, Notifiable;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'handle',
+        'faction',
+        'avatar_url',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var array<int, string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+        ];
+    }
+}
 </file>
 
 <file path="resources/js/app.js">
 import '../css/app.css';
 import '../css/neon-ui.css';
-import './bootstrap';
+import './bootstrap'; // Tady je teď Echo konfigurace
 
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
-
-// --- INICIALIZACE LARAVEL ECHO (TRACER BULLET) ---
-import Echo from 'laravel-echo';
-import Pusher from 'pusher-js';
-
-window.Pusher = Pusher;
-
-window.Echo = new Echo({
-    broadcaster: 'reverb',
-    key: import.meta.env.VITE_REVERB_APP_KEY,
-    wsHost: 'neon-hub.test', // 👈 Změna z 127.0.0.1 na doménu, pro kterou máš SSL certifikát
-    wsPort: 8080,
-    wssPort: 8080,
-    forceTLS: true, // 🔒 Ponechat true (vyžaduje wss://)
-    enabledTransports: ['ws', 'wss'],
-});
-// --------------------------------------------------
+import { createPinia } from 'pinia';
+import { initNotificationService } from '@/Services/NotificationService';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -5702,10 +5796,22 @@ createInertiaApp({
             import.meta.glob('./Pages/**/*.vue'),
         ),
     setup({ el, App, props, plugin }) {
-        return createApp({ render: () => h(App, props) })
-            .use(plugin)
-            .use(ZiggyVue)
-            .mount(el);
+        const pinia = createPinia();
+        const app = createApp({ render: () => h(App, props) });
+
+        app.use(plugin)
+           .use(pinia)
+           .use(ZiggyVue)
+           .mount(el);
+
+        // --- INICIALIZACE SLUŽEB ---
+        // Předpokládáme, že ID uživatele máš v props (např. z Inertia Share)
+        const userId = props.initialPage.props.auth?.user?.id;
+        if (userId) {
+            initNotificationService(userId);
+        }
+
+        return app;
     },
     progress: {
         color: '#4B5563',
@@ -5760,32 +5866,36 @@ createInertiaApp({
 </style>
 </file>
 
-<file path="resources/js/Pages/Welcome.vue">
-<script setup>
-import { ref } from 'vue';
+<file path="bootstrap/app.php">
+<?php
 
-const isOpened = ref(false);
+use App\Http\Middleware\AutoLoginDemoUser;
+use App\Http\Middleware\HandleInertiaRequests;
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 
-const openSystem = () => {
-    isOpened.value = true;
-};
-</script>
+return Application::configure(basePath: dirname(__DIR__))
+    ->withRouting(
+        web: __DIR__.'/../routes/web.php',
+        commands: __DIR__.'/../routes/console.php',
+        channels: __DIR__.'/../routes/channels.php',
+        health: '/up',
+    )
+    ->withMiddleware(function (Middleware $middleware) {
+        // 1. Zruš ten prepend, ten nám shazuje session!
 
-<template>
-    <div
-        class="relative h-screen w-full bg-[#02040a] overflow-hidden font-sans text-slate-200 selection:bg-purple-900/40 selection:text-white">
-
-        <!-- 1. Vrstva: Samotná aplikace (v pozadí) -->
-        <NeonSocialCore :isOpened="isOpened" />
-
-        <!-- 2. Vrstva: Mechanická brána -->
-        <NeonGate :isOpened="isOpened" />
-
-        <!-- 3. Vrstva: HUD a Vstupní karta (zůstává na vrchu) -->
-        <NeonOverlay :isOpened="isOpened" @open="openSystem" />
-
-    </div>
-</template>
+        // 2. Všechno naskládáme do "append" v přesném pořadí, v jakém to má jít po sobě:
+        $middleware->web(append: [
+            AutoLoginDemoUser::class,     // První se přihlásí uživatel (session už běží z jádra web skupiny)
+            HandleInertiaRequests::class,  // Druhá se spustí Inertia a už uvidí přihlášeného uživatele
+            AddLinkHeadersForPreloadedAssets::class,
+        ]);
+    })
+    ->withExceptions(function (Exceptions $exceptions): void {
+        //
+    })->create();
 </file>
 
 <file path="resources/css/neon-ui.css">
@@ -5987,6 +6097,34 @@ defineProps({
 </style>
 </file>
 
+<file path="resources/js/Pages/Welcome.vue">
+<script setup>
+    import { ref } from 'vue';
+
+    const isOpened = ref(false);
+
+    const openSystem = () => {
+        isOpened.value = true;
+    };
+</script>
+
+    <template>
+        <div
+            class="relative h-screen w-full bg-[#02040a] overflow-hidden font-sans text-slate-200 selection:bg-purple-900/40 selection:text-white">
+
+            <!-- 1. Vrstva: Samotná aplikace (v pozadí) -->
+            <NeonSocialCore :isOpened="isOpened" />
+
+            <!-- 2. Vrstva: Mechanická brána -->
+            <NeonGate :isOpened="isOpened" />
+
+            <!-- 3. Vrstva: HUD a Vstupní karta (zůstává na vrchu) -->
+            <NeonOverlay :isOpened="isOpened" @open="openSystem" />
+
+        </div>
+    </template>
+</file>
+
 <file path="package.json">
 {
     "$schema": "https://www.schemastore.org/package.json",
@@ -6014,144 +6152,10 @@ defineProps({
     },
     "dependencies": {
         "@lucide/vue": "^1.14.0",
-        "lucide-vue-next": "^1.0.0"
+        "lucide-vue-next": "^1.0.0",
+        "pinia": "^3.0.4"
     }
 }
-</file>
-
-<file path="resources/js/Components/NeonNav.vue">
-<script setup>
-import { Cpu, Activity, Wifi, Terminal, Zap } from 'lucide-vue-next';
-</script>
-
-<template>
-    <header class="fixed top-0 left-0 w-full z-[60]">
-        <div class="neon-panel-wrapper nav-wrapper h-16 border-b border-white/5">
-
-            <div class="nav-light-scanner"></div>
-
-            <div
-                class="neon-glass-core h-full !flex-row items-center justify-between md:justify-start px-4 md:px-12 bg-[#050914]/95">
-
-                <div class="flex items-center gap-2 md:gap-3 md:w-64">
-                    <div class="relative group cursor-pointer">
-                        <div
-                            class="absolute -inset-2 bg-sky-500/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                        </div>
-                        <Cpu :size="20" class="text-sky-400 relative md:scale-110" />
-                    </div>
-                    <span class="font-black text-lg md:text-xl uppercase tracking-tighter text-white">
-                        Neon<span class="text-sky-400">Hub</span>
-                    </span>
-                </div>
-
-                <div class="hidden md:flex flex-1 justify-around items-center px-10 lg:px-20">
-
-                    <div class="flex flex-col items-center group cursor-default">
-                        <span class="text-[7px] text-slate-500 uppercase font-bold tracking-[0.3em] mb-1">Latency</span>
-                        <div class="flex items-center gap-2">
-                            <Activity :size="12" class="text-sky-500/50 group-hover:text-sky-400" />
-                            <span class="text-xs font-mono text-white tracking-widest">12<span
-                                    class="text-[9px] ml-0.5 opacity-50">ms</span></span>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-col items-center group cursor-default">
-                        <span
-                            class="text-[7px] text-slate-500 uppercase font-bold tracking-[0.3em] mb-1">System_Uptime</span>
-                        <div class="flex items-center gap-2">
-                            <Zap :size="12" class="text-fuchsia-500/50 group-hover:text-fuchsia-400" />
-                            <span class="text-xs font-mono text-white tracking-widest">99.98<span
-                                    class="text-[9px] ml-0.5 opacity-50">%</span></span>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-col items-center group cursor-default">
-                        <span
-                            class="text-[7px] text-slate-500 uppercase font-bold tracking-[0.3em] mb-1">Bandwidth</span>
-                        <div class="flex items-center gap-2">
-                            <Wifi :size="12" class="text-emerald-500/50 group-hover:text-emerald-400" />
-                            <span class="text-xs font-mono text-white tracking-widest">850<span
-                                    class="text-[9px] ml-0.5 opacity-50">mb/s</span></span>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-col items-center group cursor-default">
-                        <span
-                            class="text-[7px] text-slate-500 uppercase font-bold tracking-[0.3em] mb-1">Active_Nodes</span>
-                        <div class="flex items-center gap-2">
-                            <div class="w-1.5 h-1.5 bg-sky-400 rounded-full animate-ping"></div>
-                            <span class="text-xs font-mono text-white tracking-widest">1,204</span>
-                        </div>
-                    </div>
-
-                </div>
-
-                <div class="flex items-center justify-end gap-3 md:gap-6 md:w-64">
-                    <div class="hidden sm:flex flex-col items-end">
-                        <span class="text-[9px] font-black text-white/90 tracking-tighter uppercase">Admin_Root</span>
-                        <span class="text-[7px] font-mono text-sky-500/50 tracking-widest italic">0x882_ALPHA</span>
-                    </div>
-
-                    <button
-                        class="p-2 rounded-lg bg-white/5 border border-white/10 hover:border-sky-500/50 transition-all">
-                        <Terminal :size="14" class="text-slate-400 hover:text-sky-400" />
-                    </button>
-
-                    <div
-                        class="w-8 h-8 md:w-9 md:h-9 rounded-full bg-gradient-to-tr from-fuchsia-600 to-sky-400 p-[1px] shadow-[0_0_15px_rgba(56,189,248,0.2)] shrink-0">
-                        <div class="w-full h-full rounded-full bg-[#050914] flex items-center justify-center">
-                            <span class="text-[9px] md:text-[10px] font-bold text-white">RH</span>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    </header>
-</template>
-
-<style scoped>
-.nav-wrapper {
-    padding: 0;
-    position: relative;
-    background: transparent;
-}
-
-.nav-light-scanner {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    height: 1px;
-    transform: translateY(-50%);
-    background: linear-gradient(90deg,
-            rgba(56, 189, 248, 1) 0%,
-            rgba(192, 43, 155, 1) 25%,
-            rgba(56, 189, 248, 1) 50%,
-            rgba(192, 43, 155, 1) 75%,
-            rgba(56, 189, 248, 1) 100%);
-    background-size: 200% 100%;
-    animation: liquid-line 8s linear infinite;
-    pointer-events: none;
-    box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
-    z-index: 70;
-}
-
-@keyframes liquid-line {
-    from {
-        background-position: 0% 0;
-    }
-
-    to {
-        background-position: 200% 0;
-    }
-}
-
-.neon-glass-core {
-    @apply border-b border-white/5;
-}
-</style>
 </file>
 
 <file path="resources/js/Components/NeonOverlay.vue">
@@ -6346,6 +6350,157 @@ const posts = ref([
 </style>
 </file>
 
+<file path="resources/js/Components/NeonNav.vue">
+<script setup>
+import { Cpu, Activity, Wifi, Zap } from 'lucide-vue-next';
+</script>
+
+<template>
+    <header class="fixed top-0 left-0 w-full z-[60]">
+        <div class="neon-panel-wrapper nav-wrapper h-16 border-b border-white/5">
+
+            <div class="nav-light-scanner"></div>
+
+            <div
+                class="neon-glass-core h-full !flex-row items-center justify-between md:justify-start px-4 md:px-12 bg-[#050914]/95">
+
+                <div class="flex items-center gap-2 md:gap-3 md:w-64">
+                    <div class="relative group cursor-pointer">
+                        <div
+                            class="absolute -inset-2 bg-sky-500/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                        </div>
+                        <Cpu :size="20" class="text-sky-400 relative md:scale-110" />
+                    </div>
+                    <span class="font-black text-lg md:text-xl uppercase tracking-tighter text-white">
+                        Neon<span class="text-sky-400">Hub</span>
+                    </span>
+                </div>
+
+                <div class="hidden md:flex flex-1 justify-around items-center px-10 lg:px-20">
+
+                    <div class="flex flex-col items-center group cursor-default">
+                        <span class="text-[7px] text-slate-500 uppercase font-bold tracking-[0.3em] mb-1">Latency</span>
+                        <div class="flex items-center gap-2">
+                            <Activity :size="12" class="text-sky-500/50 group-hover:text-sky-400" />
+                            <span class="text-xs font-mono text-white tracking-widest">12<span
+                                    class="text-[9px] ml-0.5 opacity-50">ms</span></span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col items-center group cursor-default">
+                        <span
+                            class="text-[7px] text-slate-500 uppercase font-bold tracking-[0.3em] mb-1">System_Uptime</span>
+                        <div class="flex items-center gap-2">
+                            <Zap :size="12" class="text-fuchsia-500/50 group-hover:text-fuchsia-400" />
+                            <span class="text-xs font-mono text-white tracking-widest">99.98<span
+                                    class="text-[9px] ml-0.5 opacity-50">%</span></span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col items-center group cursor-default">
+                        <span
+                            class="text-[7px] text-slate-500 uppercase font-bold tracking-[0.3em] mb-1">Bandwidth</span>
+                        <div class="flex items-center gap-2">
+                            <Wifi :size="12" class="text-emerald-500/50 group-hover:text-emerald-400" />
+                            <span class="text-xs font-mono text-white tracking-widest">850<span
+                                    class="text-[9px] ml-0.5 opacity-50">mb/s</span></span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col items-center group cursor-default">
+                        <span
+                            class="text-[7px] text-slate-500 uppercase font-bold tracking-[0.3em] mb-1">Active_Nodes</span>
+                        <div class="flex items-center gap-2">
+                            <div class="w-1.5 h-1.5 bg-sky-400 rounded-full animate-ping"></div>
+                            <span class="text-xs font-mono text-white tracking-widest">1,204</span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div
+                    class="flex items-center justify-end gap-3 md:gap-4 md:w-64 max-w-[180px] xs:max-w-[220px] sm:max-w-none">
+
+                    <div class="flex flex-col items-end max-w-[90px] xs:max-w-[140px] sm:max-w-[200px]">
+                        <span
+                            class="text-[9px] font-black text-white/90 tracking-tighter uppercase truncate w-full text-right">
+                            {{ $page.props.auth?.user?.name || 'Admin_Root' }}
+                        </span>
+                        <span
+                            class="text-[7px] font-mono text-sky-500/70 tracking-widest italic truncate w-full text-right">
+                            {{ $page.props.auth?.user?.handle || '0x882_ALPHA' }}
+                        </span>
+                    </div>
+
+                    <div class="relative group">
+                        <div
+                            class="absolute -inset-0.5 bg-gradient-to-tr from-sky-500 to-fuchsia-500 rounded-full blur-xs opacity-40 group-hover:opacity-100 transition-opacity">
+                        </div>
+
+                        <div
+                            class="relative w-8 h-8 md:w-9 md:h-9 rounded-full bg-gradient-to-tr from-fuchsia-600 to-sky-400 p-[1px] shrink-0">
+                            <div class="w-full h-full rounded-full bg-[#050914] flex items-center justify-center">
+                                <span class="text-[9px] md:text-[10px] font-bold text-white tracking-wider">
+                                    {{$page.props.auth?.user?.name ? $page.props.auth.user.name.split(' ').map(n =>
+                                        n[0]).join('').substring(0, 2).toUpperCase() : 'RH'}}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div v-if="$page.props.auth?.user?.faction"
+                            class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-[#050914] bg-amber-400 shadow-[0_0_6px_#f59e0b]">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </header>
+</template>
+
+<style scoped>
+.nav-wrapper {
+    padding: 0;
+    position: relative;
+    background: transparent;
+}
+
+.nav-light-scanner {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    transform: translateY(-50%);
+    background: linear-gradient(90deg,
+            rgba(56, 189, 248, 1) 0%,
+            rgba(192, 43, 155, 1) 25%,
+            rgba(56, 189, 248, 1) 50%,
+            rgba(192, 43, 155, 1) 75%,
+            rgba(56, 189, 248, 1) 100%);
+    background-size: 200% 100%;
+    animation: liquid-line 8s linear infinite;
+    pointer-events: none;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+    z-index: 70;
+}
+
+@keyframes liquid-line {
+    from {
+        background-position: 0% 0;
+    }
+
+    to {
+        background-position: 200% 0;
+    }
+}
+
+.neon-glass-core {
+    @apply border-b border-white/5;
+}
+</style>
+</file>
+
 <file path="components.d.ts">
 /* eslint-disable */
 // @ts-nocheck
@@ -6487,47 +6642,30 @@ php artisan serve</code></pre>
 <file path="resources/js/Components/NeonSocialActions.vue">
 <script setup>
 import { UserPlus, MessageSquareCode, BellDot, Home } from '@lucide/vue';
+import { useNotificationStore } from '@/Stores/useNotificationStore';
 
 defineProps({
-    activeTab: {
-        type: String,
-        default: 'feed'
-    },
-    isMobile: {
-        type: Boolean,
-        default: false
-    },
-    // Nová propka, kterou bude řídit rodič (a později WebSocket / Pinia)
-    hasAlert: {
-        type: Boolean,
-        default: false
-    }
+    activeTab: { type: String, default: 'feed' },
+    isMobile: { type: Boolean, default: false }
 });
 
+const store = useNotificationStore();
 defineEmits(['change-view']);
 </script>
 
 <template>
     <component :is="isMobile ? 'div' : 'aside'"
         :class="isMobile ? 'mobile-dock-position z-50 w-[92%] max-w-sm' : 'fixed left-8 top-1/2 -translate-y-1/2 z-50 hidden xl:block'">
-
         <div class="neon-panel-wrapper"
             :class="isMobile ? 'h-16 w-full rounded-full !p-[1px]' : 'h-[75vh] w-40 rounded-[8rem]'">
-
             <div class="neon-border-active" :class="{ 'mobile-border-override': isMobile }"></div>
-
-            <div class="neon-glass-core" :class="isMobile
-                ? '!flex-row !items-center justify-around h-full w-full rounded-full px-4 py-2'
-                : 'rounded-[7.8rem] py-16 flex flex-col items-center justify-between h-full'">
-
+            <div class="neon-glass-core"
+                :class="isMobile ? '!flex-row !items-center justify-around h-full w-full rounded-full px-4 py-2' : 'rounded-[7.8rem] py-16 flex flex-col items-center justify-between h-full'">
                 <h2 v-if="!isMobile"
                     class="text-purple-400 font-bold text-[7px] uppercase tracking-[0.5em] mb-8 opacity-50 vertical-text">
-                    Neon_Hub
-                </h2>
-
+                    Neon_Hub</h2>
                 <div
                     :class="isMobile ? 'flex flex-row w-full h-full justify-around items-center' : 'flex-1 h-full flex flex-col justify-around w-full items-center relative'">
-
                     <div class="action-item group"
                         :class="{ 'is-active': activeTab === 'feed', 'is-mobile-item': isMobile }"
                         @click="$emit('change-view', 'feed')">
@@ -6536,7 +6674,6 @@ defineEmits(['change-view']);
                             <Home :size="isMobile ? 22 : 32" :stroke-width="1.5" />
                         </div>
                     </div>
-
                     <div class="action-item group"
                         :class="{ 'is-active': activeTab === 'friends' || activeTab === 'profile', 'is-mobile-item': isMobile }"
                         @click="$emit('change-view', 'friends')">
@@ -6545,7 +6682,6 @@ defineEmits(['change-view']);
                             <UserPlus :size="isMobile ? 22 : 32" :stroke-width="1.5" />
                         </div>
                     </div>
-
                     <div class="action-item group"
                         :class="{ 'is-active': activeTab === 'messages', 'is-mobile-item': isMobile }"
                         @click="$emit('change-view', 'messages')">
@@ -6554,25 +6690,18 @@ defineEmits(['change-view']);
                             <MessageSquareCode :size="isMobile ? 22 : 32" :stroke-width="1.5" />
                         </div>
                     </div>
-
                     <div class="action-item group"
                         :class="{ 'is-active': activeTab === 'notifications', 'is-mobile-item': isMobile }"
                         @click="$emit('change-view', { view: 'notifications', fromMobile: isMobile })">
                         <span class="label">ALERTS</span>
                         <div class="icon-style relative">
                             <BellDot :size="isMobile ? 22 : 32" :stroke-width="1.5" />
-
-                            <div v-if="hasAlert"
+                            <div v-if="store.hasUnreadAlerts"
                                 class="absolute bg-rose-500 rounded-full animate-pulse shadow-[0_0_10px_#f43f5e]"
                                 :class="isMobile ? '-top-0.5 -right-0.5 w-1.5 h-1.5' : '-top-0.5 -right-0.5 w-2 h-2'">
                             </div>
                         </div>
                     </div>
-
-                </div>
-
-                <div v-if="!isMobile" class="mt-8 opacity-20 font-mono text-[8px] text-sky-500">
-                    v.2.6
                 </div>
             </div>
         </div>
@@ -6580,7 +6709,6 @@ defineEmits(['change-view']);
 </template>
 
 <style scoped>
-/* Responzivní ukotvení doku pro mobilní zobrazení */
 .mobile-dock-position {
     position: fixed !important;
     bottom: 24px !important;
@@ -6594,7 +6722,6 @@ defineEmits(['change-view']);
     z-index: 9999 !important;
 }
 
-/* Zkrocení obřího rotujícího borderu na mobilních rozměrech */
 :deep(.neon-border-active).mobile-border-override {
     top: -100% !important;
     left: -50% !important;
@@ -6602,7 +6729,6 @@ defineEmits(['change-view']);
     height: 300% !important;
 }
 
-/* Reset orby efektů, pokud jsme na mobilu */
 .mobile-dock-position :deep(.neon-glass-core)::before,
 .mobile-dock-position :deep(.neon-glass-core)::after {
     display: none !important;
@@ -6613,17 +6739,14 @@ defineEmits(['change-view']);
     text-orientation: mixed;
 }
 
-/* Společný základ pro akční tlačítka */
 .action-item {
     @apply relative flex flex-col items-center cursor-pointer transition-all duration-300;
     will-change: transform;
 }
 
-/* Specifické rozvržení tlačítek pro mobil s mezerou mezi ikonou a textem */
 .is-mobile-item {
     @apply flex-col-reverse justify-center items-center h-full flex-1;
     gap: 5px !important;
-    /* Prostor pro dýchání prvků nad sebou */
     -webkit-tap-highlight-color: transparent;
 }
 
@@ -6635,18 +6758,15 @@ defineEmits(['change-view']);
     transform: scale(0.95);
 }
 
-/* Škálování textu */
 .label {
     @apply text-[7px] font-mono text-sky-400/50 uppercase transition-all duration-300 select-none text-center;
     text-shadow: 0 0 5px rgba(56, 189, 248, 0.2);
 }
 
-/* Desktop label má spodní margin, mobilní nikoliv díky flex gapu */
 .action-item:not(.is-mobile-item) .label {
     @apply mb-2 tracking-[0.3em];
 }
 
-/* Mobilní text jemně roztáhneme do šířky, aby ladil s desktop designem */
 .is-mobile-item .label {
     @apply mt-0 tracking-[0.15em] text-[7px];
 }
@@ -6656,7 +6776,6 @@ defineEmits(['change-view']);
     filter: drop-shadow(0 0 2px rgba(56, 189, 248, 0.1));
 }
 
-/* Aktivní / Hover neonová záře sjednocená pro desktop i mobilní simulaci */
 .action-item:hover .icon-style,
 .action-item.is-active .icon-style {
     @apply text-white;
@@ -6668,152 +6787,54 @@ defineEmits(['change-view']);
     @apply text-sky-300 opacity-100;
     text-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
 }
-
-.action-item:hover:not(.is-mobile-item) .icon-style {
-    transform: translateY(-2px);
-}
 </style>
 </file>
 
 <file path="resources/js/Components/NeonTechDashboard.vue">
 <script setup>
-import { ref, watch, onUnmounted, computed } from 'vue';
-import { Cpu, Activity, Bell, ShieldAlert, ChevronLeft } from '@lucide/vue';
+import { computed } from 'vue';
+import { Cpu, ShieldAlert } from '@lucide/vue';
+import { useNotificationStore } from '@/Stores/useNotificationStore';
 
-const props = defineProps({
-    isOpened: Boolean,
-    mode: String,
-    notifications: {
-        type: Array,
-        default: () => []
-    }
-});
-
-const bars = ref(Array(15).fill(40));
-
-
-// Je dashboard v režimu "seznam notifikací"?
+const props = defineProps({ isOpened: Boolean, mode: String });
+const store = useNotificationStore();
 const isAlertMode = computed(() => props.mode === 'alerts');
-
-let intervalId = null;
-
-const startSimulation = () => {
-    if (intervalId) return;
-    intervalId = setInterval(() => {
-        bars.value = bars.value.map(() => Math.floor(Math.random() * 80) + 20);
-    }, 2000);
-};
-
-watch(() => props.isOpened, (newVal) => {
-    if (newVal) setTimeout(startSimulation, 1500);
-}, { immediate: false });
-
-onUnmounted(() => {
-    if (intervalId) clearInterval(intervalId);
-});
 </script>
 
 <template>
     <aside class="xl:fixed xl:right-8 xl:top-1/2 xl:-translate-y-1/2 xl:z-50 flex items-center justify-center">
-
         <div class="neon-panel-wrapper xl:h-[85vh] h-full xl:w-72 w-full max-w-none rounded-[3rem]">
-
             <div class="neon-border-active"
                 :class="{ '!border-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.3)]': isAlertMode }"></div>
-
             <div class="neon-glass-core rounded-[3rem] py-12 flex flex-col h-full overflow-hidden relative">
-
-                <!-- HEADER (DYNAMICKÝ) -->
-                <div
-                    class="flex items-center gap-3 border-b border-white/5 pb-4 mb-6 w-full px-6 transition-all duration-500">
-                    <component :is="isAlertMode ? ShieldAlert : Cpu"
-                        class="animate-pulse transition-colors duration-500"
+                <div class="flex items-center gap-3 border-b border-white/5 pb-4 mb-6 w-full px-6">
+                    <component :is="isAlertMode ? ShieldAlert : Cpu" class="animate-pulse"
                         :class="isAlertMode ? 'text-rose-500' : 'text-sky-400'" :size="18" />
-                    <h3 class="text-[10px] font-black uppercase tracking-[0.3em] transition-colors"
+                    <h3 class="text-[10px] font-black uppercase tracking-[0.3em]"
                         :class="isAlertMode ? 'text-rose-400' : 'text-white/70'">
                         {{ isAlertMode ? 'Alert_Center' : 'Core_Engine_v.13' }}
                     </h3>
                 </div>
-
-                <!-- HLAVNÍ OBSAH S TRANSITION -->
                 <div class="flex-1 w-full px-6 overflow-hidden relative">
                     <transition name="fade-slide" mode="out-in">
-
-                        <!-- REŽIM DIAGNOSTIKA (Default) -->
                         <div v-if="!isAlertMode" key="diag" class="flex flex-col h-full space-y-8">
-                            <!-- Observer Logs -->
-                            <div>
-                                <div
-                                    class="flex items-center justify-between mb-3 text-[8px] font-bold uppercase tracking-widest text-slate-500">
-                                    <span>Observer_Logs</span>
-                                    <span class="text-emerald-500 animate-pulse">Live</span>
-                                </div>
-                                <div
-                                    class="space-y-2 font-mono text-[9px] bg-black/20 p-3 rounded-xl border border-white/5">
-                                    <div class="flex gap-2 text-slate-300"><span class="text-emerald-500/50">01</span>
-                                        [OK] Injecting feed_v2</div>
-                                    <div class="flex gap-2 text-slate-300"><span class="text-sky-500/50">02</span> [OK]
-                                        Auth_Gateway</div>
-                                    <div class="flex gap-2 text-purple-400 animate-pulse"><span
-                                            class="text-purple-500/50">03</span> Analyzing...</div>
-                                </div>
-                            </div>
-
-                            <!-- Neural Load -->
-                            <div>
-                                <div
-                                    class="flex items-center gap-2 mb-3 text-[8px] font-bold uppercase tracking-widest text-slate-500">
-                                    <Activity :size="14" class="text-fuchsia-500" />
-                                    <span>Neural_Load</span>
-                                </div>
-                                <div
-                                    class="h-16 flex items-end gap-1.5 px-2 bg-black/10 rounded-lg py-1 border border-white/5 overflow-hidden">
-                                    <div v-for="(height, i) in bars" :key="i"
-                                        class="flex-1 bg-gradient-to-t from-fuchsia-600/40 to-sky-400/60 rounded-full transition-all duration-[2000ms]"
-                                        :style="{ height: height + '%' }">
-                                    </div>
-                                </div>
-                            </div>
                         </div>
-
-                        <!-- REŽIM NOTIFIKACE (Po kliku na Alerts) -->
                         <div v-else key="alerts" class="flex flex-col h-full">
                             <div class="space-y-3 overflow-y-auto pr-1 custom-scroll">
-                                <div v-for="notif in notifications" :key="notif.id"
-                                    class="group p-3 border border-white/5 bg-white/5 hover:bg-rose-500/10 hover:border-rose-500/30 rounded-xl transition-all duration-300 cursor-pointer">
-                                    <div class="flex justify-between items-start mb-1">
-                                        <span class="text-[7px] font-black uppercase tracking-tighter"
-                                            :class="notif.type === 'alert' ? 'text-rose-500' : 'text-sky-500'">
-                                            {{ notif.title }}
-                                        </span>
+                                <div v-for="notif in store.notifications" :key="notif.id"
+                                    class="p-3 border border-white/5 bg-white/5 rounded-xl">
+                                    <div class="flex justify-between mb-1">
+                                        <span class="text-[7px] font-black uppercase"
+                                            :class="notif.type === 'alert' ? 'text-rose-500' : 'text-sky-500'">{{
+                                                notif.title }}</span>
                                         <span class="text-[7px] text-white/20 font-mono">{{ notif.time }}</span>
                                     </div>
-                                    <p class="text-[9px] text-white/60 leading-tight group-hover:text-white/90">{{
-                                        notif.msg }}</p>
+                                    <p class="text-[9px] text-white/60">{{ notif.msg }}</p>
                                 </div>
-                            </div>
-
-                            <!-- Nápověda pro návrat -->
-                            <div class="mt-auto pt-4 text-center">
-                                <p class="text-[7px] text-slate-600 font-mono animate-bounce uppercase">
-                                    Click Home to return to Diag
-                                </p>
                             </div>
                         </div>
                     </transition>
                 </div>
-
-                <!-- FOOTER -->
-                <div
-                    class="mt-6 pt-4 border-t border-white/5 w-full px-6 flex justify-between items-center opacity-40 text-[8px] font-mono text-slate-500">
-                    <div class="flex gap-1">
-                        <div class="w-1.5 h-1.5 rounded-full"
-                            :class="isAlertMode ? 'bg-rose-500 animate-ping' : 'bg-sky-500 animate-ping'"></div>
-                        <div class="w-1.5 h-1.5 rounded-full" :class="isAlertMode ? 'bg-rose-500' : 'bg-sky-500'"></div>
-                    </div>
-                    <span>{{ isAlertMode ? 'SECURITY_MODE' : 'SYSTEM_IDLE' }}</span>
-                </div>
-
             </div>
         </div>
     </aside>
@@ -6978,8 +6999,8 @@ onMounted(() => {
 
 <file path="resources/js/Components/NeonSocialCore.vue">
 <script setup>
-// 1. Přidány importy onMounted a onUnmounted pro řízení WebSocket posluchačů
 import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { useNotificationStore } from '@/Stores/useNotificationStore';
 import NeonNav from './NeonNav.vue';
 import NeonSocialActions from './NeonSocialActions.vue';
 import NeonTechDashboard from './NeonTechDashboard.vue';
@@ -6992,47 +7013,24 @@ const props = defineProps({
     isOpened: { type: Boolean, default: false }
 });
 
-// --- STAVY PRO NAVIGACI ---
+const store = useNotificationStore();
+
 const activeTab = ref('feed');
 const dashboardMode = ref('stats');
 const selectedEntityId = ref(null);
-
-// --- STAVY PRO FÁZE ---
 const stage1 = ref(false);
 const stage2 = ref(false);
 const stage3 = ref(false);
 
-
-const notifications = ref([
-    { id: 1, type: 'alert', title: 'SECURITY_BREACH', msg: 'Unauthorized uplink from sector 7G.', time: '14:20' },
-    { id: 2, type: 'info', title: 'SYSTEM_SYNC', msg: 'Neural networks are 100% stable.', time: '12:05' },
-    { id: 3, type: 'alert', title: 'DATA_ENCRYPTION', msg: 'Incoming packet needs decryption.', time: '09:45' }
-]);
-
-// -- STAV PRO ALERT --
-const hasUnreadAlerts = ref(false);
-
-
-// --- LOGIKA PŘEPÍNÁNÍ ---
 const handleViewChange = (payload) => {
     if (!stage3.value) return;
-
     const view = typeof payload === 'string' ? payload : payload.view;
     const fromMobile = payload?.fromMobile || false;
 
-    if (view === 'notifications') {
-        dashboardMode.value = dashboardMode.value === 'alerts' ? 'stats' : 'alerts';
-
-        // JAKMILE KLIKNE NA ALERTS, TEČKA ZHASNE
-        hasUnreadAlerts.value = false;
-
-        if (fromMobile) {
-            activeTab.value = 'notifications';
-        }
-        return;
-    }
-
     activeTab.value = view;
+    dashboardMode.value = (view === 'notifications') ? 'alerts' : 'stats';
+
+    if (view === 'notifications') store.clearAlerts();
     if (view === 'feed') selectedEntityId.value = null;
 };
 
@@ -7041,46 +7039,24 @@ const openEntityProfile = (id) => {
     activeTab.value = 'profile';
 };
 
-// --- WATCHER PRO SPOUŠTĚNÍ SYSTÉMU ---
 watch(() => props.isOpened, (newVal) => {
     if (newVal) {
         setTimeout(() => { stage1.value = true; }, 100);
         setTimeout(() => { stage2.value = true; }, 500);
         setTimeout(() => { stage3.value = true; }, 900);
     } else {
-        stage1.value = false;
-        stage2.value = false;
-        stage3.value = false;
-        activeTab.value = 'feed';
-        dashboardMode.value = 'stats';
-        selectedEntityId.value = null;
+        stage1.value = false; stage2.value = false; stage3.value = false;
+        activeTab.value = 'feed'; dashboardMode.value = 'stats';
     }
 }, { immediate: true });
 
-// 3. Aktivace mostu po namontování komponenty
 onMounted(() => {
     window.Echo.channel('system-alerts')
         .listen('.App\\Events\\SystemAlertTriggered', (e) => {
-            console.log('📡 Reverb zachycen:', e.message);
-
-            const nyni = new Date();
-            const formatovanyCas = nyni.getHours().toString().padStart(2, '0') + ':' + nyni.getMinutes().toString().padStart(2, '0');
-
-            // 2. Tady se děje ta magie - přidáme novou zprávu na začátek pole
-            notifications.value.unshift({
-                id: Date.now(),
-                type: 'alert',
-                title: 'SYSTEM_PUSH',
-                msg: e.message,
-                time: formatovanyCas
-            });
-
-            // Rozsvítíme červenou tečku na panelu
-            hasUnreadAlerts.value = true;
+            store.addAlert(e.message);
         });
 });
 
-// 4. Čisté odpojení při destrukci komponenty (prevence paměťových leaků)
 onUnmounted(() => {
     window.Echo.leaveChannel('system-alerts');
 });
@@ -7088,70 +7064,50 @@ onUnmounted(() => {
 
 <template>
     <div id="neon-scanline-layer" class="pointer-events-none z-50"></div>
-
     <div class="absolute inset-0 h-[100dvh] w-full transition-all duration-[1200ms] ease-out overflow-hidden"
         :class="[isOpened ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none']">
         <template v-if="stage1">
-
             <template v-if="stage2">
                 <NeonNav class="animate-in fade-in duration-700" />
-
-                <NeonSocialActions class="hidden xl:block" :active-tab="activeTab" :has-alert="hasUnreadAlerts"
-                    @change-view="handleViewChange" />
-
+                <NeonSocialActions class="hidden xl:block" :active-tab="activeTab" @change-view="handleViewChange" />
                 <NeonSocialActions class="block xl:hidden" :is-mobile="true" :active-tab="activeTab"
-                    :has-alert="hasUnreadAlerts" @change-view="handleViewChange" />
-
-                <NeonTechDashboard :isOpened="isOpened" :mode="dashboardMode" :notifications="notifications"
+                    @change-view="handleViewChange" />
+                <NeonTechDashboard :isOpened="isOpened" :mode="dashboardMode"
                     class="hidden xl:block animate-in fade-in duration-700" />
             </template>
-
             <div class="h-full w-full flex justify-center items-stretch md:px-0">
                 <template v-if="stage3">
                     <transition name="depth-zoom" mode="out-in">
-
                         <div v-if="activeTab === 'feed' || activeTab === 'notifications'" key="feed"
                             class="w-full flex flex-col items-stretch grow justify-center max-w-4xl mx-auto h-full relative">
-
                             <NeonSocialFeed class="animate-in zoom-in-95 fade-in duration-700 w-full h-full"
                                 :class="activeTab === 'notifications' ? 'hidden xl:block' : 'block'" />
-
                             <div v-if="activeTab === 'notifications'"
                                 class="absolute inset-0 flex xl:hidden items-center justify-center p-6 pb-28 animate-in zoom-in-95 fade-in duration-300 z-10">
-
                                 <div
-                                    class="w-full max-w-[290px] md:max-w-md lg:max-w-2xl h-full max-h-[62vh] md:max-h-[55vh] lg:max-h-[65vh] flex items-center justify-center">
+                                    class="w-full max-w-[290px] md:max-w-md lg:max-w-2xl h-full max-h-[62vh] flex items-center justify-center">
                                     <NeonTechDashboard :isOpened="isOpened" :mode="dashboardMode"
-                                        :notifications="notifications" class="w-full h-full" />
+                                        class="w-full h-full" />
                                 </div>
                             </div>
                         </div>
-
                         <div v-else-if="activeTab === 'messages'" key="messages"
                             class="w-full h-full overflow-y-auto no-scrollbar pt-[12vh] pb-[12vh] px-4 flex justify-center items-start md:items-center max-w-2xl mx-auto grow">
                             <NeonMessages @back="activeTab = 'feed'"
                                 class="w-full animate-in zoom-in-95 fade-in duration-700" />
                         </div>
-
                         <div v-else-if="activeTab === 'friends'" key="friends"
                             class="w-full h-full overflow-y-auto no-scrollbar pt-[12vh] pb-[12vh] px-4 flex justify-center items-start md:items-center max-w-2xl mx-auto grow">
                             <NeonFriends @back="activeTab = 'feed'" @view-profile="openEntityProfile"
                                 class="w-full animate-in zoom-in-95 fade-in duration-700" />
                         </div>
-
                         <div v-else-if="activeTab === 'profile'" key="profile"
                             class="w-full h-full overflow-y-auto no-scrollbar pt-[12vh] pb-[12vh] px-4 flex justify-center items-center max-w-4xl mx-auto grow">
                             <NeonUserProfile :entityId="selectedEntityId" @back="activeTab = 'friends'"
                                 class="w-full animate-in zoom-in-95 fade-in duration-700" />
                         </div>
-
                     </transition>
                 </template>
-            </div>
-
-            <div class="fixed inset-0 -z-10 bg-[#02040a]">
-                <div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_50%_50%,#1e293b,transparent)]">
-                </div>
             </div>
         </template>
     </div>
@@ -7176,7 +7132,6 @@ onUnmounted(() => {
     filter: blur(12px);
 }
 
-/* ⚠️ TYHLE TŘÍDY JSOU KLÍČOVÉ PRO SPRÁVNÝ HYBRIDNÍ SCROLL FEEDU - NESMAZAT */
 .animate-in {
     animation-fill-mode: forwards;
 }
@@ -7193,11 +7148,6 @@ onUnmounted(() => {
 
 .fade-in {
     animation: fadeIn 0.8s ease-out;
-}
-
-.depth-zoom-enter-active :deep(> *),
-.depth-zoom-leave-active :deep(> *) {
-    will-change: transform, opacity;
 }
 </style>
 </file>

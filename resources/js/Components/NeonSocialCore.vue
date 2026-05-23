@@ -1,6 +1,6 @@
 <script setup>
-// 1. Přidány importy onMounted a onUnmounted pro řízení WebSocket posluchačů
-import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { ref, watch } from 'vue';
+import { useNotificationStore } from '@/Stores/useNotificationStore';
 import NeonNav from './NeonNav.vue';
 import NeonSocialActions from './NeonSocialActions.vue';
 import NeonTechDashboard from './NeonTechDashboard.vue';
@@ -13,47 +13,37 @@ const props = defineProps({
     isOpened: { type: Boolean, default: false }
 });
 
-// --- STAVY PRO NAVIGACI ---
+const store = useNotificationStore();
+
+// --- STAVY ---
 const activeTab = ref('feed');
 const dashboardMode = ref('stats');
 const selectedEntityId = ref(null);
-
-// --- STAVY PRO FÁZE ---
 const stage1 = ref(false);
 const stage2 = ref(false);
 const stage3 = ref(false);
 
-
-const notifications = ref([
-    { id: 1, type: 'alert', title: 'SECURITY_BREACH', msg: 'Unauthorized uplink from sector 7G.', time: '14:20' },
-    { id: 2, type: 'info', title: 'SYSTEM_SYNC', msg: 'Neural networks are 100% stable.', time: '12:05' },
-    { id: 3, type: 'alert', title: 'DATA_ENCRYPTION', msg: 'Incoming packet needs decryption.', time: '09:45' }
-]);
-
-// -- STAV PRO ALERT --
-const hasUnreadAlerts = ref(false);
-
-
-// --- LOGIKA PŘEPÍNÁNÍ ---
+// --- LOGIKA ---
 const handleViewChange = (payload) => {
     if (!stage3.value) return;
 
     const view = typeof payload === 'string' ? payload : payload.view;
-    const fromMobile = payload?.fromMobile || false;
+    activeTab.value = view;
 
+    // Reset notifikací a přepnutí dashboardu
     if (view === 'notifications') {
         dashboardMode.value = dashboardMode.value === 'alerts' ? 'stats' : 'alerts';
-
-        // JAKMILE KLIKNE NA ALERTS, TEČKA ZHASNE
-        hasUnreadAlerts.value = false;
-
-        if (fromMobile) {
-            activeTab.value = 'notifications';
-        }
-        return;
+        store.markAlertsAsRead();
+    } else if (view === 'messages') {
+        store.markMessagesAsRead();
+        dashboardMode.value = 'stats';
+    } else if (view === 'friends') {
+        store.markRequestsAsRead();
+        dashboardMode.value = 'stats';
+    } else {
+        dashboardMode.value = 'stats';
     }
 
-    activeTab.value = view;
     if (view === 'feed') selectedEntityId.value = null;
 };
 
@@ -62,49 +52,17 @@ const openEntityProfile = (id) => {
     activeTab.value = 'profile';
 };
 
-// --- WATCHER PRO SPOUŠTĚNÍ SYSTÉMU ---
+// --- WATCHER ---
 watch(() => props.isOpened, (newVal) => {
     if (newVal) {
         setTimeout(() => { stage1.value = true; }, 100);
         setTimeout(() => { stage2.value = true; }, 500);
         setTimeout(() => { stage3.value = true; }, 900);
     } else {
-        stage1.value = false;
-        stage2.value = false;
-        stage3.value = false;
-        activeTab.value = 'feed';
-        dashboardMode.value = 'stats';
-        selectedEntityId.value = null;
+        stage1.value = false; stage2.value = false; stage3.value = false;
+        activeTab.value = 'feed'; dashboardMode.value = 'stats';
     }
 }, { immediate: true });
-
-// 3. Aktivace mostu po namontování komponenty
-onMounted(() => {
-    window.Echo.channel('system-alerts')
-        .listen('.App\\Events\\SystemAlertTriggered', (e) => {
-            console.log('📡 Reverb zachycen:', e.message);
-
-            const nyni = new Date();
-            const formatovanyCas = nyni.getHours().toString().padStart(2, '0') + ':' + nyni.getMinutes().toString().padStart(2, '0');
-
-            // 2. Tady se děje ta magie - přidáme novou zprávu na začátek pole
-            notifications.value.unshift({
-                id: Date.now(),
-                type: 'alert',
-                title: 'SYSTEM_PUSH',
-                msg: e.message,
-                time: formatovanyCas
-            });
-
-            // Rozsvítíme červenou tečku na panelu
-            hasUnreadAlerts.value = true;
-        });
-});
-
-// 4. Čisté odpojení při destrukci komponenty (prevence paměťových leaků)
-onUnmounted(() => {
-    window.Echo.leaveChannel('system-alerts');
-});
 </script>
 
 <template>
@@ -112,38 +70,32 @@ onUnmounted(() => {
 
     <div class="absolute inset-0 h-[100dvh] w-full transition-all duration-[1200ms] ease-out overflow-hidden"
         :class="[isOpened ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none']">
-        <template v-if="stage1">
 
+        <template v-if="stage1">
             <template v-if="stage2">
                 <NeonNav class="animate-in fade-in duration-700" />
-
-                <NeonSocialActions class="hidden xl:block" :active-tab="activeTab" :has-alert="hasUnreadAlerts"
-                    @change-view="handleViewChange" />
-
+                <NeonSocialActions class="hidden xl:block" :active-tab="activeTab" @change-view="handleViewChange" />
                 <NeonSocialActions class="block xl:hidden" :is-mobile="true" :active-tab="activeTab"
-                    :has-alert="hasUnreadAlerts" @change-view="handleViewChange" />
-
-                <NeonTechDashboard :isOpened="isOpened" :mode="dashboardMode" :notifications="notifications"
+                    @change-view="handleViewChange" />
+                <NeonTechDashboard :isOpened="isOpened" :mode="dashboardMode"
                     class="hidden xl:block animate-in fade-in duration-700" />
             </template>
 
             <div class="h-full w-full flex justify-center items-stretch md:px-0">
                 <template v-if="stage3">
                     <transition name="depth-zoom" mode="out-in">
-
                         <div v-if="activeTab === 'feed' || activeTab === 'notifications'" key="feed"
                             class="w-full flex flex-col items-stretch grow justify-center max-w-4xl mx-auto h-full relative">
 
                             <NeonSocialFeed class="animate-in zoom-in-95 fade-in duration-700 w-full h-full"
-                                :class="activeTab === 'notifications' ? 'hidden xl:block' : 'block'" />
+                                :class="{ 'hidden xl:block': activeTab === 'notifications' }" />
 
                             <div v-if="activeTab === 'notifications'"
                                 class="absolute inset-0 flex xl:hidden items-center justify-center p-6 pb-28 animate-in zoom-in-95 fade-in duration-300 z-10">
-
                                 <div
-                                    class="w-full max-w-[290px] md:max-w-md lg:max-w-2xl h-full max-h-[62vh] md:max-h-[55vh] lg:max-h-[65vh] flex items-center justify-center">
+                                    class="w-full max-w-[290px] md:max-w-md h-full max-h-[62vh] flex items-center justify-center">
                                     <NeonTechDashboard :isOpened="isOpened" :mode="dashboardMode"
-                                        :notifications="notifications" class="w-full h-full" />
+                                        class="w-full h-full" />
                                 </div>
                             </div>
                         </div>
@@ -165,14 +117,8 @@ onUnmounted(() => {
                             <NeonUserProfile :entityId="selectedEntityId" @back="activeTab = 'friends'"
                                 class="w-full animate-in zoom-in-95 fade-in duration-700" />
                         </div>
-
                     </transition>
                 </template>
-            </div>
-
-            <div class="fixed inset-0 -z-10 bg-[#02040a]">
-                <div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_50%_50%,#1e293b,transparent)]">
-                </div>
             </div>
         </template>
     </div>
@@ -213,10 +159,5 @@ onUnmounted(() => {
 
 .fade-in {
     animation: fadeIn 0.8s ease-out;
-}
-
-.depth-zoom-enter-active :deep(> *),
-.depth-zoom-leave-active :deep(> *) {
-    will-change: transform, opacity;
 }
 </style>

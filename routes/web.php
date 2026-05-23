@@ -1,10 +1,14 @@
 <?php
 
+use App\Events\FriendRequestReceived;
+use App\Events\MessageReceived;
 use App\Events\SystemAlertTriggered;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia; // 🚨 TENTO ŘÁDEK TADY MUSÍ BÝT!
+use Inertia\Inertia;
+
+ // 🚨 TENTO ŘÁDEK TADY MUSÍ BÝT!
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -26,9 +30,28 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::get('/test-signal', function () {
-    event(new SystemAlertTriggered('Krizový stav aktivován! Reverb funguje.'));
+    // Teď posíláme ID uživatele, aby Event věděl, kam broadcastovat
+    event(new SystemAlertTriggered(auth()->id(), 'Krizový stav aktivován!'));
 
-    return 'Signál odpálen do WebSocketu!';
+    return 'Signál odpálen!';
+});
+
+Route::get('/test-message', function () {
+    event(new MessageReceived(auth()->id(), [
+        'sender' => 'CYBER_OPERATOR',
+        'text' => 'Připojení k uzlu navázáno.',
+    ]));
+
+    return 'Zpráva odeslána přes event!';
+});
+
+Route::get('/test-friend', function () {
+    event(new FriendRequestReceived(auth()->id(), [
+        'id' => 999, // Unikátní ID uživatele, co žádá
+        'name' => 'CYBER_UNIT_01',
+    ]));
+
+    return 'Žádost odeslána!';
 });
 
 require __DIR__.'/auth.php';
