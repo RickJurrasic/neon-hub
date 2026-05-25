@@ -16,15 +16,20 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 🌌 Vytvoříme hlavního Demo rekrutera, kterého middleware automaticky přihlásí
-        User::create([
-            'name' => 'Recruiter Phantom',
-            'email' => 'demo@neonhub.io',
-            'handle' => '@recruiter_alpha',
-            'faction' => 'CORPO_ELITE',
-            'password' => Hash::make('neon-secret-password-2026'), // Heslo je fuk, auth je natvrdo
-        ]);
+        // 🌌 Vytvoříme hlavního Demo rekrutera
+        User::updateOrCreate(
+            ['email' => 'demo@neonhub.io'],
+            [
+                'name' => 'Recruiter Phantom',
+                'handle' => '@recruiter_alpha',
+                'faction' => 'CORPO_ELITE',
+                'password' => Hash::make('neon-secret-password-2026'),
+            ]
+        );
 
-        // Sem pak časem můžeme přisypat ty další entity (Elysia V, Vector Prime atd.)
+        // 🤖 Inicializace systémových entit (AI agentů)
+        $this->call([
+            BotSeeder::class,
+        ]);
     }
 }
