@@ -35,7 +35,6 @@ class HandleInertiaRequests extends Middleware
                     'id' => $request->user()->id,
                     'name' => $request->user()->name,
                     'email' => $request->user()->email,
-                    // 🌌 Tvoje nové sloupce, které Vue komponenty potřebují:
                     'handle' => $request->user()->handle,
                     'faction' => $request->user()->faction,
                     'status_text' => $request->user()->status_text,

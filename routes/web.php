@@ -1,14 +1,14 @@
 <?php
 
-use App\Events\FriendRequestReceived;
 use App\Events\MessageReceived;
 use App\Events\SystemAlertTriggered;
 use App\Http\Controllers\ProfileController;
+use App\Jobs\SendFriendRequest;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
- // 🚨 TENTO ŘÁDEK TADY MUSÍ BÝT!
+// 🚨 TENTO ŘÁDEK TADY MUSÍ BÝT!
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -46,12 +46,11 @@ Route::get('/test-message', function () {
 });
 
 Route::get('/test-friend', function () {
-    event(new FriendRequestReceived(auth()->id(), [
-        'id' => 999, // Unikátní ID uživatele, co žádá
-        'name' => 'CYBER_UNIT_01',
-    ]));
+    // Dispatchne job, který se po 3 sekundách automaticky provede
+    SendFriendRequest::dispatch(auth()->id(), 999)
+        ->delay(now()->addSeconds(3));
 
-    return 'Žádost odeslána!';
+    return 'Žádost o přátelství byla naplánována za 3 sekundy.';
 });
 
 require __DIR__.'/auth.php';

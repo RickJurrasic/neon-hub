@@ -88,6 +88,7 @@ database/factories/UserFactory.php
 database/migrations/0001_01_01_000000_create_users_table.php
 database/migrations/0001_01_01_000001_create_cache_table.php
 database/migrations/0001_01_01_000002_create_jobs_table.php
+database/seeders/BotSeeder.php
 database/seeders/DatabaseSeeder.php
 jsconfig.json
 package.json
@@ -98,6 +99,9 @@ preview2.png
 preview3.png
 public/.htaccess
 public/favicon.ico
+public/images/avatars/ghost_user.png
+public/images/avatars/sentinel_01.png
+public/images/avatars/vectra_core.png
 public/index.php
 public/robots.txt
 README.md
@@ -2616,6 +2620,56 @@ return new class extends Migration
         Schema::dropIfExists('failed_jobs');
     }
 };
+</file>
+
+<file path="database/seeders/BotSeeder.php">
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\User;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+
+class BotSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $bots = [
+            [
+                'name' => 'VECTRA_CORE',
+                'email' => 'vectra@neonhub.system',
+                'handle' => '@vectra_core',
+                'faction' => 'ARCHITECT',
+                'avatar_url' => '/images/avatars/vectra_core.png', // Přidaná cesta
+                'password' => Hash::make('password123'),
+            ],
+            [
+                'name' => 'SENTINEL_01',
+                'email' => 'sentinel@neonhub.system',
+                'handle' => '@sentinel_01',
+                'faction' => 'DEFENSE',
+                'avatar_url' => '/images/avatars/sentinel_01.png', // Přidaná cesta
+                'password' => Hash::make('password123'),
+            ],
+            [
+                'name' => 'GHOST_USER',
+                'email' => 'ghost@neonhub.system',
+                'handle' => '@ghost_user',
+                'faction' => 'SOCIAL',
+                'avatar_url' => '/images/avatars/ghost_user.png', // Přidaná cesta
+                'password' => Hash::make('password123'),
+            ],
+        ];
+
+        foreach ($bots as $bot) {
+            User::updateOrCreate(
+                ['email' => $bot['email']], // Hledá podle emailu
+                $bot                         // Pokud nenajde, vytvoří; pokud najde, aktualizuje
+            );
+        }
+    }
+}
 </file>
 
 <file path="jsconfig.json">
@@ -5208,115 +5262,6 @@ class HandleInertiaRequests extends Middleware
 }
 </file>
 
-<file path="config/reverb.php">
-<?php
-
-return [
-
-    /*
-    |--------------------------------------------------------------------------
-    | Default Reverb Server
-    |--------------------------------------------------------------------------
-    |
-    | This option controls the default server used by Reverb to handle
-    | incoming messages as well as broadcasting message to all your
-    | connected clients. At this time only "reverb" is supported.
-    |
-    */
-
-    'default' => env('REVERB_SERVER', 'reverb'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Reverb Servers
-    |--------------------------------------------------------------------------
-    |
-    | Here you may define details for each of the supported Reverb servers.
-    | Each server has its own configuration options that are defined in
-    | the array below. You should ensure all the options are present.
-    |
-    */
-
-    'servers' => [
-
-        'reverb' => [
-            'host' => env('REVERB_SERVER_HOST', '127.0.0.1'),
-            'port' => env('REVERB_SERVER_PORT', 8080),
-            'path' => env('REVERB_SERVER_PATH', ''),
-            'hostname' => env('REVERB_HOST', 'neon-hub.test'),
-            'options' => [
-                'tls' => [
-                    'local_cert' => 'C:\Users\jurra\.config\herd\config\valet\Certificates\neon-hub.test.crt',
-                    'local_pk' => 'C:\Users\jurra\.config\herd\config\valet\Certificates\neon-hub.test.key',
-                    'verify_peer' => false,
-                ],
-            ],
-            'max_request_size' => env('REVERB_MAX_REQUEST_SIZE', 10_000),
-            'scaling' => [
-                'enabled' => env('REVERB_SCALING_ENABLED', false),
-                'channel' => env('REVERB_SCALING_CHANNEL', 'reverb'),
-                'server' => [
-                    'url' => env('REDIS_URL'),
-                    'host' => env('REDIS_HOST', '127.0.0.1'),
-                    'port' => env('REDIS_PORT', '6379'),
-                    'username' => env('REDIS_USERNAME'),
-                    'password' => env('REDIS_PASSWORD'),
-                    'database' => env('REDIS_DB', '0'),
-                    'timeout' => env('REDIS_TIMEOUT', 60),
-                ],
-            ],
-            'pulse_ingest_interval' => env('REVERB_PULSE_INGEST_INTERVAL', 15),
-            'telescope_ingest_interval' => env('REVERB_TELESCOPE_INGEST_INTERVAL', 15),
-        ],
-
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Reverb Applications
-    |--------------------------------------------------------------------------
-    |
-    | Here you may define how Reverb applications are managed. If you choose
-    | to use the "config" provider, you may define an array of apps which
-    | your server will support, including their connection credentials.
-    |
-    */
-
-    'apps' => [
-
-        'provider' => 'config',
-
-        'apps' => [
-            [
-                'key' => env('REVERB_APP_KEY'),
-                'secret' => env('REVERB_APP_SECRET'),
-                'app_id' => env('REVERB_APP_ID'),
-                'options' => [
-                    'host' => env('REVERB_HOST', 'neon-hub.test'),
-                    'port' => env('REVERB_PORT', 8080),
-                    'scheme' => 'https',
-                    'useTLS' => true,
-                ],
-                'allowed_origins' => ['*'],
-                'ping_interval' => env('REVERB_APP_PING_INTERVAL', 60),
-                'activity_timeout' => env('REVERB_APP_ACTIVITY_TIMEOUT', 30),
-                'max_connections' => env('REVERB_APP_MAX_CONNECTIONS'),
-                'max_message_size' => env('REVERB_APP_MAX_MESSAGE_SIZE', 10_000),
-                'accept_client_events_from' => env('REVERB_APP_ACCEPT_CLIENT_EVENTS_FROM', 'members'),
-                'rate_limiting' => [
-                    'enabled' => env('REVERB_APP_RATE_LIMITING_ENABLED', false),
-                    'max_attempts' => env('REVERB_APP_RATE_LIMIT_MAX_ATTEMPTS', 60),
-                    'decay_seconds' => env('REVERB_APP_RATE_LIMIT_DECAY_SECONDS', 60),
-                    'terminate_on_limit' => env('REVERB_APP_RATE_LIMIT_TERMINATE', false),
-                ],
-            ],
-        ],
-
-    ],
-
-];
-</file>
-
 <file path="database/migrations/0001_01_01_000000_create_users_table.php">
 <?php
 
@@ -5373,67 +5318,6 @@ return new class extends Migration
         Schema::dropIfExists('sessions');
     }
 };
-</file>
-
-<file path="database/seeders/DatabaseSeeder.php">
-<?php
-
-namespace Database\Seeders;
-
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
-
-class DatabaseSeeder extends Seeder
-{
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
-    public function run(): void
-    {
-        // 🌌 Vytvoříme hlavního Demo rekrutera, kterého middleware automaticky přihlásí
-        User::create([
-            'name' => 'Recruiter Phantom',
-            'email' => 'demo@neonhub.io',
-            'handle' => '@recruiter_alpha',
-            'faction' => 'CORPO_ELITE',
-            'password' => Hash::make('neon-secret-password-2026'), // Heslo je fuk, auth je natvrdo
-        ]);
-
-        // Sem pak časem můžeme přisypat ty další entity (Elysia V, Vector Prime atd.)
-    }
-}
-</file>
-
-<file path="resources/js/bootstrap.js">
-import axios from 'axios';
-window.axios = axios;
-
-window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-
-/**
- * Echo exposes an expressive API for subscribing to channels and listening
- * for events that are broadcast by the server. Echo and the event
- * broadcasting system provide your team with powerful real-time tools.
- */
-
-import Echo from 'laravel-echo';
-import Pusher from 'pusher-js';
-
-window.Pusher = Pusher;
-
-window.Echo = new Echo({
-    broadcaster: 'reverb',
-    key: import.meta.env.VITE_REVERB_APP_KEY,
-    wsHost: import.meta.env.VITE_REVERB_HOST || 'neon-hub.test',
-    wsPort: import.meta.env.VITE_REVERB_PORT ?? 8080,
-    wssPort: import.meta.env.VITE_REVERB_PORT ?? 8080,
-    forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
-    enabledTransports: ['ws', 'wss'],
-});
 </file>
 
 <file path="resources/js/Components/NeonCommentSection.vue">
@@ -5846,6 +5730,174 @@ class User extends Authenticatable
         ];
     }
 }
+</file>
+
+<file path="config/reverb.php">
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Reverb Server
+    |--------------------------------------------------------------------------
+    |
+    | This option controls the default server used by Reverb to handle
+    | incoming messages as well as broadcasting message to all your
+    | connected clients. At this time only "reverb" is supported.
+    |
+    */
+
+    'default' => env('REVERB_SERVER', 'reverb'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reverb Servers
+    |--------------------------------------------------------------------------
+    |
+    | Here you may define details for each of the supported Reverb servers.
+    | Each server has its own configuration options that are defined in
+    | the array below. You should ensure all the options are present.
+    |
+    */
+
+    'servers' => [
+
+        'reverb' => [
+            'host' => env('REVERB_SERVER_HOST', '127.0.0.1'),
+            'port' => env('REVERB_SERVER_PORT', 8080),
+            'path' => env('REVERB_SERVER_PATH', ''),
+            'hostname' => env('REVERB_HOST', 'neon-hub.test'),
+            'max_request_size' => env('REVERB_MAX_REQUEST_SIZE', 10_000),
+            'scaling' => [
+                'enabled' => env('REVERB_SCALING_ENABLED', false),
+                'channel' => env('REVERB_SCALING_CHANNEL', 'reverb'),
+                'server' => [
+                    'url' => env('REDIS_URL'),
+                    'host' => env('REDIS_HOST', '127.0.0.1'),
+                    'port' => env('REDIS_PORT', '6379'),
+                    'username' => env('REDIS_USERNAME'),
+                    'password' => env('REDIS_PASSWORD'),
+                    'database' => env('REDIS_DB', '0'),
+                    'timeout' => env('REDIS_TIMEOUT', 60),
+                ],
+            ],
+            'pulse_ingest_interval' => env('REVERB_PULSE_INGEST_INTERVAL', 15),
+            'telescope_ingest_interval' => env('REVERB_TELESCOPE_INGEST_INTERVAL', 15),
+        ],
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reverb Applications
+    |--------------------------------------------------------------------------
+    |
+    | Here you may define how Reverb applications are managed. If you choose
+    | to use the "config" provider, you may define an array of apps which
+    | your server will support, including their connection credentials.
+    |
+    */
+
+    'apps' => [
+
+        'provider' => 'config',
+
+        'apps' => [
+            [
+                'key' => env('REVERB_APP_KEY'),
+                'secret' => env('REVERB_APP_SECRET'),
+                'app_id' => env('REVERB_APP_ID'),
+                'options' => [
+                    'host' => env('REVERB_HOST', 'neon-hub.test'),
+                    'port' => env('REVERB_PORT', 8080),
+                    'scheme' => 'https',
+                    'useTLS' => true,
+                ],
+                'allowed_origins' => ['*'],
+                'ping_interval' => env('REVERB_APP_PING_INTERVAL', 60),
+                'activity_timeout' => env('REVERB_APP_ACTIVITY_TIMEOUT', 30),
+                'max_connections' => env('REVERB_APP_MAX_CONNECTIONS'),
+                'max_message_size' => env('REVERB_APP_MAX_MESSAGE_SIZE', 10_000),
+                'accept_client_events_from' => env('REVERB_APP_ACCEPT_CLIENT_EVENTS_FROM', 'members'),
+                'rate_limiting' => [
+                    'enabled' => env('REVERB_APP_RATE_LIMITING_ENABLED', false),
+                    'max_attempts' => env('REVERB_APP_RATE_LIMIT_MAX_ATTEMPTS', 60),
+                    'decay_seconds' => env('REVERB_APP_RATE_LIMIT_DECAY_SECONDS', 60),
+                    'terminate_on_limit' => env('REVERB_APP_RATE_LIMIT_TERMINATE', false),
+                ],
+            ],
+        ],
+
+    ],
+
+];
+</file>
+
+<file path="database/seeders/DatabaseSeeder.php">
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\User;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+
+class DatabaseSeeder extends Seeder
+{
+    use WithoutModelEvents;
+
+    /**
+     * Seed the application's database.
+     */
+    public function run(): void
+    {
+        // 🌌 Vytvoříme hlavního Demo rekrutera
+        User::updateOrCreate(
+            ['email' => 'demo@neonhub.io'],
+            [
+                'name' => 'Recruiter Phantom',
+                'handle' => '@recruiter_alpha',
+                'faction' => 'CORPO_ELITE',
+                'password' => Hash::make('neon-secret-password-2026'),
+            ]
+        );
+
+        // 🤖 Inicializace systémových entit (AI agentů)
+        $this->call([
+            BotSeeder::class,
+        ]);
+    }
+}
+</file>
+
+<file path="resources/js/bootstrap.js">
+import axios from 'axios';
+window.axios = axios;
+
+window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+
+/**
+ * Echo exposes an expressive API for subscribing to channels and listening
+ * for events that are broadcast by the server. Echo and the event
+ * broadcasting system provide your team with powerful real-time tools.
+ */
+
+import Echo from 'laravel-echo';
+import Pusher from 'pusher-js';
+
+window.Pusher = Pusher;
+
+window.Echo = new Echo({
+    broadcaster: 'reverb',
+    key: import.meta.env.VITE_REVERB_APP_KEY,
+    wsHost: import.meta.env.VITE_REVERB_HOST,
+    wsPort: import.meta.env.VITE_REVERB_PORT,
+    wssPort: import.meta.env.VITE_REVERB_PORT,
+    forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
+    enabledTransports: ['ws', 'wss'],
+});
 </file>
 
 <file path="resources/js/Components/NeonMessages.vue">

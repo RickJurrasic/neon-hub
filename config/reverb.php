@@ -49,6 +49,14 @@ return [
             ],
             'pulse_ingest_interval' => env('REVERB_PULSE_INGEST_INTERVAL', 15),
             'telescope_ingest_interval' => env('REVERB_TELESCOPE_INGEST_INTERVAL', 15),
+            'options' => [
+                'tls' => [
+                    'local_cert' => env('REVERB_TLS_CERT'),
+                    'local_pk' => env('REVERB_TLS_KEY'),
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                ],
+            ],
         ],
 
     ],

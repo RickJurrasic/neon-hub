@@ -44,6 +44,21 @@ export const useNotificationStore = defineStore('notifications', {
             });
         },
 
+        // Tato metoda propojí tvůj store s Reverbem
+        initListeners(userId) {
+            window.Echo.private(`App.Models.User.${userId}`)
+                .listen('FriendRequestReceived', (e) => {
+                    // e.data obsahuje to, co posíláš v Eventě
+                    this.addFriendRequest(e.data);
+                })
+                .listen('MessageReceived', (e) => {
+                    this.addMessage(e.data);
+                })
+                .listen('AlertReceived', (e) => {
+                    this.addAlert(e.data);
+                });
+        },
+
         // Označování za přečtené
         markMessagesAsRead() {
             this.messages.forEach(m => m.read = true);
