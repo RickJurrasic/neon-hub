@@ -36,28 +36,33 @@ export const useNotificationStore = defineStore('notifications', {
             });
         },
         addAlert(alert) {
-            this.alerts.push({
-                id: Date.now(),
-                read: false,
-                type: 'alert',
-                ...alert
-            });
-        },
+    this.alerts.push({
+        id: Date.now(),
+        read: false,
+        type: 'alert',
+        title: alert.title || 'SYSTEM_ALERT', // Přidej defaultní title
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), // Přidej čas
+        ...alert
+    });
+},
 
         // Tato metoda propojí tvůj store s Reverbem
         initListeners(userId) {
-            window.Echo.private(`App.Models.User.${userId}`)
-                .listen('FriendRequestReceived', (e) => {
-                    // e.data obsahuje to, co posíláš v Eventě
-                    this.addFriendRequest(e.data);
-                })
-                .listen('MessageReceived', (e) => {
-                    this.addMessage(e.data);
-                })
-                .listen('AlertReceived', (e) => {
-                    this.addAlert(e.data);
-                });
-        },
+    if (this.isListening) return;
+    this.isListening = true;
+
+    window.Echo.private(`App.Models.User.${userId}`)
+        .listen('FriendRequestReceived', (e) => { this.addFriendRequest(e.data); })
+        .listen('MessageReceived', (e) => { this.addMessage(e.data); })
+        .listen('.SystemAlertTriggered', (e) => {
+    const payload = e.data?.data?.message || e.message || 'Krizový stav aktivován!';
+
+    this.addAlert({
+        title: 'KRIZOVÝ_STAV',
+        msg: payload
+    });
+});
+},
 
         // Označování za přečtené
         markMessagesAsRead() {

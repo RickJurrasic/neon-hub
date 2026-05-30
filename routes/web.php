@@ -1,14 +1,12 @@
 <?php
 
-use App\Events\MessageReceived;
 use App\Events\SystemAlertTriggered;
 use App\Http\Controllers\ProfileController;
 use App\Jobs\SendFriendRequest;
+use App\Jobs\SendMessage;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-
-// 🚨 TENTO ŘÁDEK TADY MUSÍ BÝT!
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -18,10 +16,6 @@ Route::get('/', function () {
         'phpVersion' => PHP_VERSION,
     ]);
 });
-
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -37,12 +31,12 @@ Route::get('/test-signal', function () {
 });
 
 Route::get('/test-message', function () {
-    event(new MessageReceived(auth()->id(), [
+    SendMessage::dispatch(auth()->id(), [
         'sender' => 'CYBER_OPERATOR',
         'text' => 'Připojení k uzlu navázáno.',
-    ]));
+    ])->delay(now()->addSeconds(1)); // Zpoždění 5 sekund
 
-    return 'Zpráva odeslána přes event!';
+    return 'Zpráva naplánována za 5 sekund.';
 });
 
 Route::get('/test-friend', function () {
@@ -52,5 +46,9 @@ Route::get('/test-friend', function () {
 
     return 'Žádost o přátelství byla naplánována za 3 sekundy.';
 });
+
+Route::get('/dashboard', function () {
+    return inertia('Dashboard'); // nebo co tam teď máš místo dashboardu
+})->middleware(['auth', 'verified'])->name('dashboard');
 
 require __DIR__.'/auth.php';

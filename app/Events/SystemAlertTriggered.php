@@ -12,7 +12,6 @@ class SystemAlertTriggered implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    // Musíme přijmout userId v konstruktoru
     public function __construct(public int $userId, public string $message) {}
 
     public function broadcastOn(): array
@@ -21,5 +20,10 @@ class SystemAlertTriggered implements ShouldBroadcastNow
         return [
             new PrivateChannel('App.Models.User.'.$this->userId),
         ];
+    }
+
+    public function broadcastAs(): string
+    {
+        return 'SystemAlertTriggered'; // Teď máš jistotu, jak se event jmenuje
     }
 }

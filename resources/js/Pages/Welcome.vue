@@ -1,7 +1,7 @@
 <script setup>
-import { ref, watch } from 'vue'; // watch stačí, onMounted tu teď nevyužijeme
+import { ref, watch, onMounted } from 'vue'; // watch stačí, onMounted tu teď nevyužijeme
 import { useNotificationStore } from '@/Stores/useNotificationStore';
-import { usePage } from '@inertiajs/vue3'; // DŮLEŽITÉ: Import usePage
+import { usePage } from '@inertiajs/vue3';
 
 const isOpened = ref(false);
 const store = useNotificationStore();
@@ -10,6 +10,13 @@ const page = usePage(); // TADY jsi to měl chybějící!
 const openSystem = () => {
     isOpened.value = true;
 };
+
+onMounted(() => {
+    // Tady se inicializace provede jednou, když se komponenta "v systému" poprvé vykreslí
+    if (page.props.auth?.user) {
+        store.initListeners(page.props.auth.user.id);
+    }
+});
 
 // Teď už 'page' existuje a watch ji může použít
 watch(isOpened, (newVal) => {

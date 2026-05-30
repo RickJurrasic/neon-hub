@@ -1,35 +1,39 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import laravel from 'laravel-vite-plugin';
-import vue from '@vitejs/plugin-vue';
+import vue from '@vitejs/plugin-vue'; // Nezapomeň na tyto importy
 import Components from 'unplugin-vue-components/vite';
-import fs from 'fs'; // Přidáno pro čtení certifikátů
+import fs from 'fs';
 
-export default defineConfig({
-    server: {
-        // Konfigurace pro HTTPS pomocí tvých lokálních certifikátů
-        https: {
-            key: fs.readFileSync('./neon-hub.test-key.pem'),
-            cert: fs.readFileSync('./neon-hub.test.pem'),
-        },
-        host: 'neon-hub.test',
-    },
-    plugins: [
-        laravel({
-            input: 'resources/js/app.js',
-            refresh: true,
-        }),
-        vue({
-            template: {
-                transformAssetUrls: {
-                    base: null,
-                    includeAbsolute: false,
-                },
+export default defineConfig(({ mode }) => {
+    // Tady načteme env proměnné
+    const env = loadEnv(mode, process.cwd(), '');
+
+    return {
+        server: {
+            https: {
+                key: fs.readFileSync(env.REVERB_TLS_KEY),
+                cert: fs.readFileSync(env.REVERB_TLS_CERT),
             },
-        }),
-        Components({
-            dirs: ['resources/js/Components'],
-            extensions: ['vue'],
-            dts: true,
-        }),
-    ],
+            host: 'neon-hub.test',
+        },
+        plugins: [
+            laravel({
+                input: 'resources/js/app.js',
+                refresh: true,
+            }),
+            vue({
+                template: {
+                    transformAssetUrls: {
+                        base: null,
+                        includeAbsolute: false,
+                    },
+                },
+            }),
+            Components({
+                dirs: ['resources/js/Components'],
+                extensions: ['vue'],
+                dts: true,
+            }),
+        ],
+    };
 });

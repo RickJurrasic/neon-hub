@@ -15,9 +15,22 @@ class MessageReceived implements ShouldBroadcastNow
     /**
      * @param  array  $data  {sender: string, text: string}
      */
-    public function __construct(public int $userId, public array $data)
+    public function __construct(
+        public int $userId,
+        public array $data
+    ) {}
+
+    /**
+     * Definice dat, která skutečně poletí do prohlížeče.
+     */
+    public function broadcastWith(): array
     {
-        //
+        return [
+            'data' => [
+                'sender' => $this->data['sender'],
+                'text' => $this->data['text'],
+            ],
+        ];
     }
 
     public function broadcastOn(): array
