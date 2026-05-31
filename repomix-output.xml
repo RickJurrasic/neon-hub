@@ -64,6 +64,7 @@ app/Http/Middleware/HandleInertiaRequests.php
 app/Http/Requests/Auth/LoginRequest.php
 app/Http/Requests/ProfileUpdateRequest.php
 app/Jobs/SendFriendRequest.php
+app/Jobs/SendMessage.php
 app/Models/User.php
 app/Providers/AppServiceProvider.php
 artisan
@@ -143,13 +144,11 @@ resources/js/Pages/Auth/Login.vue
 resources/js/Pages/Auth/Register.vue
 resources/js/Pages/Auth/ResetPassword.vue
 resources/js/Pages/Auth/VerifyEmail.vue
-resources/js/Pages/Dashboard.vue
 resources/js/Pages/Profile/Edit.vue
 resources/js/Pages/Profile/Partials/DeleteUserForm.vue
 resources/js/Pages/Profile/Partials/UpdatePasswordForm.vue
 resources/js/Pages/Profile/Partials/UpdateProfileInformationForm.vue
 resources/js/Pages/Welcome.vue
-resources/js/Services/NotificationService.js
 resources/js/Stores/useNotificationStore.js
 resources/views/app.blade.php
 routes/auth.php
@@ -323,38 +322,6 @@ Thumbs.db
 
 <file path=".nvmrc">
 23
-</file>
-
-<file path="app/Events/MessageReceived.php">
-<?php
-
-namespace App\Events;
-
-use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
-use Illuminate\Foundation\Events\Dispatchable;
-use Illuminate\Queue\SerializesModels;
-
-class MessageReceived implements ShouldBroadcastNow
-{
-    use Dispatchable, InteractsWithSockets, SerializesModels;
-
-    /**
-     * @param  array  $data  {sender: string, text: string}
-     */
-    public function __construct(public int $userId, public array $data)
-    {
-        //
-    }
-
-    public function broadcastOn(): array
-    {
-        return [
-            new PrivateChannel('App.Models.User.'.$this->userId),
-        ];
-    }
-}
 </file>
 
 <file path="app/Http/Controllers/Auth/AuthenticatedSessionController.php">
@@ -1010,6 +977,33 @@ class SendFriendRequest implements ShouldQueue
             'name' => 'CYBER_UNIT_01',
             'avatar_url' => '/images/avatars/unit_01.png',
         ]));
+    }
+}
+</file>
+
+<file path="app/Jobs/SendMessage.php">
+<?php
+
+namespace App\Jobs;
+
+use App\Events\MessageReceived;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+
+class SendMessage implements ShouldQueue
+{
+    use Queueable;
+
+    // Musíš sem ty vlastnosti přidat, aby si je job pamatoval
+    public function __construct(
+        public int $userId,
+        public array $data
+    ) {}
+
+    public function handle(): void
+    {
+        // Teď už $this->userId i $this->data existují!
+        event(new MessageReceived($this->userId, $this->data));
     }
 }
 </file>
@@ -3703,61 +3697,6 @@ const verificationLinkSent = computed(
 </template>
 </file>
 
-<file path="resources/js/Pages/Dashboard.vue">
-<script setup>
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head } from '@inertiajs/vue3';
-</script>
-
-<template>
-    <Head title="Neon Dashboard" />
-
-    <AuthenticatedLayout>
-        <template #header>
-            <h2 class="font-semibold text-2xl text-cyan-400 leading-tight uppercase tracking-[0.2em] drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]">
-                Neon Hub Console
-            </h2>
-        </template>
-
-        <div class="py-12 bg-slate-950 min-h-screen">
-            <div class="max-auto max-w-7xl sm:px-6 lg:px-8">
-                <!-- HLAVNÍ KARTA S NEONOVÝM OKRAJEM -->
-                <div class="overflow-hidden bg-black border-2 border-cyan-500/50 shadow-[0_0_20px_rgba(6,182,212,0.3)] sm:rounded-xl">
-                    <div class="p-8">
-                        <div class="flex items-center justify-between">
-                            <div class="text-gray-100 font-mono">
-                                <p class="text-cyan-400 mb-2">>> SYSTEM_READY</p>
-                                <h3 class="text-3xl font-black italic">
-                                    VÍTEJ V <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500">NEONOVÉM REBOOTU</span>
-                                </h3>
-                                <p class="mt-4 text-gray-400 max-w-md">
-                                    Právě jsi překonal Windows, OneDrive i PHP 8.5. Tohle není jen web, tohle je tvůj nový operační systém pro úspěch.
-                                </p>
-                            </div>
-
-                            <!-- PULZUJÍCÍ TEČKA (Indikátor aktivity) -->
-                            <div class="hidden md:block">
-                                <div class="relative flex h-20 w-20">
-                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                                  <span class="relative inline-flex rounded-full h-20 w-20 bg-cyan-500 shadow-[0_0_30px_rgba(6,182,212,1)]"></span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- TLAČÍTKO S EFEKTEM -->
-                        <div class="mt-10">
-                            <button class="px-8 py-3 bg-transparent border border-purple-500 text-purple-400 font-bold rounded-lg hover:bg-purple-500 hover:text-white hover:shadow-[0_0_25px_rgba(168,85,247,0.6)] transition-all duration-300">
-                                SPUSTIT REVENGE PROTOKOL
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </AuthenticatedLayout>
-</template>
-</file>
-
 <file path="resources/js/Pages/Profile/Edit.vue">
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
@@ -4649,33 +4588,6 @@ test('system dispatches message event to the correct receiver', function () {
 });
 </file>
 
-<file path="tests/Feature/Feature/SystemAlertTest.php">
-<?php
-
-use App\Events\SystemAlertTriggered;
-use App\Models\User;
-use Illuminate\Support\Facades\Event;
-
-test('test route successfully dispatches websocket event to reverb', function () {
-    Event::fake();
-
-    // 1. Vytvoříme a přihlásíme uživatele
-    $user = User::factory()->create();
-    $this->actingAs($user);
-
-    // 2. Zavoláme routu
-    $response = $this->get('/test-signal');
-
-    // 3. Assert
-    $response->assertStatus(200);
-
-    // 4. Ověříme, že event byl dispatchován pro správného uživatele
-    Event::assertDispatched(SystemAlertTriggered::class, function ($event) use ($user) {
-        return $event->userId === $user->id && $event->message === 'Krizový stav aktivován!';
-    });
-});
-</file>
-
 <file path="tests/Feature/NeonHubAuthTest.php">
 <?php
 
@@ -4899,27 +4811,44 @@ class FriendRequestReceived implements ShouldBroadcast
 }
 </file>
 
-<file path="app/Events/SystemAlertTriggered.php">
+<file path="app/Events/MessageReceived.php">
 <?php
 
 namespace App\Events;
 
-use Illuminate\Broadcasting\InteractsWithSockets; // Změna: PrivateChannel
+use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class SystemAlertTriggered implements ShouldBroadcastNow
+class MessageReceived implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    // Musíme přijmout userId v konstruktoru
-    public function __construct(public int $userId, public string $message) {}
+    /**
+     * @param  array  $data  {sender: string, text: string}
+     */
+    public function __construct(
+        public int $userId,
+        public array $data
+    ) {}
+
+    /**
+     * Definice dat, která skutečně poletí do prohlížeče.
+     */
+    public function broadcastWith(): array
+    {
+        return [
+            'data' => [
+                'sender' => $this->data['sender'],
+                'text' => $this->data['text'],
+            ],
+        ];
+    }
 
     public function broadcastOn(): array
     {
-        // Tohle se musí shodovat s window.Echo.private(...) ve frontend servisu
         return [
             new PrivateChannel('App.Models.User.'.$this->userId),
         ];
@@ -5020,95 +4949,6 @@ class SystemAlertTriggered implements ShouldBroadcastNow
     "minimum-stability": "stable",
     "prefer-stable": true
 }
-</file>
-
-<file path="config/broadcasting.php">
-<?php
-
-return [
-
-    /*
-    |--------------------------------------------------------------------------
-    | Default Broadcaster
-    |--------------------------------------------------------------------------
-    |
-    | This option controls the default broadcaster that will be used by the
-    | framework when an event needs to be broadcast. You may set this to
-    | any of the connections defined in the "connections" array below.
-    |
-    | Supported: "reverb", "pusher", "ably", "redis", "log", "null"
-    |
-    */
-
-    'default' => env('BROADCAST_CONNECTION', 'null'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Broadcast Connections
-    |--------------------------------------------------------------------------
-    |
-    | Here you may define all of the broadcast connections that will be used
-    | to broadcast events to other systems or over WebSockets. Samples of
-    | each available type of connection are provided inside this array.
-    |
-    */
-
-    'connections' => [
-
-        'reverb' => [
-            'driver' => 'reverb',
-            'key' => env('REVERB_APP_KEY'),
-            'secret' => env('REVERB_APP_SECRET'),
-            'app_id' => env('REVERB_APP_ID'),
-            'options' => [
-                'host' => env('REVERB_HOST'),
-                'port' => env('REVERB_PORT', 443),
-                'scheme' => env('REVERB_SCHEME', 'https'),
-                'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
-            ],
-            'client_options' => [
-                // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html
-                'curl' => [
-                    CURLOPT_SSL_VERIFYHOST => 0,
-                    CURLOPT_SSL_VERIFYPEER => 0,
-                ],
-            ],
-        ],
-
-        'pusher' => [
-            'driver' => 'pusher',
-            'key' => env('PUSHER_APP_KEY'),
-            'secret' => env('PUSHER_APP_SECRET'),
-            'app_id' => env('PUSHER_APP_ID'),
-            'options' => [
-                'cluster' => env('PUSHER_APP_CLUSTER'),
-                'host' => env('PUSHER_HOST'),
-                'port' => env('PUSHER_PORT', 443),
-                'scheme' => env('PUSHER_SCHEME', 'https'),
-                'encrypted' => true,
-                'useTLS' => env('PUSHER_SCHEME', 'https') === 'https',
-            ],
-            'client_options' => [
-                // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html
-            ],
-        ],
-
-        'ably' => [
-            'driver' => 'ably',
-            'key' => env('ABLY_KEY'),
-        ],
-
-        'log' => [
-            'driver' => 'log',
-        ],
-
-        'null' => [
-            'driver' => 'null',
-        ],
-
-    ],
-
-];
 </file>
 
 <file path="database/migrations/0001_01_01_000000_create_users_table.php">
@@ -5495,121 +5335,6 @@ onMounted(() => {
 </template>
 </file>
 
-<file path="resources/js/Services/NotificationService.js">
-import { useNotificationStore } from '@/Stores/useNotificationStore';
-
-export const initNotificationService = (userId) => {
-    const store = useNotificationStore();
-
-    window.Echo.private(`App.Models.User.${userId}`)
-        .listen('MessageReceived', (e) => {
-            console.log('📩 Nová zpráva přijata:', e);
-
-            store.addMessage({
-                id: Date.now(),
-                sender: e.data.sender || 'UNKNOWN_SOURCE',
-                text: e.data.text,
-                time: new Date().toLocaleTimeString(),
-                read: false
-            });
-        })
-        .listen('SystemAlertTriggered', (e) => {
-            console.log('📡 Systémový alert zachycen:', e.message);
-
-            store.addAlert({
-                id: Date.now(),
-                title: 'SYSTEM_ALERT',
-                msg: e.message,
-                type: 'alert'
-            });
-        })
-        .error((error) => {
-            console.error('❌ Echo chyba:', error);
-        });
-};
-</file>
-
-<file path="resources/js/Stores/useNotificationStore.js">
-import { defineStore } from 'pinia';
-
-export const useNotificationStore = defineStore('notifications', {
-    state: () => ({
-        messages: [],
-        friendRequests: [],
-        alerts: [],
-    }),
-
-    getters: {
-        hasUnreadMessages: (state) => state.messages.some(m => !m.read),
-        hasUnreadRequests: (state) => state.friendRequests.some(r => !r.read),
-        hasUnreadAlerts: (state) => state.alerts.some(a => !a.read),
-
-        totalUnreadCount: (state) =>
-            state.messages.filter(m => !m.read).length +
-            state.friendRequests.filter(r => !r.read).length +
-            state.alerts.filter(a => !a.read).length
-    },
-
-    actions: {
-        // Pomocné akce pro přidávání s vynucenou strukturou
-        addMessage(message) {
-            this.messages.push({
-                id: Date.now(),
-                read: false,
-                time: new Date().toLocaleTimeString(),
-                ...message
-            });
-        },
-        addFriendRequest(request) {
-            this.friendRequests.push({
-                id: Date.now(),
-                read: false,
-                ...request
-            });
-        },
-        addAlert(alert) {
-            this.alerts.push({
-                id: Date.now(),
-                read: false,
-                type: 'alert',
-                ...alert
-            });
-        },
-
-        // Tato metoda propojí tvůj store s Reverbem
-        initListeners(userId) {
-            window.Echo.private(`App.Models.User.${userId}`)
-                .listen('FriendRequestReceived', (e) => {
-                    // e.data obsahuje to, co posíláš v Eventě
-                    this.addFriendRequest(e.data);
-                })
-                .listen('MessageReceived', (e) => {
-                    this.addMessage(e.data);
-                })
-                .listen('AlertReceived', (e) => {
-                    this.addAlert(e.data);
-                });
-        },
-
-        // Označování za přečtené
-        markMessagesAsRead() {
-            this.messages.forEach(m => m.read = true);
-        },
-        markRequestsAsRead() {
-            this.friendRequests.forEach(r => r.read = true);
-        },
-        markAlertsAsRead() {
-            this.alerts.forEach(a => a.read = true);
-        },
-
-        // Důležité pro CTO: Vyčištění storu při odhlášení (prevence memory leaků)
-        resetAll() {
-            this.$reset();
-        }
-    }
-});
-</file>
-
 <file path="tests/Feature/Feature/FriendRequestTest.php">
 <?php
 
@@ -5627,6 +5352,74 @@ test('system dispatches friend request job', function () {
     // Ověříme, že byl job odeslán do fronty
     Queue::assertPushed(SendFriendRequest::class);
 });
+</file>
+
+<file path="tests/Feature/Feature/SystemAlertTest.php">
+<?php
+
+use App\Events\SystemAlertTriggered;
+use App\Models\User;
+use Illuminate\Support\Facades\Event;
+
+test('test route successfully dispatches websocket event to reverb', function () {
+    // 1. Fakeujeme eventy i broadcasty
+    Event::fake([SystemAlertTriggered::class]);
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    // 2. Zavoláme routu
+    $response = $this->get('/test-signal');
+
+    // 3. Assert status
+    $response->assertStatus(200);
+
+    // 4. Ověříme, že event byl dispatchován a má správná data
+    Event::assertDispatched(SystemAlertTriggered::class, function ($event) use ($user) {
+        return $event->userId === $user->id &&
+               $event->message === 'Krizový stav aktivován!';
+    });
+
+    // 5. Bonus: Ověříme, že event má správný kanál (broadcastOn)
+    Event::assertDispatched(SystemAlertTriggered::class, function ($event) use ($user) {
+        $channels = $event->broadcastOn();
+
+        return count($channels) === 1 &&
+               $channels[0]->name === 'private-App.Models.User.'.$user->id;
+    });
+});
+</file>
+
+<file path="app/Events/SystemAlertTriggered.php">
+<?php
+
+namespace App\Events;
+
+use Illuminate\Broadcasting\InteractsWithSockets; // Změna: PrivateChannel
+use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+
+class SystemAlertTriggered implements ShouldBroadcastNow
+{
+    use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    public function __construct(public int $userId, public string $message) {}
+
+    public function broadcastOn(): array
+    {
+        // Tohle se musí shodovat s window.Echo.private(...) ve frontend servisu
+        return [
+            new PrivateChannel('App.Models.User.'.$this->userId),
+        ];
+    }
+
+    public function broadcastAs(): string
+    {
+        return 'SystemAlertTriggered'; // Teď máš jistotu, jak se event jmenuje
+    }
+}
 </file>
 
 <file path="app/Http/Middleware/HandleInertiaRequests.php">
@@ -5729,6 +5522,95 @@ class User extends Authenticatable
         ];
     }
 }
+</file>
+
+<file path="config/broadcasting.php">
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Broadcaster
+    |--------------------------------------------------------------------------
+    |
+    | This option controls the default broadcaster that will be used by the
+    | framework when an event needs to be broadcast. You may set this to
+    | any of the connections defined in the "connections" array below.
+    |
+    | Supported: "reverb", "pusher", "ably", "redis", "log", "null"
+    |
+    */
+
+    'default' => env('BROADCAST_CONNECTION', 'null'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Broadcast Connections
+    |--------------------------------------------------------------------------
+    |
+    | Here you may define all of the broadcast connections that will be used
+    | to broadcast events to other systems or over WebSockets. Samples of
+    | each available type of connection are provided inside this array.
+    |
+    */
+
+    'connections' => [
+
+        'reverb' => [
+            'driver' => 'reverb',
+            'key' => env('REVERB_APP_KEY'),
+            'secret' => env('REVERB_APP_SECRET'),
+            'app_id' => env('REVERB_APP_ID'),
+            'options' => [
+                'host' => env('REVERB_HOST'),
+                'port' => env('REVERB_PORT', 443),
+                'scheme' => env('REVERB_SCHEME', 'https'),
+                'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
+            ],
+            'client_options' => [
+                // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html
+                'curl' => [
+                    CURLOPT_SSL_VERIFYHOST => 0,
+                    CURLOPT_SSL_VERIFYPEER => 0,
+                ],
+            ],
+        ],
+
+        'pusher' => [
+            'driver' => 'pusher',
+            'key' => env('PUSHER_APP_KEY'),
+            'secret' => env('PUSHER_APP_SECRET'),
+            'app_id' => env('PUSHER_APP_ID'),
+            'options' => [
+                'cluster' => env('PUSHER_APP_CLUSTER'),
+                'host' => env('PUSHER_HOST'),
+                'port' => env('PUSHER_PORT', 443),
+                'scheme' => env('PUSHER_SCHEME', 'https'),
+                'encrypted' => true,
+                'useTLS' => env('PUSHER_SCHEME', 'https') === 'https',
+            ],
+            'client_options' => [
+                // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html
+            ],
+        ],
+
+        'ably' => [
+            'driver' => 'ably',
+            'key' => env('ABLY_KEY'),
+        ],
+
+        'log' => [
+            'driver' => 'log',
+        ],
+
+        'null' => [
+            'driver' => 'null',
+        ],
+
+    ],
+
+];
 </file>
 
 <file path="database/seeders/DatabaseSeeder.php">
@@ -5851,45 +5733,89 @@ const { messages } = storeToRefs(store);
 </style>
 </file>
 
-<file path="vite.config.js">
-import { defineConfig, loadEnv } from 'vite';
-import laravel from 'laravel-vite-plugin';
-import vue from '@vitejs/plugin-vue'; // Nezapomeň na tyto importy
-import Components from 'unplugin-vue-components/vite';
-import fs from 'fs';
+<file path="resources/js/Stores/useNotificationStore.js">
+import { defineStore } from 'pinia';
 
-export default defineConfig(({ mode }) => {
-    // Tady načteme env proměnné
-    const env = loadEnv(mode, process.cwd(), '');
+export const useNotificationStore = defineStore('notifications', {
+    state: () => ({
+        messages: [],
+        friendRequests: [],
+        alerts: [],
+    }),
 
-    return {
-        server: {
-            https: {
-                key: fs.readFileSync(env.REVERB_TLS_KEY),
-                cert: fs.readFileSync(env.REVERB_TLS_CERT),
-            },
-            host: 'neon-hub.test',
+    getters: {
+        hasUnreadMessages: (state) => state.messages.some(m => !m.read),
+        hasUnreadRequests: (state) => state.friendRequests.some(r => !r.read),
+        hasUnreadAlerts: (state) => state.alerts.some(a => !a.read),
+
+        totalUnreadCount: (state) =>
+            state.messages.filter(m => !m.read).length +
+            state.friendRequests.filter(r => !r.read).length +
+            state.alerts.filter(a => !a.read).length
+    },
+
+    actions: {
+        // Pomocné akce pro přidávání s vynucenou strukturou
+        addMessage(message) {
+            this.messages.push({
+                id: Date.now(),
+                read: false,
+                time: new Date().toLocaleTimeString(),
+                ...message
+            });
         },
-        plugins: [
-            laravel({
-                input: 'resources/js/app.js',
-                refresh: true,
-            }),
-            vue({
-                template: {
-                    transformAssetUrls: {
-                        base: null,
-                        includeAbsolute: false,
-                    },
-                },
-            }),
-            Components({
-                dirs: ['resources/js/Components'],
-                extensions: ['vue'],
-                dts: true,
-            }),
-        ],
-    };
+        addFriendRequest(request) {
+            this.friendRequests.push({
+                id: Date.now(),
+                read: false,
+                ...request
+            });
+        },
+        addAlert(alert) {
+    this.alerts.push({
+        id: Date.now(),
+        read: false,
+        type: 'alert',
+        title: alert.title || 'SYSTEM_ALERT', // Přidej defaultní title
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), // Přidej čas
+        ...alert
+    });
+},
+
+        // Tato metoda propojí tvůj store s Reverbem
+        initListeners(userId) {
+    if (this.isListening) return;
+    this.isListening = true;
+
+    window.Echo.private(`App.Models.User.${userId}`)
+        .listen('FriendRequestReceived', (e) => { this.addFriendRequest(e.data); })
+        .listen('MessageReceived', (e) => { this.addMessage(e.data); })
+        .listen('.SystemAlertTriggered', (e) => {
+    const payload = e.data?.data?.message || e.message || 'Krizový stav aktivován!';
+
+    this.addAlert({
+        title: 'KRIZOVÝ_STAV',
+        msg: payload
+    });
+});
+},
+
+        // Označování za přečtené
+        markMessagesAsRead() {
+            this.messages.forEach(m => m.read = true);
+        },
+        markRequestsAsRead() {
+            this.friendRequests.forEach(r => r.read = true);
+        },
+        markAlertsAsRead() {
+            this.alerts.forEach(a => a.read = true);
+        },
+
+        // Důležité pro CTO: Vyčištění storu při odhlášení (prevence memory leaků)
+        resetAll() {
+            this.$reset();
+        }
+    }
 });
 </file>
 
@@ -6187,51 +6113,6 @@ return [
 }
 </file>
 
-<file path="resources/js/app.js">
-import '../css/app.css';
-import '../css/neon-ui.css';
-import './bootstrap'; // Tady je teď Echo konfigurace
-
-import { createInertiaApp } from '@inertiajs/vue3';
-import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
-import { createApp, h } from 'vue';
-import { ZiggyVue } from '../../vendor/tightenco/ziggy';
-import { createPinia } from 'pinia';
-import { initNotificationService } from '@/Services/NotificationService';
-
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
-
-createInertiaApp({
-    title: (title) => `${title} - ${appName}`,
-    resolve: (name) =>
-        resolvePageComponent(
-            `./Pages/${name}.vue`,
-            import.meta.glob('./Pages/**/*.vue'),
-        ),
-    setup({ el, App, props, plugin }) {
-        const pinia = createPinia();
-        const app = createApp({ render: () => h(App, props) });
-
-        app.use(plugin)
-           .use(pinia)
-           .use(ZiggyVue)
-           .mount(el);
-
-        // --- INICIALIZACE SLUŽEB ---
-        // Předpokládáme, že ID uživatele máš v props (např. z Inertia Share)
-        const userId = props.initialPage.props.auth?.user?.id;
-        if (userId) {
-            initNotificationService(userId);
-        }
-
-        return app;
-    },
-    progress: {
-        color: '#4B5563',
-    },
-});
-</file>
-
 <file path="resources/js/Components/NeonFriends.vue">
 <script setup>
 import { storeToRefs } from 'pinia';
@@ -6346,63 +6227,83 @@ defineProps({
 </style>
 </file>
 
-<file path="routes/web.php">
-<?php
+<file path="vite.config.js">
+import { defineConfig, loadEnv } from 'vite';
+import laravel from 'laravel-vite-plugin';
+import vue from '@vitejs/plugin-vue'; // Nezapomeň na tyto importy
+import Components from 'unplugin-vue-components/vite';
+import fs from 'fs';
 
-use App\Events\MessageReceived;
-use App\Events\SystemAlertTriggered;
-use App\Http\Controllers\ProfileController;
-use App\Jobs\SendFriendRequest;
-use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
+export default defineConfig(({ mode }) => {
+    // Tady načteme env proměnné
+    const env = loadEnv(mode, process.cwd(), '');
 
-// 🚨 TENTO ŘÁDEK TADY MUSÍ BÝT!
-
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
+    return {
+        server: {
+            https: {
+                key: fs.readFileSync(env.REVERB_TLS_KEY),
+                cert: fs.readFileSync(env.REVERB_TLS_CERT),
+            },
+            host: 'neon-hub.test',
+        },
+        plugins: [
+            laravel({
+                input: 'resources/js/app.js',
+                refresh: true,
+            }),
+            vue({
+                template: {
+                    transformAssetUrls: {
+                        base: null,
+                        includeAbsolute: false,
+                    },
+                },
+            }),
+            Components({
+                dirs: ['resources/js/Components'],
+                extensions: ['vue'],
+                dts: true,
+            }),
+        ],
+    };
 });
+</file>
 
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+<file path="resources/js/app.js">
+import '../css/app.css';
+import '../css/neon-ui.css';
+import './bootstrap'; // Tady je teď Echo konfigurace
 
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+import { createInertiaApp } from '@inertiajs/vue3';
+import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
+import { createApp, h } from 'vue';
+import { ZiggyVue } from '../../vendor/tightenco/ziggy';
+import { createPinia } from 'pinia';
+
+const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+
+createInertiaApp({
+    title: (title) => `${title} - ${appName}`,
+    resolve: (name) =>
+        resolvePageComponent(
+            `./Pages/${name}.vue`,
+            import.meta.glob('./Pages/**/*.vue'),
+        ),
+    setup({ el, App, props, plugin }) {
+        const pinia = createPinia();
+        const app = createApp({ render: () => h(App, props) });
+
+        app.use(plugin)
+           .use(pinia)
+           .use(ZiggyVue)
+           .mount(el);
+
+        return app;
+    },
+    progress: {
+        color: '#4B5563',
+    },
 });
-
-Route::get('/test-signal', function () {
-    // Teď posíláme ID uživatele, aby Event věděl, kam broadcastovat
-    event(new SystemAlertTriggered(auth()->id(), 'Krizový stav aktivován!'));
-
-    return 'Signál odpálen!';
-});
-
-Route::get('/test-message', function () {
-    event(new MessageReceived(auth()->id(), [
-        'sender' => 'CYBER_OPERATOR',
-        'text' => 'Připojení k uzlu navázáno.',
-    ]));
-
-    return 'Zpráva odeslána přes event!';
-});
-
-Route::get('/test-friend', function () {
-    // Dispatchne job, který se po 3 sekundách automaticky provede
-    SendFriendRequest::dispatch(auth()->id(), 999)
-        ->delay(now()->addSeconds(3));
-
-    return 'Žádost o přátelství byla naplánována za 3 sekundy.';
-});
-
-require __DIR__.'/auth.php';
 </file>
 
 <file path="resources/js/Components/NeonOverlay.vue">
@@ -6597,43 +6498,61 @@ const posts = ref([
 </style>
 </file>
 
-<file path="resources/js/Pages/Welcome.vue">
-<script setup>
-import { ref, watch } from 'vue'; // watch stačí, onMounted tu teď nevyužijeme
-import { useNotificationStore } from '@/Stores/useNotificationStore';
-import { usePage } from '@inertiajs/vue3'; // DŮLEŽITÉ: Import usePage
+<file path="routes/web.php">
+<?php
 
-const isOpened = ref(false);
-const store = useNotificationStore();
-const page = usePage(); // TADY jsi to měl chybějící!
+use App\Events\SystemAlertTriggered;
+use App\Http\Controllers\ProfileController;
+use App\Jobs\SendFriendRequest;
+use App\Jobs\SendMessage;
+use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
-const openSystem = () => {
-    isOpened.value = true;
-};
-
-// Teď už 'page' existuje a watch ji může použít
-watch(isOpened, (newVal) => {
-    if (newVal && page.props.auth?.user) {
-        store.initListeners(page.props.auth.user.id);
-    }
+Route::get('/', function () {
+    return Inertia::render('Welcome', [
+        'canLogin' => Route::has('login'),
+        'canRegister' => Route::has('register'),
+        'laravelVersion' => Application::VERSION,
+        'phpVersion' => PHP_VERSION,
+    ]);
 });
-</script>
 
-<template>
-    <div
-        class="relative h-screen w-full bg-[#02040a] overflow-hidden font-sans text-slate-200 selection:bg-purple-900/40 selection:text-white">
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
 
-        <!-- 1. Vrstva: Samotná aplikace (v pozadí) -->
-        <NeonSocialCore :isOpened="isOpened" />
+Route::get('/test-signal', function () {
+    // Teď posíláme ID uživatele, aby Event věděl, kam broadcastovat
+    event(new SystemAlertTriggered(auth()->id(), 'Krizový stav aktivován!'));
 
-        <!-- 2. Vrstva: Mechanická brána -->
-        <NeonGate :isOpened="isOpened" />
+    return 'Signál odpálen!';
+});
 
-        <!-- 3. Vrstva: HUD a Vstupní karta (zůstává na vrchu) -->
-        <NeonOverlay :isOpened="isOpened" @open="openSystem" />
+Route::get('/test-message', function () {
+    SendMessage::dispatch(auth()->id(), [
+        'sender' => 'CYBER_OPERATOR',
+        'text' => 'Připojení k uzlu navázáno.',
+    ])->delay(now()->addSeconds(1)); // Zpoždění 5 sekund
 
-    </div>
-</template>
+    return 'Zpráva naplánována za 5 sekund.';
+});
+
+Route::get('/test-friend', function () {
+    // Dispatchne job, který se po 3 sekundách automaticky provede
+    SendFriendRequest::dispatch(auth()->id(), 999)
+        ->delay(now()->addSeconds(3));
+
+    return 'Žádost o přátelství byla naplánována za 3 sekundy.';
+});
+
+Route::get('/dashboard', function () {
+    return inertia('Dashboard'); // nebo co tam teď máš místo dashboardu
+})->middleware(['auth', 'verified'])->name('dashboard');
+
+require __DIR__.'/auth.php';
 </file>
 
 <file path="package.json">
@@ -6818,6 +6737,52 @@ import { Cpu, Activity, Wifi, Zap } from 'lucide-vue-next';
     @apply border-b border-white/5;
 }
 </style>
+</file>
+
+<file path="resources/js/Pages/Welcome.vue">
+<script setup>
+import { ref, watch, onMounted } from 'vue'; // watch stačí, onMounted tu teď nevyužijeme
+import { useNotificationStore } from '@/Stores/useNotificationStore';
+import { usePage } from '@inertiajs/vue3';
+
+const isOpened = ref(false);
+const store = useNotificationStore();
+const page = usePage(); // TADY jsi to měl chybějící!
+
+const openSystem = () => {
+    isOpened.value = true;
+};
+
+onMounted(() => {
+    // Tady se inicializace provede jednou, když se komponenta "v systému" poprvé vykreslí
+    if (page.props.auth?.user) {
+        store.initListeners(page.props.auth.user.id);
+    }
+});
+
+// Teď už 'page' existuje a watch ji může použít
+watch(isOpened, (newVal) => {
+    if (newVal && page.props.auth?.user) {
+        store.initListeners(page.props.auth.user.id);
+    }
+});
+</script>
+
+<template>
+    <div
+        class="relative h-screen w-full bg-[#02040a] overflow-hidden font-sans text-slate-200 selection:bg-purple-900/40 selection:text-white">
+
+        <!-- 1. Vrstva: Samotná aplikace (v pozadí) -->
+        <NeonSocialCore :isOpened="isOpened" />
+
+        <!-- 2. Vrstva: Mechanická brána -->
+        <NeonGate :isOpened="isOpened" />
+
+        <!-- 3. Vrstva: HUD a Vstupní karta (zůstává na vrchu) -->
+        <NeonOverlay :isOpened="isOpened" @open="openSystem" />
+
+    </div>
+</template>
 </file>
 
 <file path="components.d.ts">

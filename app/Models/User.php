@@ -22,6 +22,9 @@ class User extends Authenticatable
         'handle',
         'faction',
         'avatar_url',
+        'is_ai',
+        'system_prompt',
+        'model',
     ];
 
     /**
