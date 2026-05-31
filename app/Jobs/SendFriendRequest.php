@@ -2,7 +2,8 @@
 
 namespace App\Jobs;
 
-use App\Events\FriendRequestReceived;
+use App\Actions\SendFriendRequestAction;
+use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -11,19 +12,16 @@ class SendFriendRequest implements ShouldQueue
     use Queueable;
 
     public function __construct(
-        public int $userId, public int $senderId = 999 // Tvůj bot
+        public int $userId,
+        public string $botName = 'SENTINEL_01' // Tady máš botName, ne senderId!
     ) {}
 
-    public function handle(): void
+    public function handle(SendFriendRequestAction $action): void
     {
-        // 1. Tady by byla tvoje logika pro databázi
-        // Např.: Friendship::create([...]);
+        // Najdeme bota podle jména, které jsme si uložili v konstruktoru
+        $bot = User::where('name', $this->botName)->firstOrFail();
 
-        // 2. Odpálení eventy, která poletí přes Reverb do frontendu
-        event(new FriendRequestReceived($this->userId, [
-            'id' => $this->senderId,
-            'name' => 'CYBER_UNIT_01',
-            'avatar_url' => '/images/avatars/unit_01.png',
-        ]));
+        // Předáme ID bota a ID uživatele
+        $action->execute($bot->id, $this->userId);
     }
 }

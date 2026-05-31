@@ -1,83 +1,108 @@
-import { defineStore } from 'pinia';
+import { defineStore } from "pinia";
 
-export const useNotificationStore = defineStore('notifications', {
+export const useNotificationStore = defineStore("notifications", {
     state: () => ({
         messages: [],
         friendRequests: [],
+        friends: [], // Nové pole pro aktivní přátelství
         alerts: [],
+        isListening: false,
     }),
 
     getters: {
-        hasUnreadMessages: (state) => state.messages.some(m => !m.read),
-        hasUnreadRequests: (state) => state.friendRequests.some(r => !r.read),
-        hasUnreadAlerts: (state) => state.alerts.some(a => !a.read),
+        // Zpátky vrácené gettery pro UI
+        hasUnreadMessages: (state) => state.messages.some((m) => !m.read),
+        hasUnreadRequests: (state) => state.friendRequests.some((r) => !r.read),
+        hasUnreadAlerts: (state) => state.alerts.some((a) => !a.read),
 
         totalUnreadCount: (state) =>
-            state.messages.filter(m => !m.read).length +
-            state.friendRequests.filter(r => !r.read).length +
-            state.alerts.filter(a => !a.read).length
+            state.messages.filter((m) => !m.read).length +
+            state.friendRequests.filter((r) => !r.read).length +
+            state.alerts.filter((a) => !a.read).length,
     },
 
     actions: {
-        // Pomocné akce pro přidávání s vynucenou strukturou
+        // --- Přidávání dat ---
         addMessage(message) {
             this.messages.push({
                 id: Date.now(),
                 read: false,
                 time: new Date().toLocaleTimeString(),
-                ...message
+                ...message,
             });
         },
         addFriendRequest(request) {
             this.friendRequests.push({
-                id: Date.now(),
+                id: request.id || Date.now(),
                 read: false,
-                ...request
+                status: "pending",
+                ...request,
             });
         },
         addAlert(alert) {
-    this.alerts.push({
-        id: Date.now(),
-        read: false,
-        type: 'alert',
-        title: alert.title || 'SYSTEM_ALERT', // Přidej defaultní title
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), // Přidej čas
-        ...alert
-    });
-},
+            this.alerts.push({
+                id: Date.now(),
+                read: false,
+                type: "alert",
+                ...alert,
+            });
+        },
+        addFriend(friend) {
+            this.friends.push(friend);
+        },
 
-        // Tato metoda propojí tvůj store s Reverbem
-        initListeners(userId) {
-    if (this.isListening) return;
-    this.isListening = true;
+        // --- Logika správy přátelství ---
+        updateFriendRequestStatus(id, newStatus) {
+            const index = this.friendRequests.findIndex((r) => r.id === id);
+            if (index !== -1) {
+                const req = this.friendRequests[index];
+                req.status = newStatus;
+                req.read = true;
 
-    window.Echo.private(`App.Models.User.${userId}`)
-        .listen('FriendRequestReceived', (e) => { this.addFriendRequest(e.data); })
-        .listen('MessageReceived', (e) => { this.addMessage(e.data); })
-        .listen('.SystemAlertTriggered', (e) => {
-    const payload = e.data?.data?.message || e.message || 'Krizový stav aktivován!';
+                if (newStatus === "accepted") {
+                    this.friends.push(req);
+                    this.friendRequests.splice(index, 1);
+                }
+            }
+        },
+        removeFriendRequest(id) {
+            this.friendRequests = this.friendRequests.filter(
+                (r) => r.id !== id,
+            );
+        },
+        removeFriend(id) {
+            this.friends = this.friends.filter((f) => f.id !== id);
+        },
 
-    this.addAlert({
-        title: 'KRIZOVÝ_STAV',
-        msg: payload
-    });
-});
-},
-
-        // Označování za přečtené
+        // --- Přečtení notifikací ---
         markMessagesAsRead() {
-            this.messages.forEach(m => m.read = true);
+            this.messages.forEach((m) => (m.read = true));
         },
         markRequestsAsRead() {
-            this.friendRequests.forEach(r => r.read = true);
+            this.friendRequests.forEach((r) => (r.read = true));
         },
         markAlertsAsRead() {
-            this.alerts.forEach(a => a.read = true);
+            this.alerts.forEach((a) => (a.read = true));
         },
 
-        // Důležité pro CTO: Vyčištění storu při odhlášení (prevence memory leaků)
+        // --- Real-time propojení ---
+        initListeners(userId) {
+            if (this.isListening) return;
+            this.isListening = true;
+
+            window.Echo.private(`App.Models.User.${userId}`)
+                .listen("FriendRequestReceived", (e) =>
+                    this.addFriendRequest(e.data),
+                )
+                .listen("FriendshipAccepted", (e) =>
+                    this.updateFriendRequestStatus(e.friendshipId, "accepted"),
+                );
+        },
+
+        // --- Reset ---
         resetAll() {
             this.$reset();
-        }
-    }
+            this.isListening = false;
+        },
+    },
 });

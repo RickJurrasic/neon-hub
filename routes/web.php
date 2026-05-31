@@ -1,6 +1,7 @@
 <?php
 
 use App\Events\SystemAlertTriggered;
+use App\Http\Controllers\FriendshipController;
 use App\Http\Controllers\ProfileController;
 use App\Jobs\SendFriendRequest;
 use App\Jobs\SendMessage;
@@ -50,5 +51,8 @@ Route::get('/test-friend', function () {
 Route::get('/dashboard', function () {
     return inertia('Dashboard'); // nebo co tam teď máš místo dashboardu
 })->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::patch('/friendships/{id}', [FriendshipController::class, 'update'])->name('friendships.update');
+Route::delete('/friendships/{id}', [FriendshipController::class, 'destroy']);
 
 require __DIR__.'/auth.php';
