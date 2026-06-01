@@ -4,7 +4,7 @@ export const useNotificationStore = defineStore("notifications", {
     state: () => ({
         messages: [],
         friendRequests: [],
-        friends: [], // Nové pole pro aktivní přátelství
+        friends: [], // Pole pro aktivní přátelství
         alerts: [],
         isListening: false,
     }),
@@ -22,6 +22,16 @@ export const useNotificationStore = defineStore("notifications", {
     },
 
     actions: {
+        // --- Hromadná hydratace systému z backendu (F5 / inicializace) ---
+        hydrateSystem(stateData) {
+            if (!stateData) return;
+
+            this.friendRequests = stateData.friendships?.requests || [];
+            this.friends = stateData.friendships?.active || [];
+            this.messages = stateData.messages || [];
+            this.alerts = stateData.alerts || [];
+        },
+
         // --- Přidávání dat ---
         addMessage(message) {
             this.messages.push({
@@ -32,11 +42,18 @@ export const useNotificationStore = defineStore("notifications", {
             });
         },
         addFriendRequest(request) {
+            // Zajistíme, že data mají správné mapování a reaktivní fallbacky, i když přijdou real-time z Echa
             this.friendRequests.push({
                 id: request.id || Date.now(),
+                user_id: request.user_id || request.sender_id, // Bezpečné zachycení ID uživatele
+                name: request.name,
+                role: request.role || "EXTERNAL_NODE",
+                bio: request.bio || '"Šifrované bio prázdné."',
+                trust_level: request.trust_level ?? 50,
+                latency: request.latency || "24ms_STABLE",
+                avatar: request.avatar || request.avatar_url, // Zachytí obě varianty pojmenování
                 read: false,
                 status: "pending",
-                ...request,
             });
         },
         addAlert(alert) {
@@ -48,7 +65,17 @@ export const useNotificationStore = defineStore("notifications", {
             });
         },
         addFriend(friend) {
-            this.friends.push(friend);
+            this.friends.push({
+                id: friend.id,
+                user_id: friend.user_id,
+                name: friend.name,
+                role: friend.role || "EXTERNAL_NODE",
+                bio: friend.bio || '"Šifrované bio prázdné."',
+                trust_level: friend.trust_level ?? 50,
+                latency: friend.latency || "24ms_STABLE",
+                avatar: friend.avatar,
+                status: "accepted",
+            });
         },
 
         // --- Logika správy přátelství ---
@@ -60,7 +87,8 @@ export const useNotificationStore = defineStore("notifications", {
                 req.read = true;
 
                 if (newStatus === "accepted") {
-                    this.friends.push(req);
+                    // Použijeme addFriend metodu pro správné vyčištění objektu
+                    this.addFriend(req);
                     this.friendRequests.splice(index, 1);
                 }
             }
@@ -71,7 +99,9 @@ export const useNotificationStore = defineStore("notifications", {
             );
         },
         removeFriend(id) {
-            this.friends = this.friends.filter((f) => f.id !== id);
+            this.friends = this.friends.filter(
+                (f) => f.id !== id && f.user_id !== id,
+            );
         },
 
         // --- Přečtení notifikací ---
@@ -91,12 +121,13 @@ export const useNotificationStore = defineStore("notifications", {
             this.isListening = true;
 
             window.Echo.private(`App.Models.User.${userId}`)
-                .listen("FriendRequestReceived", (e) =>
-                    this.addFriendRequest(e.data),
-                )
-                .listen("FriendshipAccepted", (e) =>
-                    this.updateFriendRequestStatus(e.friendshipId, "accepted"),
-                );
+                .listen("FriendRequestReceived", (e) => {
+                    // Očekává se, že tvůj Laravel Event posílá v poli 'data' kompletní profil odesílatele
+                    this.addFriendRequest(e.data);
+                })
+                .listen("FriendshipAccepted", (e) => {
+                    this.updateFriendRequestStatus(e.friendshipId, "accepted");
+                });
         },
 
         // --- Reset ---

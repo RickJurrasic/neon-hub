@@ -9,6 +9,11 @@ const page = usePage(); // TADY jsi to měl chybějící!
 
 const openSystem = () => {
     isOpened.value = true;
+    if (page.props.auth?.user) {
+        axios.post(route('system.initialize'))
+            .then(() => console.log('System_Core: Node successfully initialized in matrix.'))
+            .catch(err => console.error('System_Core_Error:', err));
+    }
 };
 
 onMounted(() => {
@@ -31,7 +36,7 @@ watch(isOpened, (newVal) => {
         class="relative h-screen w-full bg-[#02040a] overflow-hidden font-sans text-slate-200 selection:bg-purple-900/40 selection:text-white">
 
         <!-- 1. Vrstva: Samotná aplikace (v pozadí) -->
-        <NeonSocialCore :isOpened="isOpened" />
+        <NeonSocialCore :isOpened="isOpened" :initialState="page.props.initialState" />
 
         <!-- 2. Vrstva: Mechanická brána -->
         <NeonGate :isOpened="isOpened" />

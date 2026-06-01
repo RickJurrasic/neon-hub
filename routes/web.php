@@ -2,26 +2,24 @@
 
 use App\Events\SystemAlertTriggered;
 use App\Http\Controllers\FriendshipController;
+use App\Http\Controllers\NeonHubController;
 use App\Http\Controllers\ProfileController;
 use App\Jobs\SendFriendRequest;
 use App\Jobs\SendMessage;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-});
+Route::get('/', [NeonHubController::class, 'index'])->name('neon.hub');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::post('/system/initialize-node', function () {
+        SendFriendRequest::dispatch(auth()->id(), 'SENTINEL_01')
+            ->delay(now()->addSeconds(4));
+
+        return response()->json(['status' => 'NODE_INITIALIZED']);
+    })->name('system.initialize');
 });
 
 Route::get('/test-signal', function () {
@@ -38,14 +36,6 @@ Route::get('/test-message', function () {
     ])->delay(now()->addSeconds(1)); // Zpoždění 5 sekund
 
     return 'Zpráva naplánována za 5 sekund.';
-});
-
-Route::get('/test-friend', function () {
-    // Dispatchne job, který se po 3 sekundách automaticky provede
-    SendFriendRequest::dispatch(auth()->id(), 999)
-        ->delay(now()->addSeconds(3));
-
-    return 'Žádost o přátelství byla naplánována za 3 sekundy.';
 });
 
 Route::get('/dashboard', function () {

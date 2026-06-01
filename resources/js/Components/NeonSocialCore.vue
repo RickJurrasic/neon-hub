@@ -10,7 +10,8 @@ import NeonFriends from './NeonFriends.vue';
 import NeonUserProfile from './NeonUserProfile.vue';
 
 const props = defineProps({
-    isOpened: { type: Boolean, default: false }
+    isOpened: { type: Boolean, default: false },
+    initialState: { type: Object, default: null } // <--- Zachycení dat z Welcome.vue
 });
 
 const store = useNotificationStore();
@@ -52,9 +53,14 @@ const openEntityProfile = (id) => {
     activeTab.value = 'profile';
 };
 
-// --- WATCHER ---
+// --- WATCHER (ŘÍZENÍ BRÁNY A HYDRATACE) ---
 watch(() => props.isOpened, (newVal) => {
     if (newVal) {
+        // Jakmile uživatel projde mechanickou bránou, okamžitě hydratujeme Pinia store z DB dat
+        if (props.initialState) {
+            store.hydrateSystem(props.initialState);
+        }
+
         setTimeout(() => { stage1.value = true; }, 100);
         setTimeout(() => { stage2.value = true; }, 500);
         setTimeout(() => { stage3.value = true; }, 900);

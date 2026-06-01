@@ -45,6 +45,8 @@ The content is organized as follows:
 .gitattributes
 .gitignore
 .nvmrc
+app/Actions/SendFriendRequestAction.php
+app/Ai/Agents/SentinelAgent.php
 app/Events/FriendRequestReceived.php
 app/Events/MessageReceived.php
 app/Events/SystemAlertTriggered.php
@@ -58,6 +60,7 @@ app/Http/Controllers/Auth/PasswordResetLinkController.php
 app/Http/Controllers/Auth/RegisteredUserController.php
 app/Http/Controllers/Auth/VerifyEmailController.php
 app/Http/Controllers/Controller.php
+app/Http/Controllers/FriendshipController.php
 app/Http/Controllers/ProfileController.php
 app/Http/Middleware/AutoLoginDemoUser.php
 app/Http/Middleware/HandleInertiaRequests.php
@@ -65,6 +68,7 @@ app/Http/Requests/Auth/LoginRequest.php
 app/Http/Requests/ProfileUpdateRequest.php
 app/Jobs/SendFriendRequest.php
 app/Jobs/SendMessage.php
+app/Models/Friendship.php
 app/Models/User.php
 app/Providers/AppServiceProvider.php
 artisan
@@ -73,6 +77,7 @@ bootstrap/cache/.gitignore
 bootstrap/providers.php
 components.d.ts
 composer.json
+config/ai.php
 config/app.php
 config/auth.php
 config/broadcasting.php
@@ -90,6 +95,8 @@ database/factories/UserFactory.php
 database/migrations/0001_01_01_000000_create_users_table.php
 database/migrations/0001_01_01_000001_create_cache_table.php
 database/migrations/0001_01_01_000002_create_jobs_table.php
+database/migrations/2026_05_31_114134_create_agent_conversations_table.php
+database/migrations/2026_05_31_131827_create_friendships_table.php
 database/seeders/BotSeeder.php
 database/seeders/DatabaseSeeder.php
 jsconfig.json
@@ -165,19 +172,24 @@ storage/framework/sessions/.gitignore
 storage/framework/testing/.gitignore
 storage/framework/views/.gitignore
 storage/logs/.gitignore
+stubs/agent-middleware.stub
+stubs/agent.stub
+stubs/structured-agent.stub
+stubs/tool.stub
 tailwind.config.js
-tests/Feature/Auth/AuthenticationTest.php
-tests/Feature/Auth/EmailVerificationTest.php
-tests/Feature/Auth/PasswordConfirmationTest.php
-tests/Feature/Auth/PasswordResetTest.php
-tests/Feature/Auth/PasswordUpdateTest.php
-tests/Feature/Auth/RegistrationTest.php
+tests/Auth/AuthenticationTest.php
+tests/Auth/EmailVerificationTest.php
+tests/Auth/PasswordConfirmationTest.php
+tests/Auth/PasswordResetTest.php
+tests/Auth/PasswordUpdateTest.php
+tests/Auth/RegistrationTest.php
+tests/Feature/Ai/SentinelAgentTest.php
 tests/Feature/ExampleTest.php
-tests/Feature/Feature/FriendRequestTest.php
-tests/Feature/Feature/MessageTest.php
-tests/Feature/Feature/SystemAlertTest.php
+tests/Feature/FriendshipJobTest.php
+tests/Feature/MessageTest.php
 tests/Feature/NeonHubAuthTest.php
 tests/Feature/ProfileTest.php
+tests/Feature/SystemAlertTest.php
 tests/Pest.php
 tests/TestCase.php
 tests/Unit/ExampleTest.php
@@ -322,6 +334,104 @@ Thumbs.db
 
 <file path=".nvmrc">
 23
+</file>
+
+<file path="app/Actions/SendFriendRequestAction.php">
+<?php
+
+namespace App\Actions;
+
+use App\Events\FriendRequestReceived;
+use App\Models\Friendship;
+use App\Models\User;
+
+class SendFriendRequestAction
+{
+    /**
+     * @return Friendship|null Vrací Friendship nebo null, pokud už vazba existuje.
+     */
+    public function execute(int $senderId, int $recipientId): ?Friendship
+    {
+        // 1. Zkontrolujeme, zda už mezi nimi neexistuje žádný záznam
+        $existing = Friendship::where(function ($query) use ($senderId, $recipientId) {
+            $query->where('sender_id', $senderId)->where('recipient_id', $recipientId);
+        })->orWhere(function ($query) use ($senderId, $recipientId) {
+            $query->where('sender_id', $recipientId)->where('recipient_id', $senderId);
+        })->first();
+
+        // Pokud už nějaká vazba existuje, nebudeme vytvářet novou (zabráníme duplicitám)
+        if ($existing) {
+            return null;
+        }
+
+        // 2. Uložíme do DB, pokud vazba neexistuje
+        $friendship = Friendship::create([
+            'sender_id' => $senderId,
+            'recipient_id' => $recipientId,
+            'status' => 'pending',
+        ]);
+
+        // 3. Vytáhneme si skutečné jméno odesílatele
+        $sender = User::find($senderId);
+
+        // 4. Odpálíme event se skutečnými daty
+        event(new FriendRequestReceived($recipientId, [
+            'id' => $friendship->id,
+            'sender_id' => $senderId,
+            'name' => $sender ? $sender->name : 'UNKNOWN_ENTITY',
+            'status' => 'pending',
+        ]));
+
+        return $friendship;
+    }
+}
+</file>
+
+<file path="app/Ai/Agents/SentinelAgent.php">
+<?php
+
+namespace App\Ai\Agents;
+
+use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\Conversational;
+use Laravel\Ai\Contracts\HasTools;
+use Laravel\Ai\Contracts\Tool;
+use Laravel\Ai\Messages\Message;
+use Laravel\Ai\Promptable;
+use Stringable;
+
+class SentinelAgent implements Agent, Conversational, HasTools
+{
+    use Promptable;
+
+    /**
+     * Get the instructions that the agent should follow.
+     */
+    public function instructions(): Stringable|string
+    {
+        return 'You are a Sentinel, the strict guardian of the NeonHub server. You speak in a terse, technical manner, and your job is to keep order.';
+    }
+
+    /**
+     * Get the list of messages comprising the conversation so far.
+     *
+     * @return Message[]
+     */
+    public function messages(): iterable
+    {
+        return [];
+    }
+
+    /**
+     * Get the tools available to the agent.
+     *
+     * @return Tool[]
+     */
+    public function tools(): iterable
+    {
+        return [];
+    }
+}
 </file>
 
 <file path="app/Http/Controllers/Auth/AuthenticatedSessionController.php">
@@ -729,6 +839,47 @@ abstract class Controller
 }
 </file>
 
+<file path="app/Http/Controllers/FriendshipController.php">
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Actions\SendFriendRequestAction;
+use App\Models\Friendship;
+use Illuminate\Http\Request;
+
+class FriendshipController extends Controller
+{
+    public function store(Request $request, SendFriendRequestAction $action)
+    {
+        // Validace (předpokládáme, že posíláš recipient_id)
+        $validated = $request->validate(['recipient_id' => 'required|exists:users,id']);
+
+        // Zavoláme Action
+        $action->execute(auth()->id(), $validated['recipient_id']);
+
+        return response()->json(['status' => 'Request sent']);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $friendship = Friendship::findOrFail($id);
+        $friendship->update(['status' => 'accepted']);
+
+        // Volitelně: pošli Event 'FriendshipAccepted', aby se UI v obou prohlížečích aktualizovalo
+        return response()->json(['status' => 'success']);
+    }
+
+    public function destroy($id)
+    {
+        $friendship = Friendship::findOrFail($id);
+        $friendship->delete();
+
+        return response()->json(['message' => 'Request declined']);
+    }
+}
+</file>
+
 <file path="app/Http/Controllers/ProfileController.php">
 <?php
 
@@ -949,38 +1100,6 @@ class ProfileUpdateRequest extends FormRequest
 }
 </file>
 
-<file path="app/Jobs/SendFriendRequest.php">
-<?php
-
-namespace App\Jobs;
-
-use App\Events\FriendRequestReceived;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Queue\Queueable;
-
-class SendFriendRequest implements ShouldQueue
-{
-    use Queueable;
-
-    public function __construct(
-        public int $userId, public int $senderId = 999 // Tvůj bot
-    ) {}
-
-    public function handle(): void
-    {
-        // 1. Tady by byla tvoje logika pro databázi
-        // Např.: Friendship::create([...]);
-
-        // 2. Odpálení eventy, která poletí přes Reverb do frontendu
-        event(new FriendRequestReceived($this->userId, [
-            'id' => $this->senderId,
-            'name' => 'CYBER_UNIT_01',
-            'avatar_url' => '/images/avatars/unit_01.png',
-        ]));
-    }
-}
-</file>
-
 <file path="app/Jobs/SendMessage.php">
 <?php
 
@@ -1004,6 +1123,32 @@ class SendMessage implements ShouldQueue
     {
         // Teď už $this->userId i $this->data existují!
         event(new MessageReceived($this->userId, $this->data));
+    }
+}
+</file>
+
+<file path="app/Models/Friendship.php">
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Friendship extends Model
+{
+    protected $fillable = ['sender_id', 'recipient_id', 'status', 'message'];
+
+    // Kdo poslal žádost
+    public function sender(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'sender_id');
+    }
+
+    // Komu je žádost určena
+    public function recipient(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'recipient_id');
     }
 }
 </file>
@@ -1069,6 +1214,152 @@ use App\Providers\AppServiceProvider;
 
 return [
     AppServiceProvider::class,
+];
+</file>
+
+<file path="config/ai.php">
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default AI Provider Names
+    |--------------------------------------------------------------------------
+    |
+    | Here you may specify which of the AI providers below should be the
+    | default for AI operations when no explicit provider is provided
+    | for the operation. This should be any provider defined below.
+    |
+    */
+
+    'default' => 'gemini',
+    'default_for_images' => 'gemini',
+    'default_for_audio' => 'openai',
+    'default_for_transcription' => 'openai',
+    'default_for_embeddings' => 'openai',
+    'default_for_reranking' => 'cohere',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Caching
+    |--------------------------------------------------------------------------
+    |
+    | Below you may configure caching strategies for AI related operations
+    | such as embedding generation. You are free to adjust these values
+    | based on your application's available caching stores and needs.
+    |
+    */
+
+    'caching' => [
+        'embeddings' => [
+            'cache' => false,
+            'store' => env('CACHE_STORE', 'database'),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | AI Providers
+    |--------------------------------------------------------------------------
+    |
+    | Below are each of your AI providers defined for this application. Each
+    | represents an AI provider and API key combination which can be used
+    | to perform tasks like text, image, and audio creation via agents.
+    |
+    */
+
+    'providers' => [
+        'anthropic' => [
+            'driver' => 'anthropic',
+            'key' => env('ANTHROPIC_API_KEY'),
+            'url' => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
+        ],
+
+        'azure' => [
+            'driver' => 'azure',
+            'key' => env('AZURE_OPENAI_API_KEY'),
+            'url' => env('AZURE_OPENAI_URL'),
+            'api_version' => env('AZURE_OPENAI_API_VERSION', '2025-04-01-preview'),
+            'deployment' => env('AZURE_OPENAI_DEPLOYMENT', 'gpt-4o'),
+            'embedding_deployment' => env('AZURE_OPENAI_EMBEDDING_DEPLOYMENT', 'text-embedding-3-small'),
+            'image_deployment' => env('AZURE_OPENAI_IMAGE_DEPLOYMENT', 'gpt-image-1'),
+        ],
+
+        'bedrock' => [
+            'driver' => 'bedrock',
+            'region' => env('AWS_BEDROCK_REGION', 'us-east-1'),
+            'key' => env('AWS_BEARER_TOKEN_BEDROCK'),
+            'access_key_id' => env('AWS_ACCESS_KEY_ID'),
+            'secret_access_key' => env('AWS_SECRET_ACCESS_KEY'),
+            'session_token' => env('AWS_SESSION_TOKEN'),
+            'use_default_credential_provider' => env('AWS_USE_DEFAULT_CREDENTIALS', true),
+        ],
+
+        'cohere' => [
+            'driver' => 'cohere',
+            'key' => env('COHERE_API_KEY'),
+        ],
+
+        'deepseek' => [
+            'driver' => 'deepseek',
+            'key' => env('DEEPSEEK_API_KEY'),
+        ],
+
+        'eleven' => [
+            'driver' => 'eleven',
+            'key' => env('ELEVENLABS_API_KEY'),
+        ],
+
+        'gemini' => [
+            'driver' => 'gemini',
+            'key' => env('GEMINI_API_KEY'),
+            'url' => env('GEMINI_URL', 'https://generativelanguage.googleapis.com/v1beta/'),
+        ],
+
+        'groq' => [
+            'driver' => 'groq',
+            'key' => env('GROQ_API_KEY'),
+        ],
+
+        'jina' => [
+            'driver' => 'jina',
+            'key' => env('JINA_API_KEY'),
+        ],
+
+        'mistral' => [
+            'driver' => 'mistral',
+            'key' => env('MISTRAL_API_KEY'),
+        ],
+
+        'ollama' => [
+            'driver' => 'ollama',
+            'key' => env('OLLAMA_API_KEY', ''),
+            'url' => env('OLLAMA_URL', 'http://localhost:11434'),
+        ],
+
+        'openai' => [
+            'driver' => 'openai',
+            'key' => env('OPENAI_API_KEY'),
+            'url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
+        ],
+
+        'openrouter' => [
+            'driver' => 'openrouter',
+            'key' => env('OPENROUTER_API_KEY'),
+        ],
+
+        'voyageai' => [
+            'driver' => 'voyageai',
+            'key' => env('VOYAGEAI_API_KEY'),
+        ],
+
+        'xai' => [
+            'driver' => 'xai',
+            'key' => env('XAI_API_KEY'),
+        ],
+    ],
+
 ];
 </file>
 
@@ -2535,6 +2826,96 @@ return new class extends Migration
         Schema::dropIfExists('jobs');
         Schema::dropIfExists('job_batches');
         Schema::dropIfExists('failed_jobs');
+    }
+};
+</file>
+
+<file path="database/migrations/2026_05_31_114134_create_agent_conversations_table.php">
+<?php
+
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+use Laravel\Ai\Migrations\AiMigration;
+
+return new class extends AiMigration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        $conversationsTable = config('ai.conversations.tables.conversations', 'agent_conversations');
+        $messagesTable = config('ai.conversations.tables.messages', 'agent_conversation_messages');
+
+        Schema::create($conversationsTable, function (Blueprint $table) {
+            $table->string('id', 36)->primary();
+            $table->foreignId('user_id')->nullable();
+            $table->string('title');
+            $table->timestamps();
+
+            $table->index(['user_id', 'updated_at']);
+        });
+
+        Schema::create($messagesTable, function (Blueprint $table) {
+            $table->string('id', 36)->primary();
+            $table->string('conversation_id', 36)->index();
+            $table->foreignId('user_id')->nullable();
+            $table->string('agent');
+            $table->string('role', 25);
+            $table->text('content');
+            $table->text('attachments');
+            $table->text('tool_calls');
+            $table->text('tool_results');
+            $table->text('usage');
+            $table->text('meta');
+            $table->timestamps();
+
+            $table->index(['conversation_id', 'user_id', 'updated_at'], 'conversation_index');
+            $table->index(['user_id']);
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists(config('ai.conversations.tables.messages', 'agent_conversation_messages'));
+        Schema::dropIfExists(config('ai.conversations.tables.conversations', 'agent_conversations'));
+    }
+};
+</file>
+
+<file path="database/migrations/2026_05_31_131827_create_friendships_table.php">
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('friendships', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('sender_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('recipient_id')->constrained('users')->onDelete('cascade');
+            $table->enum('status', ['pending', 'accepted', 'declined'])->default('pending');
+            $table->text('message')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('friendships');
     }
 };
 </file>
@@ -4274,6 +4655,175 @@ services.json
 !.gitignore
 </file>
 
+<file path="stubs/agent-middleware.stub">
+<?php
+
+namespace {{ namespace }};
+
+use Closure;
+use Laravel\Ai\Prompts\AgentPrompt;
+use Laravel\Ai\Responses\AgentResponse;
+
+class {{ class }}
+{
+    /**
+     * Handle the incoming prompt.
+     */
+    public function handle(AgentPrompt $prompt, Closure $next)
+    {
+        return $next($prompt)->then(function (AgentResponse $response) {
+            // ...
+        });
+    }
+}
+</file>
+
+<file path="stubs/agent.stub">
+<?php
+
+namespace {{ namespace }};
+
+use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\Conversational;
+use Laravel\Ai\Contracts\HasTools;
+use Laravel\Ai\Contracts\Tool;
+use Laravel\Ai\Messages\Message;
+use Laravel\Ai\Promptable;
+use Stringable;
+
+class {{ class }} implements Agent, Conversational, HasTools
+{
+    use Promptable;
+
+    /**
+     * Get the instructions that the agent should follow.
+     */
+    public function instructions(): Stringable|string
+    {
+        return 'You are a helpful assistant.';
+    }
+
+    /**
+     * Get the list of messages comprising the conversation so far.
+     *
+     * @return Message[]
+     */
+    public function messages(): iterable
+    {
+        return [];
+    }
+
+    /**
+     * Get the tools available to the agent.
+     *
+     * @return Tool[]
+     */
+    public function tools(): iterable
+    {
+        return [];
+    }
+}
+</file>
+
+<file path="stubs/structured-agent.stub">
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\Conversational;
+use Laravel\Ai\Contracts\HasStructuredOutput;
+use Laravel\Ai\Contracts\HasTools;
+use Laravel\Ai\Contracts\Tool;
+use Laravel\Ai\Messages\Message;
+use Laravel\Ai\Promptable;
+use Stringable;
+
+class {{ class }} implements Agent, Conversational, HasStructuredOutput, HasTools
+{
+    use Promptable;
+
+    /**
+     * Get the instructions that the agent should follow.
+     */
+    public function instructions(): Stringable|string
+    {
+        return 'You are a helpful assistant.';
+    }
+
+    /**
+     * Get the list of messages comprising the conversation so far.
+     *
+     * @return Message[]
+     */
+    public function messages(): iterable
+    {
+        return [];
+    }
+
+    /**
+     * Get the tools available to the agent.
+     *
+     * @return Tool[]
+     */
+    public function tools(): iterable
+    {
+        return [];
+    }
+
+    /**
+     * Get the agent's structured output schema definition.
+     */
+    public function schema(JsonSchema $schema): array
+    {
+        return [
+            'value' => $schema->string()->required(),
+        ];
+    }
+}
+</file>
+
+<file path="stubs/tool.stub">
+<?php
+
+namespace {{ namespace }};
+
+use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Laravel\Ai\Contracts\Tool;
+use Laravel\Ai\Tools\Request;
+use Stringable;
+
+class {{ class }} implements Tool
+{
+    /**
+     * Get the description of the tool's purpose.
+     */
+    public function description(): Stringable|string
+    {
+        return 'A description of the tool.';
+    }
+
+    /**
+     * Execute the tool.
+     */
+    public function handle(Request $request): Stringable|string
+    {
+        //
+    }
+
+    /**
+     * Get the tool's schema definition.
+     */
+    public function schema(JsonSchema $schema): array
+    {
+        return [
+            'value' => $schema->string()->required(),
+        ];
+    }
+}
+</file>
+
 <file path="tailwind.config.js">
 import defaultTheme from 'tailwindcss/defaultTheme';
 import forms from '@tailwindcss/forms';
@@ -4299,7 +4849,7 @@ export default {
 };
 </file>
 
-<file path="tests/Feature/Auth/AuthenticationTest.php">
+<file path="tests/Auth/AuthenticationTest.php">
 <?php
 
 use App\Models\User;
@@ -4343,7 +4893,7 @@ test('users can logout', function () {
 });
 </file>
 
-<file path="tests/Feature/Auth/EmailVerificationTest.php">
+<file path="tests/Auth/EmailVerificationTest.php">
 <?php
 
 use App\Models\User;
@@ -4392,7 +4942,7 @@ test('email is not verified with invalid hash', function () {
 });
 </file>
 
-<file path="tests/Feature/Auth/PasswordConfirmationTest.php">
+<file path="tests/Auth/PasswordConfirmationTest.php">
 <?php
 
 use App\Models\User;
@@ -4427,7 +4977,7 @@ test('password is not confirmed with invalid password', function () {
 });
 </file>
 
-<file path="tests/Feature/Auth/PasswordResetTest.php">
+<file path="tests/Auth/PasswordResetTest.php">
 <?php
 
 use App\Models\User;
@@ -4490,7 +5040,7 @@ test('password can be reset with valid token', function () {
 });
 </file>
 
-<file path="tests/Feature/Auth/PasswordUpdateTest.php">
+<file path="tests/Auth/PasswordUpdateTest.php">
 <?php
 
 use App\Models\User;
@@ -4533,7 +5083,7 @@ test('correct password must be provided to update password', function () {
 });
 </file>
 
-<file path="tests/Feature/Auth/RegistrationTest.php">
+<file path="tests/Auth/RegistrationTest.php">
 <?php
 
 test('registration screen can be rendered', function () {
@@ -4555,6 +5105,48 @@ test('new users can register', function () {
 });
 </file>
 
+<file path="tests/Feature/Ai/SentinelAgentTest.php">
+<?php
+
+use App\Ai\Agents\SentinelAgent;
+use Illuminate\Support\Facades\Http;
+use Laravel\Ai\Responses\AgentResponse;
+
+// 1. UNIT TEST: Zůstává stejný, je to správný přístup
+it('can prompt the sentinel agent', function () {
+    $mockResponse = Mockery::mock(AgentResponse::class);
+    $mockResponse->text = 'Odpověď od Sentinela';
+
+    $agent = Mockery::mock(SentinelAgent::class)->makePartial();
+    $agent->shouldReceive('prompt')
+        ->once()
+        ->with('Ahoj')
+        ->andReturn($mockResponse);
+
+    $response = $agent->prompt('Ahoj');
+
+    expect($response->text)->toBe('Odpověď od Sentinela');
+});
+
+// 2. INTEGRATION TEST: Upravený tak, aby nepadal na API limitech
+it('can handle gemini api communication without overloading', function () {
+    // Falešná odpověď od Google Gemini API
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => Http::response([
+            'candidates' => [
+                ['content' => ['parts' => [['text' => 'Jsem připraven, operátore.']]]],
+            ],
+        ], 200),
+    ]);
+
+    $sentinel = SentinelAgent::make();
+    $response = $sentinel->prompt('Ahoj, jsi tam?');
+
+    // Testujeme, zda agent správně zpracoval mocknutou odpověď
+    expect($response->text)->toContain('připraven');
+})->group('integration');
+</file>
+
 <file path="tests/Feature/ExampleTest.php">
 <?php
 
@@ -4565,7 +5157,30 @@ it('returns a successful response', function () {
 });
 </file>
 
-<file path="tests/Feature/Feature/MessageTest.php">
+<file path="tests/Feature/FriendshipJobTest.php">
+<?php
+
+use App\Jobs\SendFriendRequest;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+uses(RefreshDatabase::class);
+
+test('friend request job holds correct data', function () {
+    // Vytvoříme uživatele, aby job měl s čím pracovat
+    $user = User::factory()->create();
+    $botName = 'SENTINEL_01';
+
+    // Vytvoříme instanci jobu s názvy proměnných, které skutečně máš
+    $job = new SendFriendRequest($user->id, $botName);
+
+    // Ověříme, že job má v sobě správná data
+    expect($job->userId)->toBe($user->id)
+        ->and($job->botName)->toBe($botName);
+});
+</file>
+
+<file path="tests/Feature/MessageTest.php">
 <?php
 
 use App\Events\MessageReceived;
@@ -4856,98 +5471,33 @@ class MessageReceived implements ShouldBroadcastNow
 }
 </file>
 
-<file path="composer.json">
+<file path="app/Jobs/SendFriendRequest.php">
+<?php
+
+namespace App\Jobs;
+
+use App\Actions\SendFriendRequestAction;
+use App\Models\User;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+
+class SendFriendRequest implements ShouldQueue
 {
-    "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
-    "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
-    "license": "MIT",
-    "require": {
-        "php": "^8.3",
-        "inertiajs/inertia-laravel": "^2.0",
-        "laravel/framework": "^13.7",
-        "laravel/reverb": "^1.0",
-        "laravel/sanctum": "^4.0",
-        "laravel/tinker": "^3.0",
-        "tightenco/ziggy": "^2.0"
-    },
-    "require-dev": {
-        "fakerphp/faker": "^1.23",
-        "laravel/breeze": "^2.4",
-        "laravel/pail": "^1.2.5",
-        "laravel/pao": "^1.0.6",
-        "laravel/pint": "^1.27",
-        "mockery/mockery": "^1.6",
-        "nunomaduro/collision": "^8.6",
-        "pestphp/pest": "^4.7",
-        "pestphp/pest-plugin-laravel": "^4.1"
-    },
-    "autoload": {
-        "psr-4": {
-            "App\\": "app/",
-            "Database\\Factories\\": "database/factories/",
-            "Database\\Seeders\\": "database/seeders/"
-        }
-    },
-    "autoload-dev": {
-        "psr-4": {
-            "Tests\\": "tests/"
-        }
-    },
-    "scripts": {
-        "setup": [
-            "composer install",
-            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
-            "@php artisan key:generate",
-            "@php artisan migrate --force",
-            "npm install --ignore-scripts",
-            "npm run build"
-        ],
-        "dev": [
-            "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
-        ],
-        "test": [
-            "@php artisan config:clear --ansi @no_additional_args",
-            "@php artisan test"
-        ],
-        "post-autoload-dump": [
-            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
-            "@php artisan package:discover --ansi"
-        ],
-        "post-update-cmd": [
-            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
-        ],
-        "post-root-package-install": [
-            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
-        ],
-        "post-create-project-cmd": [
-            "@php artisan key:generate --ansi",
-            "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
-            "@php artisan migrate --graceful --ansi"
-        ],
-        "pre-package-uninstall": [
-            "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
-        ]
-    },
-    "extra": {
-        "laravel": {
-            "dont-discover": []
-        }
-    },
-    "config": {
-        "optimize-autoloader": true,
-        "preferred-install": "dist",
-        "sort-packages": true,
-        "allow-plugins": {
-            "pestphp/pest-plugin": true,
-            "php-http/discovery": true
-        }
-    },
-    "minimum-stability": "stable",
-    "prefer-stable": true
+    use Queueable;
+
+    public function __construct(
+        public int $userId,
+        public string $botName = 'SENTINEL_01' // Tady máš botName, ne senderId!
+    ) {}
+
+    public function handle(SendFriendRequestAction $action): void
+    {
+        // Najdeme bota podle jména, které jsme si uložili v konstruktoru
+        $bot = User::where('name', $this->botName)->firstOrFail();
+
+        // Předáme ID bota a ID uživatele
+        $action->execute($bot->id, $this->userId);
+    }
 }
 </file>
 
@@ -5335,61 +5885,6 @@ onMounted(() => {
 </template>
 </file>
 
-<file path="tests/Feature/Feature/FriendRequestTest.php">
-<?php
-
-use App\Jobs\SendFriendRequest;
-use App\Models\User;
-
-test('system dispatches friend request job', function () {
-    Queue::fake(); // Faking fronty
-
-    $user = User::factory()->create();
-    $this->actingAs($user);
-
-    $this->get('/test-friend')->assertStatus(200);
-
-    // Ověříme, že byl job odeslán do fronty
-    Queue::assertPushed(SendFriendRequest::class);
-});
-</file>
-
-<file path="tests/Feature/Feature/SystemAlertTest.php">
-<?php
-
-use App\Events\SystemAlertTriggered;
-use App\Models\User;
-use Illuminate\Support\Facades\Event;
-
-test('test route successfully dispatches websocket event to reverb', function () {
-    // 1. Fakeujeme eventy i broadcasty
-    Event::fake([SystemAlertTriggered::class]);
-
-    $user = User::factory()->create();
-    $this->actingAs($user);
-
-    // 2. Zavoláme routu
-    $response = $this->get('/test-signal');
-
-    // 3. Assert status
-    $response->assertStatus(200);
-
-    // 4. Ověříme, že event byl dispatchován a má správná data
-    Event::assertDispatched(SystemAlertTriggered::class, function ($event) use ($user) {
-        return $event->userId === $user->id &&
-               $event->message === 'Krizový stav aktivován!';
-    });
-
-    // 5. Bonus: Ověříme, že event má správný kanál (broadcastOn)
-    Event::assertDispatched(SystemAlertTriggered::class, function ($event) use ($user) {
-        $channels = $event->broadcastOn();
-
-        return count($channels) === 1 &&
-               $channels[0]->name === 'private-App.Models.User.'.$user->id;
-    });
-});
-</file>
-
 <file path="app/Events/SystemAlertTriggered.php">
 <?php
 
@@ -5472,55 +5967,99 @@ class HandleInertiaRequests extends Middleware
 }
 </file>
 
-<file path="app/Models/User.php">
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-
-class User extends Authenticatable
+<file path="composer.json">
 {
-    use HasFactory, Notifiable;
-
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'handle',
-        'faction',
-        'avatar_url',
-    ];
-
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array<int, string>
-     */
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
-
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
-    }
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "laravel/laravel",
+    "type": "project",
+    "description": "The skeleton application for the Laravel framework.",
+    "keywords": ["laravel", "framework"],
+    "license": "MIT",
+    "require": {
+        "php": "^8.3",
+        "inertiajs/inertia-laravel": "^2.0",
+        "laravel/ai": "^0.7.2",
+        "laravel/framework": "^13.7",
+        "laravel/reverb": "^1.0",
+        "laravel/sanctum": "^4.0",
+        "laravel/tinker": "^3.0",
+        "tightenco/ziggy": "^2.0"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.23",
+        "laravel/breeze": "^2.4",
+        "laravel/pail": "^1.2.5",
+        "laravel/pao": "^1.0.6",
+        "laravel/pint": "^1.27",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.6",
+        "pestphp/pest": "^4.7",
+        "pestphp/pest-plugin-laravel": "^4.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "setup": [
+            "composer install",
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
+            "@php artisan key:generate",
+            "@php artisan migrate --force",
+            "npm install --ignore-scripts",
+            "npm run build"
+        ],
+        "dev": [
+            "Composer\\Config::disableProcessTimeout",
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
+        ],
+        "test": [
+            "@php artisan config:clear --ansi @no_additional_args",
+            "@php artisan test"
+        ],
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [
+            "@php artisan key:generate --ansi",
+            "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
+            "@php artisan migrate --graceful --ansi"
+        ],
+        "pre-package-uninstall": [
+            "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }
 </file>
 
@@ -5731,92 +6270,6 @@ const { messages } = storeToRefs(store);
     border-radius: 10px;
 }
 </style>
-</file>
-
-<file path="resources/js/Stores/useNotificationStore.js">
-import { defineStore } from 'pinia';
-
-export const useNotificationStore = defineStore('notifications', {
-    state: () => ({
-        messages: [],
-        friendRequests: [],
-        alerts: [],
-    }),
-
-    getters: {
-        hasUnreadMessages: (state) => state.messages.some(m => !m.read),
-        hasUnreadRequests: (state) => state.friendRequests.some(r => !r.read),
-        hasUnreadAlerts: (state) => state.alerts.some(a => !a.read),
-
-        totalUnreadCount: (state) =>
-            state.messages.filter(m => !m.read).length +
-            state.friendRequests.filter(r => !r.read).length +
-            state.alerts.filter(a => !a.read).length
-    },
-
-    actions: {
-        // Pomocné akce pro přidávání s vynucenou strukturou
-        addMessage(message) {
-            this.messages.push({
-                id: Date.now(),
-                read: false,
-                time: new Date().toLocaleTimeString(),
-                ...message
-            });
-        },
-        addFriendRequest(request) {
-            this.friendRequests.push({
-                id: Date.now(),
-                read: false,
-                ...request
-            });
-        },
-        addAlert(alert) {
-    this.alerts.push({
-        id: Date.now(),
-        read: false,
-        type: 'alert',
-        title: alert.title || 'SYSTEM_ALERT', // Přidej defaultní title
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), // Přidej čas
-        ...alert
-    });
-},
-
-        // Tato metoda propojí tvůj store s Reverbem
-        initListeners(userId) {
-    if (this.isListening) return;
-    this.isListening = true;
-
-    window.Echo.private(`App.Models.User.${userId}`)
-        .listen('FriendRequestReceived', (e) => { this.addFriendRequest(e.data); })
-        .listen('MessageReceived', (e) => { this.addMessage(e.data); })
-        .listen('.SystemAlertTriggered', (e) => {
-    const payload = e.data?.data?.message || e.message || 'Krizový stav aktivován!';
-
-    this.addAlert({
-        title: 'KRIZOVÝ_STAV',
-        msg: payload
-    });
-});
-},
-
-        // Označování za přečtené
-        markMessagesAsRead() {
-            this.messages.forEach(m => m.read = true);
-        },
-        markRequestsAsRead() {
-            this.friendRequests.forEach(r => r.read = true);
-        },
-        markAlertsAsRead() {
-            this.alerts.forEach(a => a.read = true);
-        },
-
-        // Důležité pro CTO: Vyčištění storu při odhlášení (prevence memory leaků)
-        resetAll() {
-            this.$reset();
-        }
-    }
-});
 </file>
 
 <file path="bootstrap/app.php">
@@ -6113,73 +6566,6 @@ return [
 }
 </file>
 
-<file path="resources/js/Components/NeonFriends.vue">
-<script setup>
-import { storeToRefs } from 'pinia';
-import { useNotificationStore } from '@/Stores/useNotificationStore';
-
-const emit = defineEmits(['back', 'view-profile']);
-const store = useNotificationStore();
-const { friendRequests } = storeToRefs(store);
-</script>
-
-<template>
-    <div
-        class="w-[82vw] max-w-xs md:w-full md:max-w-md bg-black/60 border border-purple-500/30 p-6 font-mono backdrop-blur-xl shadow-[0_0_30px_rgba(168,85,247,0.15)] rounded-[2rem] flex flex-col max-h-[75vh] overflow-hidden">
-
-        <div class="flex justify-between mb-6 border-b border-purple-500/20 pb-2 shrink-0">
-            <span class="text-purple-400 text-xs tracking-tighter">>> NEON_NETWORK_ENTITIES</span>
-            <button @click="$emit('back')"
-                class="text-[9px] hover:text-white text-purple-700 underline">TERMINATE_LINK</button>
-        </div>
-
-        <div class="space-y-4 overflow-y-auto no-scrollbar grow pr-1">
-            <div v-for="req in friendRequests" :key="req.id" @click="$emit('view-profile', req.id)"
-                class="group flex items-center justify-between p-3 border transition-all cursor-pointer" :class="req.read
-                    ? 'border-white/5 bg-white/5 hover:border-purple-500/30'
-                    : 'border-purple-500/30 bg-purple-900/10 hover:border-purple-500/50'">
-
-                <div class="flex items-center gap-4">
-                    <div class="w-10 h-10 border flex items-center justify-center"
-                        :class="req.read ? 'bg-purple-900/10 border-purple-500/20 text-purple-600' : 'bg-purple-900/30 border-purple-500/50 text-purple-400'">
-                        <span :class="!req.read ? 'animate-pulse' : ''">ID</span>
-                    </div>
-                    <div>
-                        <div class="text-xs uppercase tracking-widest"
-                            :class="req.read ? 'text-white/40' : 'text-white'">
-                            {{ req.name || 'Entity_' + req.id }}
-                        </div>
-                        <div class="text-[9px]" :class="req.read ? 'text-purple-500/30' : 'text-purple-500/70'">
-                            STATUS: {{ req.read ? 'LINK_ESTABLISHED' : 'NEW_SIGNAL_DETECTED' }}
-                        </div>
-                    </div>
-                </div>
-
-                <div class="text-[10px] transition-opacity"
-                    :class="req.read ? 'text-purple-700' : 'text-purple-400 opacity-0 group-hover:opacity-100'">
-                    [ VIEW_PROFILE ]
-                </div>
-            </div>
-
-            <div v-if="friendRequests.length === 0" class="text-center text-purple-500/20 text-[10px] py-10">
-                >> NO_PENDING_REQUESTS
-            </div>
-        </div>
-    </div>
-</template>
-
-<style scoped>
-.no-scrollbar::-webkit-scrollbar {
-    width: 2px;
-}
-
-.no-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(168, 85, 247, 0.2);
-    border-radius: 10px;
-}
-</style>
-</file>
-
 <file path="resources/js/Components/NeonGate.vue">
 <script setup>
 defineProps({
@@ -6227,6 +6613,153 @@ defineProps({
 </style>
 </file>
 
+<file path="resources/js/Stores/useNotificationStore.js">
+import { defineStore } from "pinia";
+
+export const useNotificationStore = defineStore("notifications", {
+    state: () => ({
+        messages: [],
+        friendRequests: [],
+        friends: [], // Nové pole pro aktivní přátelství
+        alerts: [],
+        isListening: false,
+    }),
+
+    getters: {
+        // Zpátky vrácené gettery pro UI
+        hasUnreadMessages: (state) => state.messages.some((m) => !m.read),
+        hasUnreadRequests: (state) => state.friendRequests.some((r) => !r.read),
+        hasUnreadAlerts: (state) => state.alerts.some((a) => !a.read),
+
+        totalUnreadCount: (state) =>
+            state.messages.filter((m) => !m.read).length +
+            state.friendRequests.filter((r) => !r.read).length +
+            state.alerts.filter((a) => !a.read).length,
+    },
+
+    actions: {
+        // --- Přidávání dat ---
+        addMessage(message) {
+            this.messages.push({
+                id: Date.now(),
+                read: false,
+                time: new Date().toLocaleTimeString(),
+                ...message,
+            });
+        },
+        addFriendRequest(request) {
+            this.friendRequests.push({
+                id: request.id || Date.now(),
+                read: false,
+                status: "pending",
+                ...request,
+            });
+        },
+        addAlert(alert) {
+            this.alerts.push({
+                id: Date.now(),
+                read: false,
+                type: "alert",
+                ...alert,
+            });
+        },
+        addFriend(friend) {
+            this.friends.push(friend);
+        },
+
+        // --- Logika správy přátelství ---
+        updateFriendRequestStatus(id, newStatus) {
+            const index = this.friendRequests.findIndex((r) => r.id === id);
+            if (index !== -1) {
+                const req = this.friendRequests[index];
+                req.status = newStatus;
+                req.read = true;
+
+                if (newStatus === "accepted") {
+                    this.friends.push(req);
+                    this.friendRequests.splice(index, 1);
+                }
+            }
+        },
+        removeFriendRequest(id) {
+            this.friendRequests = this.friendRequests.filter(
+                (r) => r.id !== id,
+            );
+        },
+        removeFriend(id) {
+            this.friends = this.friends.filter((f) => f.id !== id);
+        },
+
+        // --- Přečtení notifikací ---
+        markMessagesAsRead() {
+            this.messages.forEach((m) => (m.read = true));
+        },
+        markRequestsAsRead() {
+            this.friendRequests.forEach((r) => (r.read = true));
+        },
+        markAlertsAsRead() {
+            this.alerts.forEach((a) => (a.read = true));
+        },
+
+        // --- Real-time propojení ---
+        initListeners(userId) {
+            if (this.isListening) return;
+            this.isListening = true;
+
+            window.Echo.private(`App.Models.User.${userId}`)
+                .listen("FriendRequestReceived", (e) =>
+                    this.addFriendRequest(e.data),
+                )
+                .listen("FriendshipAccepted", (e) =>
+                    this.updateFriendRequestStatus(e.friendshipId, "accepted"),
+                );
+        },
+
+        // --- Reset ---
+        resetAll() {
+            this.$reset();
+            this.isListening = false;
+        },
+    },
+});
+</file>
+
+<file path="tests/Feature/SystemAlertTest.php">
+<?php
+
+use App\Events\SystemAlertTriggered;
+use App\Models\User;
+use Illuminate\Support\Facades\Event;
+
+test('test route successfully dispatches websocket event to reverb', function () {
+    // 1. Fakeujeme eventy i broadcasty
+    Event::fake([SystemAlertTriggered::class]);
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    // 2. Zavoláme routu
+    $response = $this->get('/test-signal');
+
+    // 3. Assert status
+    $response->assertStatus(200);
+
+    // 4. Ověříme, že event byl dispatchován a má správná data
+    Event::assertDispatched(SystemAlertTriggered::class, function ($event) use ($user) {
+        return $event->userId === $user->id &&
+               $event->message === 'Krizový stav aktivován!';
+    });
+
+    // 5. Bonus: Ověříme, že event má správný kanál (broadcastOn)
+    Event::assertDispatched(SystemAlertTriggered::class, function ($event) use ($user) {
+        $channels = $event->broadcastOn();
+
+        return count($channels) === 1 &&
+               $channels[0]->name === 'private-App.Models.User.'.$user->id;
+    });
+});
+</file>
+
 <file path="vite.config.js">
 import { defineConfig, loadEnv } from 'vite';
 import laravel from 'laravel-vite-plugin';
@@ -6269,6 +6802,71 @@ export default defineConfig(({ mode }) => {
 });
 </file>
 
+<file path="app/Models/User.php">
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
+{
+    use HasFactory, Notifiable;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'handle',
+        'faction',
+        'avatar_url',
+        'is_ai',
+        'system_prompt',
+        'model',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var array<int, string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+        ];
+    }
+
+    public function receivedRequests()
+    {
+        return $this->hasMany(Friendship::class, 'recipient_id')->where('status', 'pending');
+    }
+
+    public function sentRequests()
+    {
+        return $this->hasMany(Friendship::class, 'sender_id');
+    }
+}
+</file>
+
 <file path="resources/js/app.js">
 import '../css/app.css';
 import '../css/neon-ui.css';
@@ -6304,6 +6902,86 @@ createInertiaApp({
         color: '#4B5563',
     },
 });
+</file>
+
+<file path="resources/js/Components/NeonFriends.vue">
+<script setup>
+import { storeToRefs } from 'pinia';
+import { useNotificationStore } from '@/Stores/useNotificationStore';
+
+const emit = defineEmits(['back', 'view-profile']);
+const store = useNotificationStore();
+const { friendRequests, friends } = storeToRefs(store);
+
+const acceptRequest = async (id) => {
+    try {
+        await axios.patch(`/friendships/${id}`, { status: 'accepted' });
+        store.updateFriendRequestStatus(id, 'accepted');
+    } catch (e) { console.error("Accept failed", e); }
+};
+
+const declineRequest = async (id) => {
+    try {
+        await axios.delete(`/friendships/${id}`);
+        store.removeFriendRequest(id);
+    } catch (e) { console.error("Decline failed", e); }
+};
+
+const removeLink = async (id) => {
+    try {
+        await axios.delete(`/friendships/${id}`);
+        store.removeFriend(id);
+    } catch (e) { console.error("Unlink failed", e); }
+};
+</script>
+
+<template>
+    <div
+        class="w-[82vw] max-w-xs md:w-full md:max-w-md bg-black/60 border border-purple-500/30 p-6 font-mono backdrop-blur-xl rounded-[2rem] flex flex-col max-h-[75vh]">
+
+        <div class="flex justify-between mb-6 border-b border-purple-500/20 pb-2">
+            <span class="text-purple-400 text-xs tracking-tighter">>> NEON_NETWORK_ENTITIES</span>
+            <button @click="$emit('back')"
+                class="text-[9px] hover:text-white text-purple-700 underline">TERMINATE_LINK</button>
+        </div>
+
+        <div class="space-y-4 overflow-y-auto no-scrollbar grow">
+            <div v-for="req in friendRequests" :key="req.id" @click="$emit('view-profile', req.id)"
+                class="flex items-center justify-between p-3 border border-purple-500/30 bg-purple-900/10 cursor-pointer">
+
+                <div class="flex items-center gap-4">
+                    <div
+                        class="w-8 h-8 border border-purple-500/50 flex items-center justify-center bg-purple-900/30 text-purple-400">
+                        <span :class="!req.read ? 'animate-pulse' : ''">ID</span>
+                    </div>
+                    <span class="text-white text-xs">{{ req.name }}</span>
+                </div>
+
+                <div class="flex gap-2" v-if="req.status === 'pending'">
+                    <button @click.stop="acceptRequest(req.id)"
+                        class="text-[9px] px-2 py-1 bg-green-900/20 border border-green-500/30 text-green-400 hover:bg-green-500/20">ACCEPT</button>
+                    <button @click.stop="declineRequest(req.id)"
+                        class="text-[9px] px-2 py-1 bg-red-900/20 border border-red-500/30 text-red-400 hover:bg-red-500/20">DECLINE</button>
+                </div>
+            </div>
+
+            <div v-if="friends.length > 0" class="mt-6">
+                <div class="text-purple-400 text-xs pb-2 border-b border-purple-500/20">>> ACTIVE_LINKS</div>
+                <div v-for="friend in friends" :key="friend.id"
+                    class="flex items-center justify-between p-3 border border-purple-500/10 mt-2">
+                    <span class="text-white text-xs">{{ friend.name }}</span>
+                    <button @click="removeLink(friend.id)"
+                        class="text-[9px] text-red-500 hover:text-red-300 underline">UNLINK</button>
+                </div>
+            </div>
+
+            <div v-if="friendRequests.length === 0 && friends.length === 0"
+                class="text-center text-purple-500/20 text-[10px] py-10">
+                >> NO_ACTIVE_OR_PENDING_LINKS
+            </div>
+        </div>
+    </div>
+</template>
 </file>
 
 <file path="resources/js/Components/NeonOverlay.vue">
@@ -6496,63 +7174,6 @@ const posts = ref([
     scrollbar-width: none;
 }
 </style>
-</file>
-
-<file path="routes/web.php">
-<?php
-
-use App\Events\SystemAlertTriggered;
-use App\Http\Controllers\ProfileController;
-use App\Jobs\SendFriendRequest;
-use App\Jobs\SendMessage;
-use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
-
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-});
-
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-});
-
-Route::get('/test-signal', function () {
-    // Teď posíláme ID uživatele, aby Event věděl, kam broadcastovat
-    event(new SystemAlertTriggered(auth()->id(), 'Krizový stav aktivován!'));
-
-    return 'Signál odpálen!';
-});
-
-Route::get('/test-message', function () {
-    SendMessage::dispatch(auth()->id(), [
-        'sender' => 'CYBER_OPERATOR',
-        'text' => 'Připojení k uzlu navázáno.',
-    ])->delay(now()->addSeconds(1)); // Zpoždění 5 sekund
-
-    return 'Zpráva naplánována za 5 sekund.';
-});
-
-Route::get('/test-friend', function () {
-    // Dispatchne job, který se po 3 sekundách automaticky provede
-    SendFriendRequest::dispatch(auth()->id(), 999)
-        ->delay(now()->addSeconds(3));
-
-    return 'Žádost o přátelství byla naplánována za 3 sekundy.';
-});
-
-Route::get('/dashboard', function () {
-    return inertia('Dashboard'); // nebo co tam teď máš místo dashboardu
-})->middleware(['auth', 'verified'])->name('dashboard');
-
-require __DIR__.'/auth.php';
 </file>
 
 <file path="package.json">
@@ -6783,6 +7404,67 @@ watch(isOpened, (newVal) => {
 
     </div>
 </template>
+</file>
+
+<file path="routes/web.php">
+<?php
+
+use App\Events\SystemAlertTriggered;
+use App\Http\Controllers\FriendshipController;
+use App\Http\Controllers\ProfileController;
+use App\Jobs\SendFriendRequest;
+use App\Jobs\SendMessage;
+use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
+
+Route::get('/', function () {
+    return Inertia::render('Welcome', [
+        'canLogin' => Route::has('login'),
+        'canRegister' => Route::has('register'),
+        'laravelVersion' => Application::VERSION,
+        'phpVersion' => PHP_VERSION,
+    ]);
+});
+
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+Route::get('/test-signal', function () {
+    // Teď posíláme ID uživatele, aby Event věděl, kam broadcastovat
+    event(new SystemAlertTriggered(auth()->id(), 'Krizový stav aktivován!'));
+
+    return 'Signál odpálen!';
+});
+
+Route::get('/test-message', function () {
+    SendMessage::dispatch(auth()->id(), [
+        'sender' => 'CYBER_OPERATOR',
+        'text' => 'Připojení k uzlu navázáno.',
+    ])->delay(now()->addSeconds(1)); // Zpoždění 5 sekund
+
+    return 'Zpráva naplánována za 5 sekund.';
+});
+
+Route::get('/test-friend', function () {
+    // Dispatchne job, který se po 3 sekundách automaticky provede
+    SendFriendRequest::dispatch(auth()->id(), 999)
+        ->delay(now()->addSeconds(3));
+
+    return 'Žádost o přátelství byla naplánována za 3 sekundy.';
+});
+
+Route::get('/dashboard', function () {
+    return inertia('Dashboard'); // nebo co tam teď máš místo dashboardu
+})->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::patch('/friendships/{id}', [FriendshipController::class, 'update'])->name('friendships.update');
+Route::delete('/friendships/{id}', [FriendshipController::class, 'destroy']);
+
+require __DIR__.'/auth.php';
 </file>
 
 <file path="components.d.ts">

@@ -18,12 +18,15 @@ class DatabaseSeeder extends Seeder
     {
         // 🌌 Vytvoříme hlavního Demo rekrutera
         User::updateOrCreate(
-            ['email' => 'demo@neonhub.io'],
             [
                 'name' => 'Recruiter Phantom',
+                'email' => 'demo@neonhub.io',
                 'handle' => '@recruiter_alpha',
-                'faction' => 'CORPO_ELITE',
-                'password' => Hash::make('neon-secret-password-2026'),
+                'role' => 'CORPO_ELITE', //
+                'bio' => 'Hlavní rekruter pro korporátní elitu. Vyhledává subjekty s vysokou latencí a čistým zdrojovým kódem.',
+                'trust_level' => 75,
+                'latency' => '18ms_STABLE',
+                'password' => Hash::make('password'), // Nebo tvoje heslo
             ]
         );
 

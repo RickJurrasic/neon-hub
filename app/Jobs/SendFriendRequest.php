@@ -5,23 +5,24 @@ namespace App\Jobs;
 use App\Actions\SendFriendRequestAction;
 use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
 
 class SendFriendRequest implements ShouldQueue
 {
-    use Queueable;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public function __construct(
         public int $userId,
-        public string $botName = 'SENTINEL_01' // Tady máš botName, ne senderId!
+        public string $botName = 'SENTINEL_01'
     ) {}
 
     public function handle(SendFriendRequestAction $action): void
     {
-        // Najdeme bota podle jména, které jsme si uložili v konstruktoru
         $bot = User::where('name', $this->botName)->firstOrFail();
 
-        // Předáme ID bota a ID uživatele
         $action->execute($bot->id, $this->userId);
     }
 }

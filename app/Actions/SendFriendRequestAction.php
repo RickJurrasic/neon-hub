@@ -32,14 +32,19 @@ class SendFriendRequestAction
             'status' => 'pending',
         ]);
 
-        // 3. Vytáhneme si skutečné jméno odesílatele
+        // 3. Vytáhneme si kompletního odesílatele (bota) i s jeho sloupci z DB
         $sender = User::find($senderId);
 
-        // 4. Odpálíme event se skutečnými daty
+        // 4. Odpálíme event se VŠEMI daty, které Pinia a profil potřebují k instantnímu vykreslení
         event(new FriendRequestReceived($recipientId, [
             'id' => $friendship->id,
-            'sender_id' => $senderId,
+            'user_id' => $senderId, // useNotificationStore.js to mapuje přes user_id
             'name' => $sender ? $sender->name : 'UNKNOWN_ENTITY',
+            'role' => $sender->role ?? 'DEFENSE', // Fallback, pokud by v DB chybělo
+            'bio' => $sender->bio ?? '"Šifrované bio prázdné."',
+            'trust_level' => $sender->trust_level ?? 88,
+            'latency' => $sender->latency ?? '12ms_STABLE',
+            'avatar' => $sender ? $sender->avatar_url : null, // TADY JE TEN CHYBĚJÍCÍ AVATAR!
             'status' => 'pending',
         ]));
 
