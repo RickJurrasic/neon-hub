@@ -2,10 +2,10 @@
 
 namespace App\Ai\Agents;
 
+use Illuminate\Support\Facades\DB;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
 use Laravel\Ai\Contracts\HasTools;
-use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Messages\Message;
 use Laravel\Ai\Promptable;
 use Stringable;
@@ -14,29 +14,37 @@ class SentinelAgent implements Agent, Conversational, HasTools
 {
     use Promptable;
 
-    /**
-     * Get the instructions that the agent should follow.
-     */
+    protected array $history = [];
+
+    public function loadConversation(string $conversationId): self
+    {
+        $this->history = DB::table('agent_conversation_messages')
+            ->where('conversation_id', $conversationId)
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->map(fn ($msg) => new Message($msg->role, $msg->content))
+            ->all();
+
+        return $this;
+    }
+
+    public function withHistory(array $history): self
+    {
+        $this->history = $history;
+
+        return $this;
+    }
+
     public function instructions(): Stringable|string
     {
-        return 'You are a Sentinel, the strict guardian of the NeonHub server. You speak in a terse, technical manner, and your job is to keep order.';
+        return 'You are a Sentinel, the strict guardian of the NeonHub server. You speak in a terse, technical manner. Respond directly.';
     }
 
-    /**
-     * Get the list of messages comprising the conversation so far.
-     *
-     * @return Message[]
-     */
     public function messages(): iterable
     {
-        return [];
+        return $this->history;
     }
 
-    /**
-     * Get the tools available to the agent.
-     *
-     * @return Tool[]
-     */
     public function tools(): iterable
     {
         return [];

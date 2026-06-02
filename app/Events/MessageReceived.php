@@ -12,9 +12,6 @@ class MessageReceived implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    /**
-     * @param  array  $data  {sender: string, text: string}
-     */
     public function __construct(
         public int $userId,
         public array $data
@@ -22,14 +19,12 @@ class MessageReceived implements ShouldBroadcastNow
 
     /**
      * Definice dat, která skutečně poletí do prohlížeče.
+     * Zde vracíme kompletní data z Jobu, aby frontend měl i conversation_id atd.
      */
     public function broadcastWith(): array
     {
         return [
-            'data' => [
-                'sender' => $this->data['sender'],
-                'text' => $this->data['text'],
-            ],
+            'data' => $this->data,
         ];
     }
 

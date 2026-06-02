@@ -94,12 +94,19 @@ return [
         'gemini' => [
             'driver' => 'gemini',
             'key' => env('GEMINI_API_KEY'),
-            'url' => env('GEMINI_URL', 'https://generativelanguage.googleapis.com/v1beta/'),
+            'model' => 'gemini-3.5-flash',
+        ],
+
+        'gemini_fallback' => [
+            'driver' => 'gemini',
+            'key' => env('GEMINI_API_KEY'),
+            'model' => 'gemini-2.5-flash',
         ],
 
         'groq' => [
             'driver' => 'groq',
             'key' => env('GROQ_API_KEY'),
+            'model' => 'llama-3.3-70b-versatile',
         ],
 
         'jina' => [
