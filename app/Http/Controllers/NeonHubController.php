@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Friendship;
-use App\Models\Message;
+use App\Jobs\HandleAgentResponse;
+use App\Models\Friendship; // Nový sjednocený job
 use App\Models\User;
-use Illuminate\Foundation\Application; // Potřebné pro Application::VERSION
-use Illuminate\Support\Facades\Route;  // Potřebné pro Route::has()
+use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 class NeonHubController extends Controller
@@ -15,25 +15,26 @@ class NeonHubController extends Controller
     {
         $authId = auth()->id();
 
-        // 1. Sem jsme přestěhovali tvoje původní props z web.php
         $props = [
             'canLogin' => Route::has('login'),
             'canRegister' => Route::has('register'),
             'laravelVersion' => Application::VERSION,
             'phpVersion' => PHP_VERSION,
-            'initialState' => null, // Výchozí stav, pokud je uživatel host
+            'initialState' => null,
         ];
 
-        // 2. Pokud je uživatel přihlášený, nabalíme do props kompletní cyber-stav
         if ($authId) {
             $props['initialState'] = [
                 'friendships' => $this->getFriendshipData($authId),
-                // 'messages' => $this->getMessageData($authId),
-                // 'alerts' => $this->getAlertData($authId), // Zatím vrací prázdné pole
             ];
+
+            // FIX: Voláme nový job. Pokud uživatel dá refresh, stavová pojistka uvnitř jobu
+            // zabrání tomu, aby bot poslal zprávu podruhé.
+            HandleAgentResponse::dispatch($authId)->delay(now()->addSeconds(7));
+
+            $props['initialState']['messages'] = [];
         }
 
-        // 3. Renderujeme stránku Welcome a předáme jí VŠECHNY props naráz
         return Inertia::render('Welcome', $props);
     }
 
@@ -93,20 +94,4 @@ class NeonHubController extends Controller
             'active' => $active,
         ];
     }
-
-    // private function getMessageData($authId)
-    // {
-    //    // Vrátí dešifrovaný inbox pro NeonMessages
-    //    return Message::where('receiver_id', $authId)
-    //        ->join('users', 'messages.sender_id', '=', 'users.id')
-    //        ->select('messages.id', 'users.name as sender', 'messages.text', 'messages.created_at as time', 'messages.read')
-    //        ->orderBy('messages.created_at', 'desc')
-    //        ->get();
-    // }
-    //
-    // private function getAlertData($authId): array
-    // {
-    //    // Příprava pro budoucí NeonNotifications tabulku
-    //    return [];
-    // }
 }

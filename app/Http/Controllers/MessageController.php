@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\RespondToUserMessage;
+use App\Jobs\HandleAgentResponse;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,8 +20,8 @@ class MessageController extends Controller
         $messages = DB::table('agent_conversation_messages')
             ->where('user_id', $userId)
             ->orderBy('created_at', 'desc')
-            // PŘIDÁNO: conversation_id do selectu
-            ->select('id', 'conversation_id', 'agent', 'content as text', 'created_at as time', 'role')
+            // FIX: Vybíráme čistý 'created_at' místo 'created_at as time'
+            ->select('id', 'conversation_id', 'agent', 'content as text', 'created_at', 'role')
             ->get()
             ->map(function ($msg) {
                 // Vypreparujeme čisté jméno agenta (např. SentinelAgent)
@@ -34,7 +34,9 @@ class MessageController extends Controller
                     $msg->sender = $agentName;
                 }
 
-                $msg->time = Carbon::parse($msg->time)->toTimeString();
+                // FIX: 'time' bude sloužit pro UI výpis, 'created_at' pro přesný sort ve Vue
+                $msg->time = Carbon::parse($msg->created_at)->toTimeString();
+                $msg->created_at = Carbon::parse($msg->created_at)->toIso8601String();
                 $msg->read = true;
 
                 return $msg;
@@ -65,6 +67,7 @@ class MessageController extends Controller
         }
 
         $newMessageId = (string) Str::uuid();
+        $now = now();
 
         DB::table('agent_conversation_messages')->insert([
             'id' => $newMessageId,
@@ -74,18 +77,12 @@ class MessageController extends Controller
             'role' => 'user',
             'content' => $request->text,
             'attachments' => '[]', 'tool_calls' => '[]', 'tool_results' => '[]', 'usage' => '[]', 'meta' => '[]',
-            'created_at' => now(),
-            'updated_at' => now(),
+            'created_at' => $now,
+            'updated_at' => $now,
         ]);
 
-        // =========================================================================
-        // PŘIDÁNO: Spuštění automatické odpovědi bota na pozadí (Queue)
-        // =========================================================================
-        RespondToUserMessage::dispatch(
-            $userId,
-            $originalMessage->conversation_id
-        );
-        // =========================================================================
+        // FIX: Použití správných proměnných, které v této metodě reálně existují
+        HandleAgentResponse::dispatch($userId, $originalMessage->conversation_id);
 
         return response()->json([
             'id' => $newMessageId,
@@ -93,8 +90,9 @@ class MessageController extends Controller
             'agent' => $originalMessage->agent,
             'agent_name' => str_replace('App\\Ai\\Agents\\', '', $originalMessage->agent),
             'sender' => 'YOU',
-            'text' => $request->text,
-            'time' => now()->toTimeString(),
+            'text' => $request->text, // FIX: Musíme poslat text i zpátky frontendu, aby ho Pinia mohla vykreslit!
+            'time' => $now->toTimeString(),
+            'created_at' => $now->toIso8601String(),
             'read' => true,
             'role' => 'user',
         ]);
@@ -103,18 +101,33 @@ class MessageController extends Controller
     /**
      * Odstraní zprávu z databáze.
      */
-    public function destroy($id)
+    public function destroy($conversationId)
     {
+        $userId = auth()->id();
+
+        // 1. Bezpečnostní pojistka: Ověříme, že konverzace vůbec existuje a patří přihlášenému uživateli
+        // Předpokládám, že tabulka se jmenuje 'agent_conversations' podle tvých schémat
+        $conversationExists = DB::table('agent_conversations')
+            ->where('id', $conversationId)
+            ->where('user_id', $userId)
+            ->exists();
+
+        if (! $conversationExists) {
+            return response()->json(['error' => 'NODE_NOT_FOUND'], 404);
+        }
+
+        // 2. Smažeme všechny zprávy propojené s touto konverzací
         DB::table('agent_conversation_messages')
-            ->where('id', $id)
-            ->where('user_id', auth()->id())
+            ->where('conversation_id', $conversationId)
+            ->where('user_id', $userId) // Pojistka
+            ->delete();
+
+        // 3. Smažeme samotnou konverzaci z hlavní tabulky konverzací
+        DB::table('agent_conversations')
+            ->where('id', $conversationId)
+            ->where('user_id', $userId)
             ->delete();
 
         return response()->json(['status' => 'NODE_PURGED']);
-    }
-
-    public function markAsRead(Request $request)
-    {
-        return response()->json(['status' => 'success']);
     }
 }

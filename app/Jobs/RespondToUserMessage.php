@@ -68,6 +68,7 @@ class RespondToUserMessage implements ShouldQueue
             'sender' => $cleanAgentName,
             'text' => $aiResponse,
             'time' => $now->toTimeString(),
+            'created_at' => $now->toIso8601String(), // FIX: Posíláme plný timestamp přes WebSockets
             'read' => false,
             'role' => 'assistant',
         ]));

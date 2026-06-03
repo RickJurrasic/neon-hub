@@ -5,7 +5,7 @@ use App\Http\Controllers\FriendshipController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NeonHubController;
 use App\Http\Controllers\ProfileController;
-use App\Jobs\AutoSendAgentMessage;
+use App\Jobs\HandleAgentResponse; // FIX: Nový sjednocený job
 use App\Jobs\SendFriendRequest;
 use App\Jobs\SendMessage;
 use Illuminate\Support\Facades\Route;
@@ -25,8 +25,8 @@ Route::middleware('auth')->group(function () {
         SendFriendRequest::dispatch($userId, 'SENTINEL_01')
             ->delay(now()->addSeconds(4));
 
-        // 2. Pošle automatickou uvítací zprávu od Sentinela
-        AutoSendAgentMessage::dispatch($userId, 'SENTINEL_01')
+        // 2. FIX: Použití nového sjednoceného jobu pro úvodní pozdrav
+        HandleAgentResponse::dispatch($userId, null, 'SENTINEL_01')
             ->delay(now()->addSeconds(7));
 
         return response()->json(['status' => 'NODE_INITIALIZED']);
@@ -34,7 +34,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
     Route::post('/messages', [MessageController::class, 'store'])->name('messages.store');
-    Route::delete('/messages/{id}', [MessageController::class, 'destroy'])->name('messages.destroy');
+    Route::delete('/conversations/{id}', [MessageController::class, 'destroy']);
 });
 
 Route::get('/test-signal', function () {

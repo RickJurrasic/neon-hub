@@ -11,12 +11,18 @@ export const useNotificationStore = defineStore("notifications", {
     }),
 
     getters: {
-        hasUnreadMessages: (state) => state.messages.some((m) => !m.read),
+        // FIX: Striktně kontrolujeme, zda hodnota odpovídá nepřečtenému stavu
+        hasUnreadMessages: (state) =>
+            state.messages.some(
+                (m) => m.read === false || m.read === 0 || m.read === "0",
+            ),
         hasUnreadRequests: (state) => state.friendRequests.some((r) => !r.read),
         hasUnreadAlerts: (state) => state.alerts.some((a) => !a.read),
 
         totalUnreadCount: (state) =>
-            state.messages.filter((m) => !m.read).length +
+            state.messages.filter(
+                (m) => m.read === false || m.read === 0 || m.read === "0",
+            ).length +
             state.friendRequests.filter((r) => !r.read).length +
             state.alerts.filter((a) => !a.read).length,
     },
@@ -45,12 +51,18 @@ export const useNotificationStore = defineStore("notifications", {
             }
         },
 
-        async deleteMessage(id) {
+        async deleteConversation(conversationId) {
             try {
-                this.messages = this.messages.filter((m) => m.id !== id);
-                await axios.delete(`/messages/${id}`);
+                // 1. Okamžitě vymažeme z frontendu VŠECHNY zprávy patřící do této konverzace
+                this.messages = this.messages.filter(
+                    (m) => String(m.conversation_id) !== String(conversationId),
+                );
+
+                // 2. Pošleme požadavek na backend s ID konverzace
+                await axios.delete(`/conversations/${conversationId}`);
             } catch (error) {
-                console.error("Failed to purge node:", error);
+                console.error("Failed to purge conversation node:", error);
+                // Pokud backend selže, pro jistotu natáhneme data znovu, ať neodpovídají realitě
                 this.fetchMessages();
             }
         },
@@ -59,7 +71,6 @@ export const useNotificationStore = defineStore("notifications", {
             if (!stateData) return;
             this.friendRequests = stateData.friendships?.requests || [];
 
-            // Normalizace dat z DB, aby 'id' reprezentovalo vždy ID friendshipu (z pivotu)
             this.friends = (stateData.friendships?.active || []).map(
                 (friend) => ({
                     ...friend,
@@ -68,7 +79,13 @@ export const useNotificationStore = defineStore("notifications", {
                 }),
             );
 
-            this.messages = stateData.messages || [];
+            // FIX: Normalizace zpráv hned při startu aplikace
+            this.messages = (stateData.messages || []).map((m) => ({
+                ...m,
+                // Pokud je rovno true, číslu 1 nebo řetězci "1", je to true. Cokoliv jiného (0, "0", null) je false.
+                read: m.read === true || m.read === 1 || m.read === "1",
+            }));
+
             this.alerts = stateData.alerts || [];
         },
 
@@ -77,28 +94,31 @@ export const useNotificationStore = defineStore("notifications", {
 
             const normalized = {
                 id: message.id || Date.now(),
-
                 conversation_id:
                     message.conversation_id || message.conversationId || null,
-
                 text: message.text || message.content || "",
-
                 sender: message.sender || message.role || "UNKNOWN",
-
                 agent_name: message.agent_name || message.agentName || null,
-
                 time:
                     message.time ||
-                    message.created_at ||
-                    new Date().toISOString(),
+                    (message.created_at
+                        ? new Date(message.created_at)
+                              .toTimeString()
+                              .split(" ")[0]
+                        : new Date().toTimeString().split(" ")[0]),
+                created_at: message.created_at || new Date().toISOString(),
 
-                read: message.read ?? false,
+                // FIX: Striktní převod na boolean, aby neproklouzlo 0 / "0"
+                read:
+                    message.read === true ||
+                    message.read === 1 ||
+                    message.read === "1",
             };
 
             const exists = this.messages.some((m) => m.id === normalized.id);
             if (exists) return;
 
-            this.messages.unshift(normalized);
+            this.messages.push(normalized);
         },
 
         addFriendRequest(request) {
