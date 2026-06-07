@@ -7,6 +7,7 @@ export const useNotificationStore = defineStore("notifications", {
         friendRequests: [],
         friends: [],
         alerts: [],
+        posts: [],
         isListening: false,
     }),
 
@@ -79,14 +80,17 @@ export const useNotificationStore = defineStore("notifications", {
                 }),
             );
 
-            // FIX: Normalizace zpráv hned při startu aplikace
             this.messages = (stateData.messages || []).map((m) => ({
                 ...m,
-                // Pokud je rovno true, číslu 1 nebo řetězci "1", je to true. Cokoliv jiného (0, "0", null) je false.
                 read: m.read === true || m.read === 1 || m.read === "1",
             }));
 
             this.alerts = stateData.alerts || [];
+
+            // TADY HYDRATUJEME POSTY Z NEONHUBCONTROLLERU
+            if (stateData.posts) {
+                this.posts = stateData.posts;
+            }
         },
 
         addMessage(message) {
@@ -159,6 +163,15 @@ export const useNotificationStore = defineStore("notifications", {
             });
         },
 
+        addPost(post) {
+            if (!post) return;
+            const exists = this.posts.some((p) => p.id === post.id);
+            if (exists) return;
+
+            // Nový post hodíme na začátek pole (unshift), aby byl nahoře
+            this.posts.unshift(post);
+        },
+
         removeFriend(id) {
             this.friends = this.friends.filter((f) => f.id !== id);
         },
@@ -208,6 +221,13 @@ export const useNotificationStore = defineStore("notifications", {
                     const incomingMessage = e.data || e.message;
                     if (incomingMessage) {
                         this.addMessage(incomingMessage);
+                    }
+                })
+
+                .listen(".PostCreated", (e) => {
+                    const incomingPost = e.data || e.post;
+                    if (incomingPost) {
+                        this.addPost(incomingPost); // Prásk! A vyskočí modrý banner "Nové příspěvky"
                     }
                 });
         },

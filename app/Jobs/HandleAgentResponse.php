@@ -4,6 +4,8 @@ namespace App\Jobs;
 
 use App\Ai\Agents\SentinelAgent;
 use App\Events\MessageReceived;
+use App\Events\PostCreated; // <--- Import nového eventu
+use App\Models\Post;         // <--- Import tvého modelu Post
 use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -14,7 +16,6 @@ class HandleAgentResponse implements ShouldQueue
 {
     use Queueable;
 
-    // $conversationId je nepovinné. Pokud chybí, job si ho najde nebo založí (při úvodním pozdravu)
     public function __construct(
         public int $userId,
         public ?string $conversationId = null,
@@ -36,7 +37,6 @@ class HandleAgentResponse implements ShouldQueue
                 ->value('id');
         }
 
-        // Pokud konverzace v DB vůbec neexistuje, bezpečně ji založíme
         if (! $conversationId) {
             $conversationId = (string) Str::uuid();
             DB::table('agent_conversations')->insert([
@@ -48,7 +48,7 @@ class HandleAgentResponse implements ShouldQueue
             ]);
         }
 
-        // 2. STAVOVÁ KONTROLA: Podíváme se na úplně poslední zprávu v této konverzaci
+        // 2. STAVOVÁ KONTROLA
         $lastMessage = DB::table('agent_conversation_messages')
             ->where('conversation_id', $conversationId)
             ->orderBy('created_at', 'desc')
@@ -58,20 +58,16 @@ class HandleAgentResponse implements ShouldQueue
         $agent = null;
 
         if (! $lastMessage) {
-            // STAV A: Konverzace je úplně prázdná -> Generujeme úvodní pozdrav
             $prompt = "The user {$user->name} just joined the NeonHub. Write a very short (max 15 words), terse, technical greeting.";
             $agent = SentinelAgent::make();
         } elseif ($lastMessage->role === 'assistant') {
-            // STAV B: ZÁCHRANNÁ BRZDA PRO REFRESH STRÁNKY!
-            // Poslední zprávu v DB poslal bot. Nebudeme psát nic dalšího a job bezpečně ukončíme.
-            return;
+            return; // Záchranná brzda
         } else {
-            // STAV C: Poslední zprávu poslal uživatel -> Klasická odpověď s načtením historie konverzace
             $prompt = 'Respond to the users message. You are a sentinel agent. Be friendly, 20 word response.';
             $agent = app(SentinelAgent::class)->loadConversation($conversationId);
         }
 
-        // 3. Spustíme generování odpovědi přes LLM
+        // 3. Generování přes LLM
         $aiResponse = $agent->prompt($prompt, provider: [
             'gemini',
             'gemini_fallback',
@@ -81,7 +77,7 @@ class HandleAgentResponse implements ShouldQueue
         $newMessageId = (string) Str::uuid();
         $now = now();
 
-        // 4. Uložíme zprávu bota do databáze
+        // 4. Uložení zprávy chatu do DB
         DB::table('agent_conversation_messages')->insert([
             'id' => $newMessageId,
             'conversation_id' => $conversationId,
@@ -96,7 +92,7 @@ class HandleAgentResponse implements ShouldQueue
 
         $cleanAgentName = 'Sentinel';
 
-        // 5. Odešleme kompletní a čistá data přes WebSocket do Vue
+        // 5. Odeslání zprávy do chatu přes WebSocket
         event(new MessageReceived($user->id, [
             'id' => $newMessageId,
             'conversation_id' => $conversationId,
@@ -109,5 +105,41 @@ class HandleAgentResponse implements ShouldQueue
             'read' => false,
             'role' => 'assistant',
         ]));
+
+        // Najdeme DB instanci bota podle jména (např. SENTINEL_01), ať máme správné user_id
+        $agentUser = User::where('name', $this->agentName)->first();
+
+        // Dynamický kyberpunkový text pro feed podle toho, jestli bot jen zdraví, nebo reaguje
+        $postContent = ! $lastMessage
+            ? "NETWORK_ALERT: New node connection established with subject [{$user->name}]. Telemetry sync initialized."
+            : "DATA_STREAM: Processing incoming packets from node [{$user->name}]. System responses shifting.";
+
+        $postType = ! $lastMessage ? 'SYSTEM_LOG' : 'DATA_STREAM';
+
+        // Zápis do tabulky posts přes tvůj Eloquent model
+        $post = Post::create([
+            'user_id' => $agentUser?->id ?? $user->id, // Fallback na usera, kdyby bot v DB chyběl
+            'content' => $postContent,
+            'type' => $postType,
+            'latency' => rand(1, 4).'.'.rand(0, 9).'ms',
+            'likes_count' => rand(10, 95),
+        ]);
+
+        // Formátování payloadu do podoby, kterou striktně chroustá tvé Vue a Pinia
+        $formattedPost = [
+            'id' => '0x'.dechex($post->id), // zachování tvého hex designu logů
+            'author' => $agentUser?->name ?? $this->agentName,
+            'content' => $post->content,
+            'type' => $post->type,
+            'time' => $post->latency,
+            'likes_count' => $post->likes_count,
+            'comments_count' => 0,
+            'image' => null,
+            'image_meta' => null,
+            'comments' => [],
+        ];
+
+        // Odpálení broadcastu na frontend uživatele
+        event(new PostCreated($formattedPost, $user->id));
     }
 }

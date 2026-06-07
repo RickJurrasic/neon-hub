@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\HandleAgentResponse;
 use App\Models\Friendship; // Nový sjednocený job
+use App\Models\Post;
 use App\Models\User;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -26,13 +27,38 @@ class NeonHubController extends Controller
         if ($authId) {
             $props['initialState'] = [
                 'friendships' => $this->getFriendshipData($authId),
+                'messages' => [], // Tvůj stávající prázdný array pro zprávy
+
+                // TADY TO PŘIPOJÍME: Načteme posty i s autory a komentáři
+                'posts' => Post::with(['author', 'comments.author'])
+                    ->latest()
+                    ->get()
+                    ->map(function ($post) {
+                        return [
+                            'id' => '0x'.dechex($post->id), // Tvůj hexadecimální formát logů
+                            'author' => $post->author->name ?? 'UNKNOWN_NODE',
+                            'content' => $post->content,
+                            'type' => $post->type,
+                            'time' => $post->latency ?? '0.0ms', // Mapujeme DB latency na Vue 'time'
+                            'likes_count' => $post->likes_count,
+                            'comments_count' => $post->comments->count(),
+                            'image' => $post->image_url,
+                            'image_meta' => $post->image_meta,
+                            'comments' => $post->comments->map(function ($comment) {
+                                return [
+                                    'id' => $comment->id,
+                                    'author' => $comment->author->name ?? 'ANONYMOUS',
+                                    'text' => $comment->content,
+                                    'timestamp' => $comment->created_at->format('H:i'),
+                                ];
+                            })->toArray(),
+                        ];
+                    })->toArray(),
             ];
 
             // FIX: Voláme nový job. Pokud uživatel dá refresh, stavová pojistka uvnitř jobu
             // zabrání tomu, aby bot poslal zprávu podruhé.
             HandleAgentResponse::dispatch($authId)->delay(now()->addSeconds(7));
-
-            $props['initialState']['messages'] = [];
         }
 
         return Inertia::render('Welcome', $props);

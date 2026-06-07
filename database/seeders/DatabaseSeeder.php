@@ -33,6 +33,7 @@ class DatabaseSeeder extends Seeder
         // 🤖 Inicializace systémových entit (AI agentů)
         $this->call([
             BotSeeder::class,
+            PostSeeder::class,
         ]);
     }
 }

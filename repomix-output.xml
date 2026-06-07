@@ -61,11 +61,16 @@ app/Http/Controllers/Auth/RegisteredUserController.php
 app/Http/Controllers/Auth/VerifyEmailController.php
 app/Http/Controllers/Controller.php
 app/Http/Controllers/FriendshipController.php
+app/Http/Controllers/MessageController.php
+app/Http/Controllers/NeonHubController.php
 app/Http/Controllers/ProfileController.php
 app/Http/Middleware/AutoLoginDemoUser.php
 app/Http/Middleware/HandleInertiaRequests.php
 app/Http/Requests/Auth/LoginRequest.php
 app/Http/Requests/ProfileUpdateRequest.php
+app/Jobs/AutoSendAgentMessage.php
+app/Jobs/HandleAgentResponse.php
+app/Jobs/RespondToUserMessage.php
 app/Jobs/SendFriendRequest.php
 app/Jobs/SendMessage.php
 app/Models/Friendship.php
@@ -186,12 +191,14 @@ tests/Auth/RegistrationTest.php
 tests/Feature/Ai/SentinelAgentTest.php
 tests/Feature/ExampleTest.php
 tests/Feature/FriendshipJobTest.php
+tests/Feature/Jobs/RespondToUserMessageTest.php
 tests/Feature/MessageTest.php
 tests/Feature/NeonHubAuthTest.php
 tests/Feature/ProfileTest.php
 tests/Feature/SystemAlertTest.php
 tests/Pest.php
 tests/TestCase.php
+tests/Unit/Events/MessageReceivedTest.php
 tests/Unit/ExampleTest.php
 vite.config.js
 </directory_structure>
@@ -334,104 +341,6 @@ Thumbs.db
 
 <file path=".nvmrc">
 23
-</file>
-
-<file path="app/Actions/SendFriendRequestAction.php">
-<?php
-
-namespace App\Actions;
-
-use App\Events\FriendRequestReceived;
-use App\Models\Friendship;
-use App\Models\User;
-
-class SendFriendRequestAction
-{
-    /**
-     * @return Friendship|null Vrací Friendship nebo null, pokud už vazba existuje.
-     */
-    public function execute(int $senderId, int $recipientId): ?Friendship
-    {
-        // 1. Zkontrolujeme, zda už mezi nimi neexistuje žádný záznam
-        $existing = Friendship::where(function ($query) use ($senderId, $recipientId) {
-            $query->where('sender_id', $senderId)->where('recipient_id', $recipientId);
-        })->orWhere(function ($query) use ($senderId, $recipientId) {
-            $query->where('sender_id', $recipientId)->where('recipient_id', $senderId);
-        })->first();
-
-        // Pokud už nějaká vazba existuje, nebudeme vytvářet novou (zabráníme duplicitám)
-        if ($existing) {
-            return null;
-        }
-
-        // 2. Uložíme do DB, pokud vazba neexistuje
-        $friendship = Friendship::create([
-            'sender_id' => $senderId,
-            'recipient_id' => $recipientId,
-            'status' => 'pending',
-        ]);
-
-        // 3. Vytáhneme si skutečné jméno odesílatele
-        $sender = User::find($senderId);
-
-        // 4. Odpálíme event se skutečnými daty
-        event(new FriendRequestReceived($recipientId, [
-            'id' => $friendship->id,
-            'sender_id' => $senderId,
-            'name' => $sender ? $sender->name : 'UNKNOWN_ENTITY',
-            'status' => 'pending',
-        ]));
-
-        return $friendship;
-    }
-}
-</file>
-
-<file path="app/Ai/Agents/SentinelAgent.php">
-<?php
-
-namespace App\Ai\Agents;
-
-use Laravel\Ai\Contracts\Agent;
-use Laravel\Ai\Contracts\Conversational;
-use Laravel\Ai\Contracts\HasTools;
-use Laravel\Ai\Contracts\Tool;
-use Laravel\Ai\Messages\Message;
-use Laravel\Ai\Promptable;
-use Stringable;
-
-class SentinelAgent implements Agent, Conversational, HasTools
-{
-    use Promptable;
-
-    /**
-     * Get the instructions that the agent should follow.
-     */
-    public function instructions(): Stringable|string
-    {
-        return 'You are a Sentinel, the strict guardian of the NeonHub server. You speak in a terse, technical manner, and your job is to keep order.';
-    }
-
-    /**
-     * Get the list of messages comprising the conversation so far.
-     *
-     * @return Message[]
-     */
-    public function messages(): iterable
-    {
-        return [];
-    }
-
-    /**
-     * Get the tools available to the agent.
-     *
-     * @return Tool[]
-     */
-    public function tools(): iterable
-    {
-        return [];
-    }
-}
 </file>
 
 <file path="app/Http/Controllers/Auth/AuthenticatedSessionController.php">
@@ -839,47 +748,6 @@ abstract class Controller
 }
 </file>
 
-<file path="app/Http/Controllers/FriendshipController.php">
-<?php
-
-namespace App\Http\Controllers;
-
-use App\Actions\SendFriendRequestAction;
-use App\Models\Friendship;
-use Illuminate\Http\Request;
-
-class FriendshipController extends Controller
-{
-    public function store(Request $request, SendFriendRequestAction $action)
-    {
-        // Validace (předpokládáme, že posíláš recipient_id)
-        $validated = $request->validate(['recipient_id' => 'required|exists:users,id']);
-
-        // Zavoláme Action
-        $action->execute(auth()->id(), $validated['recipient_id']);
-
-        return response()->json(['status' => 'Request sent']);
-    }
-
-    public function update(Request $request, $id)
-    {
-        $friendship = Friendship::findOrFail($id);
-        $friendship->update(['status' => 'accepted']);
-
-        // Volitelně: pošli Event 'FriendshipAccepted', aby se UI v obou prohlížečích aktualizovalo
-        return response()->json(['status' => 'success']);
-    }
-
-    public function destroy($id)
-    {
-        $friendship = Friendship::findOrFail($id);
-        $friendship->delete();
-
-        return response()->json(['message' => 'Request declined']);
-    }
-}
-</file>
-
 <file path="app/Http/Controllers/ProfileController.php">
 <?php
 
@@ -1100,6 +968,198 @@ class ProfileUpdateRequest extends FormRequest
 }
 </file>
 
+<file path="app/Jobs/AutoSendAgentMessage.php">
+<?php
+
+namespace App\Jobs;
+
+use App\Ai\Agents\SentinelAgent;
+use App\Events\MessageReceived;
+use App\Models\User;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+class AutoSendAgentMessage implements ShouldQueue
+{
+    use Queueable;
+
+    public function __construct(
+        public int $userId,
+        public string $agentName = 'SENTINEL_01'
+    ) {}
+
+    public function handle(): void
+    {
+        $user = User::find($this->userId);
+        $bot = User::where('name', $this->agentName)->first();
+
+        if (! $user || ! $bot) {
+            return;
+        }
+
+        $agent = SentinelAgent::make();
+
+        $aiResponse = $agent->prompt(
+            "The user {$user->name} just joined the NeonHub. Write a very short (max 15 words), terse, technical greeting.",
+            provider: [
+                'gemini',
+                'gemini_fallback',
+                'groq',
+            ]
+        )->text;
+
+        $conversationId = DB::table('agent_conversations')
+            ->where('user_id', $user->id)
+            ->value('id') ?? (string) Str::uuid();
+
+        if (! DB::table('agent_conversations')->where('id', $conversationId)->exists()) {
+            DB::table('agent_conversations')->insert([
+                'id' => $conversationId,
+                'user_id' => $user->id,
+                'title' => 'SYSTEM_GREETING',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        DB::table('agent_conversation_messages')->insert([
+            'id' => (string) Str::uuid(),
+            'conversation_id' => $conversationId,
+            'user_id' => $user->id,
+            'agent' => SentinelAgent::class,
+            'role' => 'assistant',
+            'content' => $aiResponse,
+            'attachments' => '[]', 'tool_calls' => '[]', 'tool_results' => '[]', 'usage' => '[]', 'meta' => '[]',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        event(new MessageReceived($user->id, [
+            'sender' => $this->agentName,
+            'text' => $aiResponse,
+        ]));
+    }
+}
+</file>
+
+<file path="app/Jobs/HandleAgentResponse.php">
+<?php
+
+namespace App\Jobs;
+
+use App\Ai\Agents\SentinelAgent;
+use App\Events\MessageReceived;
+use App\Models\User;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+class HandleAgentResponse implements ShouldQueue
+{
+    use Queueable;
+
+    // $conversationId je nepovinné. Pokud chybí, job si ho najde nebo založí (při úvodním pozdravu)
+    public function __construct(
+        public int $userId,
+        public ?string $conversationId = null,
+        public string $agentName = 'SENTINEL_01'
+    ) {}
+
+    public function handle(): void
+    {
+        $user = User::find($this->userId);
+        if (! $user) {
+            return;
+        }
+
+        // 1. Zjistíme ID konverzace
+        $conversationId = $this->conversationId;
+        if (! $conversationId) {
+            $conversationId = DB::table('agent_conversations')
+                ->where('user_id', $user->id)
+                ->value('id');
+        }
+
+        // Pokud konverzace v DB vůbec neexistuje, bezpečně ji založíme
+        if (! $conversationId) {
+            $conversationId = (string) Str::uuid();
+            DB::table('agent_conversations')->insert([
+                'id' => $conversationId,
+                'user_id' => $user->id,
+                'title' => 'SYSTEM_GREETING',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        // 2. STAVOVÁ KONTROLA: Podíváme se na úplně poslední zprávu v této konverzaci
+        $lastMessage = DB::table('agent_conversation_messages')
+            ->where('conversation_id', $conversationId)
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        $prompt = '';
+        $agent = null;
+
+        if (! $lastMessage) {
+            // STAV A: Konverzace je úplně prázdná -> Generujeme úvodní pozdrav
+            $prompt = "The user {$user->name} just joined the NeonHub. Write a very short (max 15 words), terse, technical greeting.";
+            $agent = SentinelAgent::make();
+        } elseif ($lastMessage->role === 'assistant') {
+            // STAV B: ZÁCHRANNÁ BRZDA PRO REFRESH STRÁNKY!
+            // Poslední zprávu v DB poslal bot. Nebudeme psát nic dalšího a job bezpečně ukončíme.
+            return;
+        } else {
+            // STAV C: Poslední zprávu poslal uživatel -> Klasická odpověď s načtením historie konverzace
+            $prompt = 'Respond to the users message. You are a sentinel agent. Be friendly, 20 word response.';
+            $agent = app(SentinelAgent::class)->loadConversation($conversationId);
+        }
+
+        // 3. Spustíme generování odpovědi přes LLM
+        $aiResponse = $agent->prompt($prompt, provider: [
+            'gemini',
+            'gemini_fallback',
+            'groq',
+        ])->text;
+
+        $newMessageId = (string) Str::uuid();
+        $now = now();
+
+        // 4. Uložíme zprávu bota do databáze
+        DB::table('agent_conversation_messages')->insert([
+            'id' => $newMessageId,
+            'conversation_id' => $conversationId,
+            'user_id' => $user->id,
+            'agent' => SentinelAgent::class,
+            'role' => 'assistant',
+            'content' => $aiResponse,
+            'attachments' => '[]', 'tool_calls' => '[]', 'tool_results' => '[]', 'usage' => '[]', 'meta' => '[]',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $cleanAgentName = 'Sentinel';
+
+        // 5. Odešleme kompletní a čistá data přes WebSocket do Vue
+        event(new MessageReceived($user->id, [
+            'id' => $newMessageId,
+            'conversation_id' => $conversationId,
+            'agent' => SentinelAgent::class,
+            'agent_name' => $cleanAgentName,
+            'sender' => $cleanAgentName,
+            'text' => $aiResponse,
+            'time' => $now->toTimeString(),
+            'created_at' => $now->toIso8601String(),
+            'read' => false,
+            'role' => 'assistant',
+        ]));
+    }
+}
+</file>
+
 <file path="app/Jobs/SendMessage.php">
 <?php
 
@@ -1214,152 +1274,6 @@ use App\Providers\AppServiceProvider;
 
 return [
     AppServiceProvider::class,
-];
-</file>
-
-<file path="config/ai.php">
-<?php
-
-return [
-
-    /*
-    |--------------------------------------------------------------------------
-    | Default AI Provider Names
-    |--------------------------------------------------------------------------
-    |
-    | Here you may specify which of the AI providers below should be the
-    | default for AI operations when no explicit provider is provided
-    | for the operation. This should be any provider defined below.
-    |
-    */
-
-    'default' => 'gemini',
-    'default_for_images' => 'gemini',
-    'default_for_audio' => 'openai',
-    'default_for_transcription' => 'openai',
-    'default_for_embeddings' => 'openai',
-    'default_for_reranking' => 'cohere',
-
-    /*
-    |--------------------------------------------------------------------------
-    | Caching
-    |--------------------------------------------------------------------------
-    |
-    | Below you may configure caching strategies for AI related operations
-    | such as embedding generation. You are free to adjust these values
-    | based on your application's available caching stores and needs.
-    |
-    */
-
-    'caching' => [
-        'embeddings' => [
-            'cache' => false,
-            'store' => env('CACHE_STORE', 'database'),
-        ],
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | AI Providers
-    |--------------------------------------------------------------------------
-    |
-    | Below are each of your AI providers defined for this application. Each
-    | represents an AI provider and API key combination which can be used
-    | to perform tasks like text, image, and audio creation via agents.
-    |
-    */
-
-    'providers' => [
-        'anthropic' => [
-            'driver' => 'anthropic',
-            'key' => env('ANTHROPIC_API_KEY'),
-            'url' => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
-        ],
-
-        'azure' => [
-            'driver' => 'azure',
-            'key' => env('AZURE_OPENAI_API_KEY'),
-            'url' => env('AZURE_OPENAI_URL'),
-            'api_version' => env('AZURE_OPENAI_API_VERSION', '2025-04-01-preview'),
-            'deployment' => env('AZURE_OPENAI_DEPLOYMENT', 'gpt-4o'),
-            'embedding_deployment' => env('AZURE_OPENAI_EMBEDDING_DEPLOYMENT', 'text-embedding-3-small'),
-            'image_deployment' => env('AZURE_OPENAI_IMAGE_DEPLOYMENT', 'gpt-image-1'),
-        ],
-
-        'bedrock' => [
-            'driver' => 'bedrock',
-            'region' => env('AWS_BEDROCK_REGION', 'us-east-1'),
-            'key' => env('AWS_BEARER_TOKEN_BEDROCK'),
-            'access_key_id' => env('AWS_ACCESS_KEY_ID'),
-            'secret_access_key' => env('AWS_SECRET_ACCESS_KEY'),
-            'session_token' => env('AWS_SESSION_TOKEN'),
-            'use_default_credential_provider' => env('AWS_USE_DEFAULT_CREDENTIALS', true),
-        ],
-
-        'cohere' => [
-            'driver' => 'cohere',
-            'key' => env('COHERE_API_KEY'),
-        ],
-
-        'deepseek' => [
-            'driver' => 'deepseek',
-            'key' => env('DEEPSEEK_API_KEY'),
-        ],
-
-        'eleven' => [
-            'driver' => 'eleven',
-            'key' => env('ELEVENLABS_API_KEY'),
-        ],
-
-        'gemini' => [
-            'driver' => 'gemini',
-            'key' => env('GEMINI_API_KEY'),
-            'url' => env('GEMINI_URL', 'https://generativelanguage.googleapis.com/v1beta/'),
-        ],
-
-        'groq' => [
-            'driver' => 'groq',
-            'key' => env('GROQ_API_KEY'),
-        ],
-
-        'jina' => [
-            'driver' => 'jina',
-            'key' => env('JINA_API_KEY'),
-        ],
-
-        'mistral' => [
-            'driver' => 'mistral',
-            'key' => env('MISTRAL_API_KEY'),
-        ],
-
-        'ollama' => [
-            'driver' => 'ollama',
-            'key' => env('OLLAMA_API_KEY', ''),
-            'url' => env('OLLAMA_URL', 'http://localhost:11434'),
-        ],
-
-        'openai' => [
-            'driver' => 'openai',
-            'key' => env('OPENAI_API_KEY'),
-            'url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
-        ],
-
-        'openrouter' => [
-            'driver' => 'openrouter',
-            'key' => env('OPENROUTER_API_KEY'),
-        ],
-
-        'voyageai' => [
-            'driver' => 'voyageai',
-            'key' => env('VOYAGEAI_API_KEY'),
-        ],
-
-        'xai' => [
-            'driver' => 'xai',
-            'key' => env('XAI_API_KEY'),
-        ],
-    ],
-
 ];
 </file>
 
@@ -2918,56 +2832,6 @@ return new class extends Migration
         Schema::dropIfExists('friendships');
     }
 };
-</file>
-
-<file path="database/seeders/BotSeeder.php">
-<?php
-
-namespace Database\Seeders;
-
-use App\Models\User;
-use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
-
-class BotSeeder extends Seeder
-{
-    public function run(): void
-    {
-        $bots = [
-            [
-                'name' => 'VECTRA_CORE',
-                'email' => 'vectra@neonhub.system',
-                'handle' => '@vectra_core',
-                'faction' => 'ARCHITECT',
-                'avatar_url' => '/images/avatars/vectra_core.png', // Přidaná cesta
-                'password' => Hash::make('password123'),
-            ],
-            [
-                'name' => 'SENTINEL_01',
-                'email' => 'sentinel@neonhub.system',
-                'handle' => '@sentinel_01',
-                'faction' => 'DEFENSE',
-                'avatar_url' => '/images/avatars/sentinel_01.png', // Přidaná cesta
-                'password' => Hash::make('password123'),
-            ],
-            [
-                'name' => 'GHOST_USER',
-                'email' => 'ghost@neonhub.system',
-                'handle' => '@ghost_user',
-                'faction' => 'SOCIAL',
-                'avatar_url' => '/images/avatars/ghost_user.png', // Přidaná cesta
-                'password' => Hash::make('password123'),
-            ],
-        ];
-
-        foreach ($bots as $bot) {
-            User::updateOrCreate(
-                ['email' => $bot['email']], // Hledá podle emailu
-                $bot                         // Pokud nenajde, vytvoří; pokud najde, aktualizuje
-            );
-        }
-    }
-}
 </file>
 
 <file path="jsconfig.json">
@@ -5157,26 +5021,57 @@ it('returns a successful response', function () {
 });
 </file>
 
-<file path="tests/Feature/FriendshipJobTest.php">
+<file path="tests/Feature/Jobs/RespondToUserMessageTest.php">
 <?php
 
-use App\Jobs\SendFriendRequest;
-use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+namespace Tests\Feature\Jobs;
 
-uses(RefreshDatabase::class);
+use App\Ai\Agents\SentinelAgent;
+use App\Events\MessageReceived;
+use App\Jobs\RespondToUserMessage;
+use App\Models\User; // Tuto třídu importuj
+use Illuminate\Support\Facades\Event;
+use Laravel\Ai\Responses\AgentResponse;
+use Mockery;
 
-test('friend request job holds correct data', function () {
-    // Vytvoříme uživatele, aby job měl s čím pracovat
+// Importuj správně takto
+
+it('responds to user message, persists to database and dispatches event', function () {
+    Event::fake([MessageReceived::class]);
     $user = User::factory()->create();
-    $botName = 'SENTINEL_01';
+    $conversationId = 'conv_123';
+    $aiMockResponse = 'Neural connection established.';
 
-    // Vytvoříme instanci jobu s názvy proměnných, které skutečně máš
-    $job = new SendFriendRequest($user->id, $botName);
+    // 1. Místo vytváření instance třídy ji prostě zamockujeme (to obejde konstruktor)
+    $responseMock = Mockery::mock(AgentResponse::class);
 
-    // Ověříme, že job má v sobě správná data
-    expect($job->userId)->toBe($user->id)
-        ->and($job->botName)->toBe($botName);
+    // 2. Nastavíme mocku, aby vracel náš text
+    // Předpokládám, že tvůj kód přistupuje k výsledku přes $response->text
+    $responseMock->text = $aiMockResponse;
+
+    // 3. Vytvoříme mock SentinelAgenta
+    $agentMock = Mockery::mock(SentinelAgent::class);
+    $agentMock->shouldReceive('loadConversation')->andReturnSelf();
+
+    // 4. Řekneme agentovi, aby vracel náš responseMock
+    $agentMock->shouldReceive('prompt')->andReturn($responseMock);
+
+    // 5. Vložíme mock do containeru
+    $this->instance(SentinelAgent::class, $agentMock);
+
+    // Act: Spustíme job
+    $job = new RespondToUserMessage($user->id, $conversationId);
+    $job->handle();
+
+    // Assert: Ověříme výsledky
+    $this->assertDatabaseHas('agent_conversation_messages', [
+        'conversation_id' => $conversationId,
+        'content' => $aiMockResponse,
+    ]);
+
+    Event::assertDispatched(MessageReceived::class, function ($event) use ($user, $aiMockResponse) {
+        return $event->userId === $user->id && $event->data['text'] === $aiMockResponse;
+    });
 });
 </file>
 
@@ -5393,12 +5288,158 @@ abstract class TestCase extends BaseTestCase
 }
 </file>
 
+<file path="tests/Unit/Events/MessageReceivedTest.php">
+<?php
+
+use App\Events\MessageReceived;
+
+it('broadcasts the correct payload structure', function () {
+    $userId = 1;
+    $data = [
+        'id' => 'test-uuid',
+        'conversation_id' => 'conv_abc',
+        'text' => 'Testing neural response',
+        'sender' => 'Sentinel',
+    ];
+
+    $event = new MessageReceived($userId, $data);
+
+    // Testujeme broadcastWith metodu
+    $payload = $event->broadcastWith();
+
+    expect($payload['data'])->toBe($data)
+        ->and($payload['data']['text'])->toBe('Testing neural response')
+        ->and($payload['data']['sender'])->toBe('Sentinel');
+});
+
+it('broadcasts on the correct private channel', function () {
+    $userId = 99;
+    $event = new MessageReceived($userId, []);
+
+    $channels = $event->broadcastOn();
+
+    // Přidali jsme "private-" k očekávanému řetězci
+    expect((string) $channels[0])->toBe('private-App.Models.User.99');
+});
+</file>
+
 <file path="tests/Unit/ExampleTest.php">
 <?php
 
 test('that true is true', function () {
     expect(true)->toBeTrue();
 });
+</file>
+
+<file path="app/Actions/SendFriendRequestAction.php">
+<?php
+
+namespace App\Actions;
+
+use App\Events\FriendRequestReceived;
+use App\Models\Friendship;
+use App\Models\User;
+
+class SendFriendRequestAction
+{
+    /**
+     * @return Friendship|null Vrací Friendship nebo null, pokud už vazba existuje.
+     */
+    public function execute(int $senderId, int $recipientId): ?Friendship
+    {
+        // 1. Zkontrolujeme, zda už mezi nimi neexistuje žádný záznam
+        $existing = Friendship::where(function ($query) use ($senderId, $recipientId) {
+            $query->where('sender_id', $senderId)->where('recipient_id', $recipientId);
+        })->orWhere(function ($query) use ($senderId, $recipientId) {
+            $query->where('sender_id', $recipientId)->where('recipient_id', $senderId);
+        })->first();
+
+        // Pokud už nějaká vazba existuje, nebudeme vytvářet novou (zabráníme duplicitám)
+        if ($existing) {
+            return null;
+        }
+
+        // 2. Uložíme do DB, pokud vazba neexistuje
+        $friendship = Friendship::create([
+            'sender_id' => $senderId,
+            'recipient_id' => $recipientId,
+            'status' => 'pending',
+        ]);
+
+        // 3. Vytáhneme si kompletního odesílatele (bota) i s jeho sloupci z DB
+        $sender = User::find($senderId);
+
+        // 4. Odpálíme event se VŠEMI daty, které Pinia a profil potřebují k instantnímu vykreslení
+        event(new FriendRequestReceived($recipientId, [
+            'id' => $friendship->id,
+            'user_id' => $senderId, // useNotificationStore.js to mapuje přes user_id
+            'name' => $sender ? $sender->name : 'UNKNOWN_ENTITY',
+            'role' => $sender->role ?? 'DEFENSE', // Fallback, pokud by v DB chybělo
+            'bio' => $sender->bio ?? '"Šifrované bio prázdné."',
+            'trust_level' => $sender->trust_level ?? 88,
+            'latency' => $sender->latency ?? '12ms_STABLE',
+            'avatar' => $sender ? $sender->avatar_url : null, // TADY JE TEN CHYBĚJÍCÍ AVATAR!
+            'status' => 'pending',
+        ]));
+
+        return $friendship;
+    }
+}
+</file>
+
+<file path="app/Ai/Agents/SentinelAgent.php">
+<?php
+
+namespace App\Ai\Agents;
+
+use Illuminate\Support\Facades\DB;
+use Laravel\Ai\Contracts\Agent;
+use Laravel\Ai\Contracts\Conversational;
+use Laravel\Ai\Contracts\HasTools;
+use Laravel\Ai\Messages\Message;
+use Laravel\Ai\Promptable;
+use Stringable;
+
+class SentinelAgent implements Agent, Conversational, HasTools
+{
+    use Promptable;
+
+    protected array $history = [];
+
+    public function loadConversation(string $conversationId): self
+    {
+        $this->history = DB::table('agent_conversation_messages')
+            ->where('conversation_id', $conversationId)
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->map(fn ($msg) => new Message($msg->role, $msg->content))
+            ->all();
+
+        return $this;
+    }
+
+    public function withHistory(array $history): self
+    {
+        $this->history = $history;
+
+        return $this;
+    }
+
+    public function instructions(): Stringable|string
+    {
+        return 'You are a Sentinel, the strict guardian of the NeonHub server. You speak in a terse, technical manner. Respond directly.';
+    }
+
+    public function messages(): iterable
+    {
+        return $this->history;
+    }
+
+    public function tools(): iterable
+    {
+        return [];
+    }
+}
 </file>
 
 <file path="app/Events/FriendRequestReceived.php">
@@ -5426,137 +5467,645 @@ class FriendRequestReceived implements ShouldBroadcast
 }
 </file>
 
-<file path="app/Events/MessageReceived.php">
+<file path="app/Http/Controllers/FriendshipController.php">
 <?php
 
-namespace App\Events;
+namespace App\Http\Controllers;
 
-use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
-use Illuminate\Foundation\Events\Dispatchable;
-use Illuminate\Queue\SerializesModels;
+use App\Actions\SendFriendRequestAction;
+use App\Events\FriendRequestReceived;
+use App\Models\Friendship;
+use App\Models\User; // <--- Importujeme tvůj event
+use Illuminate\Http\Request;
 
-class MessageReceived implements ShouldBroadcastNow
+class FriendshipController extends Controller
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
-
-    /**
-     * @param  array  $data  {sender: string, text: string}
-     */
-    public function __construct(
-        public int $userId,
-        public array $data
-    ) {}
-
-    /**
-     * Definice dat, která skutečně poletí do prohlížeče.
-     */
-    public function broadcastWith(): array
+    public function store(Request $request, SendFriendRequestAction $action)
     {
-        return [
-            'data' => [
-                'sender' => $this->data['sender'],
-                'text' => $this->data['text'],
-            ],
+        // 1. Validace recipient_id
+        $validated = $request->validate(['recipient_id' => 'required|exists:users,id']);
+        $authId = auth()->id();
+        $recipientId = $validated['recipient_id'];
+
+        // 2. Spuštění tvé Action logiky (vytvoří záznam v DB)
+        $action->execute($authId, $recipientId);
+
+        // 3. Vytáhneme čerstvý záznam z DB
+        $friendship = Friendship::where('sender_id', $authId)
+            ->where('recipient_id', $recipientId)
+            ->where('status', 'pending')
+            ->first();
+
+        if (! $friendship) {
+            return response()->json(['status' => 'error', 'message' => 'Record not found'], 404);
+        }
+
+        // 4. DATA PRO PŘÍJEMCE (Real-time přes Echo):
+        // Příjemce potřebuje vidět data ODESÍLATELE (tebe), aby viděl tvůj avatar!
+        $sender = auth()->user();
+        $dataForRecipient = [
+            'id' => $friendship->id,
+            'user_id' => $sender->id,
+            'name' => $sender->name,
+            'role' => $sender->role ?? 'EXTERNAL_NODE',
+            'bio' => $sender->bio ?? '"Šifrované bio prázdné."',
+            'trust_level' => $sender->trust_level ?? 50,
+            'latency' => $sender->latency ?? '24ms_STABLE',
+            'avatar' => $sender->avatar_url,
+            'status' => 'pending',
         ];
+
+        // Manuálně odpálíme tvůj event s kompletními daty odesílatele včetně AVATARU
+        // (Pokud ho odpaluješ i v Action, tamto volání eventu v Action smaž, nebo ho nech tady, ať se to nedubluje)
+        broadcast(new FriendRequestReceived($recipientId, $dataForRecipient))->toOthers();
+
+        // 5. DATA PRO ODESÍLATELE (Odpověď na Axios request):
+        // Ty jako odesílatel potřebuješ v loutkovém stavu vidět data příjemce
+        $recipient = User::find($recipientId);
+        $dataForSender = [
+            'id' => $friendship->id,
+            'user_id' => $recipient->id,
+            'name' => $recipient->name,
+            'role' => $recipient->role ?? 'EXTERNAL_NODE',
+            'bio' => $recipient->bio ?? '"Šifrované bio prázdné."',
+            'trust_level' => $recipient->trust_level ?? 50,
+            'latency' => $recipient->latency ?? '24ms_STABLE',
+            'avatar' => $recipient->avatar_url,
+            'status' => 'pending',
+        ];
+
+        return response()->json([
+            'status' => 'Request sent',
+            'friendship' => $dataForSender,
+        ]);
     }
 
-    public function broadcastOn(): array
+    public function update(Request $request, $id)
     {
+        $friendship = Friendship::findOrFail($id);
+        $friendship->update(['status' => 'accepted']);
+
+        // Vytáhneme data o příteli, abychom je mohli poslat zpět do frontendu k okamžitému přesunu do "friends"
+        $authId = auth()->id();
+        $friendId = $friendship->sender_id == $authId ? $friendship->recipient_id : $friendship->sender_id;
+        $friend = User::find($friendId);
+
+        $neonFriendData = [
+            'id' => $friendship->id,
+            'user_id' => $friend->id,
+            'name' => $friend->name,
+            'role' => $friend->role ?? 'EXTERNAL_NODE',
+            'bio' => $friend->bio ?? '"Šifrované bio prázdné."',
+            'trust_level' => $friend->trust_level ?? 50,
+            'latency' => $friend->latency ?? '24ms_STABLE',
+            'avatar' => $friend->avatar_url,
+            'status' => 'accepted',
+        ];
+
+        return response()->json([
+            'status' => 'success',
+            'friend' => $neonFriendData,
+        ]);
+    }
+
+    public function destroy($id)
+    {
+        $friendship = Friendship::findOrFail($id);
+        $friendship->delete();
+
+        return response()->json([
+            'message' => 'Request declined',
+            'id' => $id,
+        ]);
+    }
+}
+</file>
+
+<file path="app/Http/Controllers/MessageController.php">
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Jobs\HandleAgentResponse;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+class MessageController extends Controller
+{
+    /**
+     * Načte historii zpráv z AI konverzací pro přihlášeného uživatele.
+     */
+    public function index()
+    {
+        $userId = auth()->id();
+
+        $messages = DB::table('agent_conversation_messages')
+            ->where('user_id', $userId)
+            ->orderBy('created_at', 'desc')
+            // FIX: Vybíráme čistý 'created_at' místo 'created_at as time'
+            ->select('id', 'conversation_id', 'agent', 'content as text', 'created_at', 'role')
+            ->get()
+            ->map(function ($msg) {
+                // Vypreparujeme čisté jméno agenta (např. SentinelAgent)
+                $agentName = str_replace('App\\Ai\\Agents\\', '', $msg->agent);
+                $msg->agent_name = $agentName;
+
+                if ($msg->role === 'user') {
+                    $msg->sender = 'YOU';
+                } else {
+                    $msg->sender = $agentName;
+                }
+
+                // FIX: 'time' bude sloužit pro UI výpis, 'created_at' pro přesný sort ve Vue
+                $msg->time = Carbon::parse($msg->created_at)->toTimeString();
+                $msg->created_at = Carbon::parse($msg->created_at)->toIso8601String();
+                $msg->read = true;
+
+                return $msg;
+            });
+
+        return response()->json($messages);
+    }
+
+    /**
+     * Uloží odpověď uživatele do databáze k dané konverzaci.
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'message_id' => 'required|string',
+            'text' => 'required|string|max:2000',
+        ]);
+
+        $userId = auth()->id();
+
+        $originalMessage = DB::table('agent_conversation_messages')
+            ->where('id', $request->message_id)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (! $originalMessage) {
+            return response()->json(['error' => 'ORIGINAL_NODE_NOT_FOUND'], 404);
+        }
+
+        $newMessageId = (string) Str::uuid();
+        $now = now();
+
+        DB::table('agent_conversation_messages')->insert([
+            'id' => $newMessageId,
+            'conversation_id' => $originalMessage->conversation_id,
+            'user_id' => $userId,
+            'agent' => $originalMessage->agent,
+            'role' => 'user',
+            'content' => $request->text,
+            'attachments' => '[]', 'tool_calls' => '[]', 'tool_results' => '[]', 'usage' => '[]', 'meta' => '[]',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        // FIX: Použití správných proměnných, které v této metodě reálně existují
+        HandleAgentResponse::dispatch($userId, $originalMessage->conversation_id);
+
+        return response()->json([
+            'id' => $newMessageId,
+            'conversation_id' => $originalMessage->conversation_id,
+            'agent' => $originalMessage->agent,
+            'agent_name' => str_replace('App\\Ai\\Agents\\', '', $originalMessage->agent),
+            'sender' => 'YOU',
+            'text' => $request->text, // FIX: Musíme poslat text i zpátky frontendu, aby ho Pinia mohla vykreslit!
+            'time' => $now->toTimeString(),
+            'created_at' => $now->toIso8601String(),
+            'read' => true,
+            'role' => 'user',
+        ]);
+    }
+
+    /**
+     * Odstraní zprávu z databáze.
+     */
+    public function destroy($conversationId)
+    {
+        $userId = auth()->id();
+
+        // 1. Bezpečnostní pojistka: Ověříme, že konverzace vůbec existuje a patří přihlášenému uživateli
+        // Předpokládám, že tabulka se jmenuje 'agent_conversations' podle tvých schémat
+        $conversationExists = DB::table('agent_conversations')
+            ->where('id', $conversationId)
+            ->where('user_id', $userId)
+            ->exists();
+
+        if (! $conversationExists) {
+            return response()->json(['error' => 'NODE_NOT_FOUND'], 404);
+        }
+
+        // 2. Smažeme všechny zprávy propojené s touto konverzací
+        DB::table('agent_conversation_messages')
+            ->where('conversation_id', $conversationId)
+            ->where('user_id', $userId) // Pojistka
+            ->delete();
+
+        // 3. Smažeme samotnou konverzaci z hlavní tabulky konverzací
+        DB::table('agent_conversations')
+            ->where('id', $conversationId)
+            ->where('user_id', $userId)
+            ->delete();
+
+        return response()->json(['status' => 'NODE_PURGED']);
+    }
+}
+</file>
+
+<file path="app/Http/Controllers/NeonHubController.php">
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Jobs\HandleAgentResponse;
+use App\Models\Friendship; // Nový sjednocený job
+use App\Models\User;
+use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
+
+class NeonHubController extends Controller
+{
+    public function index()
+    {
+        $authId = auth()->id();
+
+        $props = [
+            'canLogin' => Route::has('login'),
+            'canRegister' => Route::has('register'),
+            'laravelVersion' => Application::VERSION,
+            'phpVersion' => PHP_VERSION,
+            'initialState' => null,
+        ];
+
+        if ($authId) {
+            $props['initialState'] = [
+                'friendships' => $this->getFriendshipData($authId),
+            ];
+
+            // FIX: Voláme nový job. Pokud uživatel dá refresh, stavová pojistka uvnitř jobu
+            // zabrání tomu, aby bot poslal zprávu podruhé.
+            HandleAgentResponse::dispatch($authId)->delay(now()->addSeconds(7));
+
+            $props['initialState']['messages'] = [];
+        }
+
+        return Inertia::render('Welcome', $props);
+    }
+
+    private function getFriendshipData($authId): array
+    {
+        // 1. ŽÁDOSTI O PROPOJENÍ (Čekající žádosti, kde přihlášený uživatel je příjemcem)
+        $requests = Friendship::where('recipient_id', $authId) // Hledáme tebe jako příjemce
+            ->where('status', 'pending')
+            ->join('users', 'friendships.sender_id', '=', 'users.id') // Join přes odesílatele žádosti
+            ->select(
+                'friendships.id',                // ID relace pro axios.patch/delete
+                'users.id as user_id',           // ID uživatele pro Vue computed vyhledávání
+                'users.name',
+                'users.role',
+                'users.bio',
+                'users.trust_level',
+                'users.latency',
+                'users.avatar_url as avatar',   // Přemapování pro Vue img tag
+                'friendships.status'
+            )
+            ->get()
+            ->toArray();
+
+        // 2. AKTIVNÍ SPOJENÍ (Akceptované linky, kde figuruješ jako odesílatel nebo příjemce)
+        $active = Friendship::where(function ($q) use ($authId) {
+            $q->where('sender_id', $authId)->orWhere('recipient_id', $authId);
+        })
+            ->where('status', 'accepted')
+            ->get()
+            ->map(function ($friendship) use ($authId) {
+                // Zjistíme, které ID patří tomu druhému (příteli)
+                $friendId = $friendship->sender_id == $authId ? $friendship->recipient_id : $friendship->sender_id;
+                $friend = User::find($friendId);
+
+                if (! $friend) {
+                    return null;
+                }
+
+                return [
+                    'id' => $friendship->id,             // ID relace pro UNLINK (axios.delete)
+                    'user_id' => $friend->id,            // ID uživatele pro Vue profil
+                    'name' => $friend->name,
+                    'role' => $friend->role ?? 'EXTERNAL_NODE',
+                    'bio' => $friend->bio ?? '"Šifrované bio prázdné."',
+                    'trust_level' => $friend->trust_level ?? 50,
+                    'latency' => $friend->latency ?? '24ms_STABLE',
+                    'avatar' => $friend->avatar_url,
+                    'status' => 'accepted',
+                ];
+            })
+            ->filter() // Vyčistíme případné null hodnoty
+            ->values()
+            ->toArray();
+
         return [
-            new PrivateChannel('App.Models.User.'.$this->userId),
+            'requests' => $requests,
+            'active' => $active,
         ];
     }
 }
 </file>
 
-<file path="app/Jobs/SendFriendRequest.php">
+<file path="app/Jobs/RespondToUserMessage.php">
 <?php
 
 namespace App\Jobs;
 
-use App\Actions\SendFriendRequestAction;
+use App\Ai\Agents\SentinelAgent;
+use App\Events\MessageReceived;
 use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
-class SendFriendRequest implements ShouldQueue
+class RespondToUserMessage implements ShouldQueue
 {
     use Queueable;
 
     public function __construct(
         public int $userId,
-        public string $botName = 'SENTINEL_01' // Tady máš botName, ne senderId!
+        public string $conversationId,
+        public string $agentName = 'SENTINEL_01'
     ) {}
 
-    public function handle(SendFriendRequestAction $action): void
+    public function handle(): void
     {
-        // Najdeme bota podle jména, které jsme si uložili v konstruktoru
-        $bot = User::where('name', $this->botName)->firstOrFail();
+        $user = User::find($this->userId);
+        if (! $user) {
+            return;
+        }
 
-        // Předáme ID bota a ID uživatele
-        $action->execute($bot->id, $this->userId);
+        // 1. Inicializujeme Agenta a necháme ho, ať si sám vytáhne z DB svou paměť
+        $agent = app(SentinelAgent::class)->loadConversation($this->conversationId);
+        // 2. Spustíme generování odpovědi
+        $aiResponse = $agent->prompt('Respond to the users message. You are a sentinel agent. Be friendly, 20 word response.',
+            provider: [
+                'gemini',
+                'gemini_fallback',
+                'groq',
+            ])->text;
+
+        $newMessageId = (string) Str::uuid();
+        $now = now();
+
+        // 3. Uložíme odpověď bota do databáze
+        DB::table('agent_conversation_messages')->insert([
+            'id' => $newMessageId,
+            'conversation_id' => $this->conversationId,
+            'user_id' => $user->id,
+            'agent' => SentinelAgent::class,
+            'role' => 'assistant',
+            'content' => $aiResponse,
+            'attachments' => '[]',
+            'tool_calls' => '[]',
+            'tool_results' => '[]',
+            'usage' => '[]',
+            'meta' => '[]',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $cleanAgentName = 'Sentinel';
+
+        // 4. Vyšleme WebSocket Event pro real-time update na frontendu
+        event(new MessageReceived($user->id, [
+            'id' => $newMessageId,
+            'conversation_id' => $this->conversationId,
+            'agent' => SentinelAgent::class,
+            'agent_name' => $cleanAgentName,
+            'sender' => $cleanAgentName,
+            'text' => $aiResponse,
+            'time' => $now->toTimeString(),
+            'created_at' => $now->toIso8601String(), // FIX: Posíláme plný timestamp přes WebSockets
+            'read' => false,
+            'role' => 'assistant',
+        ]));
     }
 }
 </file>
 
-<file path="database/migrations/0001_01_01_000000_create_users_table.php">
+<file path="config/ai.php">
 <?php
 
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
+return [
 
-return new class extends Migration
+    /*
+    |--------------------------------------------------------------------------
+    | Default AI Provider Names
+    |--------------------------------------------------------------------------
+    |
+    | Here you may specify which of the AI providers below should be the
+    | default for AI operations when no explicit provider is provided
+    | for the operation. This should be any provider defined below.
+    |
+    */
+
+    'default' => 'gemini',
+    'default_for_images' => 'gemini',
+    'default_for_audio' => 'openai',
+    'default_for_transcription' => 'openai',
+    'default_for_embeddings' => 'openai',
+    'default_for_reranking' => 'cohere',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Caching
+    |--------------------------------------------------------------------------
+    |
+    | Below you may configure caching strategies for AI related operations
+    | such as embedding generation. You are free to adjust these values
+    | based on your application's available caching stores and needs.
+    |
+    */
+
+    'caching' => [
+        'embeddings' => [
+            'cache' => false,
+            'store' => env('CACHE_STORE', 'database'),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | AI Providers
+    |--------------------------------------------------------------------------
+    |
+    | Below are each of your AI providers defined for this application. Each
+    | represents an AI provider and API key combination which can be used
+    | to perform tasks like text, image, and audio creation via agents.
+    |
+    */
+
+    'providers' => [
+        'anthropic' => [
+            'driver' => 'anthropic',
+            'key' => env('ANTHROPIC_API_KEY'),
+            'url' => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
+        ],
+
+        'azure' => [
+            'driver' => 'azure',
+            'key' => env('AZURE_OPENAI_API_KEY'),
+            'url' => env('AZURE_OPENAI_URL'),
+            'api_version' => env('AZURE_OPENAI_API_VERSION', '2025-04-01-preview'),
+            'deployment' => env('AZURE_OPENAI_DEPLOYMENT', 'gpt-4o'),
+            'embedding_deployment' => env('AZURE_OPENAI_EMBEDDING_DEPLOYMENT', 'text-embedding-3-small'),
+            'image_deployment' => env('AZURE_OPENAI_IMAGE_DEPLOYMENT', 'gpt-image-1'),
+        ],
+
+        'bedrock' => [
+            'driver' => 'bedrock',
+            'region' => env('AWS_BEDROCK_REGION', 'us-east-1'),
+            'key' => env('AWS_BEARER_TOKEN_BEDROCK'),
+            'access_key_id' => env('AWS_ACCESS_KEY_ID'),
+            'secret_access_key' => env('AWS_SECRET_ACCESS_KEY'),
+            'session_token' => env('AWS_SESSION_TOKEN'),
+            'use_default_credential_provider' => env('AWS_USE_DEFAULT_CREDENTIALS', true),
+        ],
+
+        'cohere' => [
+            'driver' => 'cohere',
+            'key' => env('COHERE_API_KEY'),
+        ],
+
+        'deepseek' => [
+            'driver' => 'deepseek',
+            'key' => env('DEEPSEEK_API_KEY'),
+        ],
+
+        'eleven' => [
+            'driver' => 'eleven',
+            'key' => env('ELEVENLABS_API_KEY'),
+        ],
+
+        'gemini' => [
+            'driver' => 'gemini',
+            'key' => env('GEMINI_API_KEY'),
+            'model' => 'gemini-3.5-flash',
+        ],
+
+        'gemini_fallback' => [
+            'driver' => 'gemini',
+            'key' => env('GEMINI_API_KEY'),
+            'model' => 'gemini-2.5-flash',
+        ],
+
+        'groq' => [
+            'driver' => 'groq',
+            'key' => env('GROQ_API_KEY'),
+            'model' => 'llama-3.3-70b-versatile',
+        ],
+
+        'jina' => [
+            'driver' => 'jina',
+            'key' => env('JINA_API_KEY'),
+        ],
+
+        'mistral' => [
+            'driver' => 'mistral',
+            'key' => env('MISTRAL_API_KEY'),
+        ],
+
+        'ollama' => [
+            'driver' => 'ollama',
+            'key' => env('OLLAMA_API_KEY', ''),
+            'url' => env('OLLAMA_URL', 'http://localhost:11434'),
+        ],
+
+        'openai' => [
+            'driver' => 'openai',
+            'key' => env('OPENAI_API_KEY'),
+            'url' => env('OPENAI_URL', 'https://api.openai.com/v1'),
+        ],
+
+        'openrouter' => [
+            'driver' => 'openrouter',
+            'key' => env('OPENROUTER_API_KEY'),
+        ],
+
+        'voyageai' => [
+            'driver' => 'voyageai',
+            'key' => env('VOYAGEAI_API_KEY'),
+        ],
+
+        'xai' => [
+            'driver' => 'xai',
+            'key' => env('XAI_API_KEY'),
+        ],
+    ],
+
+];
+</file>
+
+<file path="database/seeders/BotSeeder.php">
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\User;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+
+class BotSeeder extends Seeder
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
+    public function run(): void
     {
-        Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
+        $bots = [
+            [
+                'name' => 'VECTRA_CORE',
+                'email' => 'vectra@neonhub.system',
+                'handle' => '@vectra_core',
+                'role' => 'ARCHITECT', // Změněno z 'faction' na 'role'
+                'avatar_url' => '/images/avatars/vectra_core.png',
+                'bio' => 'Hlavní systémový uzel řídící distribuci šifrovaného provozu napříč NeonHubem. Monitoruje anomálie v matrixu.',
+                'trust_level' => 95,   // Pro ten fialový bar na frontendu
+                'latency' => '4ms_ULTRA_FAST',
+                'password' => Hash::make('password123'),
+            ],
+            [
+                'name' => 'SENTINEL_01',
+                'email' => 'sentinel@neonhub.system',
+                'handle' => '@sentinel_01',
+                'role' => 'DEFENSE',   // Změněno z 'faction' na 'role'
+                'avatar_url' => '/images/avatars/sentinel_01.png',
+                'bio' => 'Autonomní firewall jednotka. Detekuje neautorizované pokusy o narušení linku. Status: Aktivní obraný protokol.',
+                'trust_level' => 80,
+                'latency' => '12ms_STABLE',
+                'password' => Hash::make('password123'),
+            ],
+            [
+                'name' => 'GHOST_USER',
+                'email' => 'ghost@neonhub.system',
+                'handle' => '@ghost_user',
+                'role' => 'SOCIAL',    // Změněno z 'faction' na 'role'
+                'avatar_url' => '/images/avatars/ghost_user.png',
+                'bio' => 'Stínový profil s vymazanou historií uzlu. Vyskytuje se v šifrovaných kanálech. Zanechává za sebou jen datové fragmenty.',
+                'trust_level' => 35,   // Nižší trust level pro parádní vizuál v UI
+                'latency' => '128ms_ROUTED',
+                'password' => Hash::make('password123'),
+            ],
+        ];
 
-            // 🌌 RECRUITER CYBERPUNK EXTENSIONS
-            $table->string('handle')->unique()->nullable();  // Např. @recruiter_alpha
-            $table->string('faction')->nullable();          // Např. CORPO_ELITE
-            $table->string('avatar_url')->nullable();       // Cesta k profilovce rekrutera
-
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->rememberToken();
-            $table->timestamps();
-        });
-
-        Schema::create('password_reset_tokens', function (Blueprint $table) {
-            $table->string('email')->primary();
-            $table->string('token');
-            $table->timestamp('created_at')->nullable();
-        });
-
-        Schema::create('sessions', function (Blueprint $table) {
-            $table->string('id')->primary();
-            $table->foreignId('user_id')->nullable()->index();
-            $table->string('ip_address', 45)->nullable();
-            $table->text('user_agent')->nullable();
-            $table->longText('payload');
-            $table->integer('last_activity')->index();
-        });
+        foreach ($bots as $bot) {
+            User::updateOrCreate(
+                ['email' => $bot['email']], // Hledá podle emailu
+                $bot                         // Pokud nenajde, vytvoří; pokud najde, aktualizuje
+            );
+        }
     }
-
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
-        Schema::dropIfExists('sessions');
-    }
-};
+}
 </file>
 
 <file path="resources/js/Components/NeonCommentSection.vue">
@@ -5653,90 +6202,6 @@ const handleSubmit = () => {
     overscroll-behavior: contain;
 }
 </style>
-</file>
-
-<file path="resources/js/Components/NeonUserProfile.vue">
-<template>
-    <div
-        class="w-[82vw] max-w-sm md:w-full md:max-w-2xl bg-black/80 border border-purple-500/40 p-4 md:p-8 font-mono backdrop-blur-2xl shadow-[0_0_50px_rgba(168,85,247,0.2)] relative overflow-y-auto no-scrollbar max-h-[70vh] flex flex-col rounded-[2rem] shrink-0">
-
-        <div
-            class="absolute inset-0 bg-gradient-to-b from-transparent via-purple-500/5 to-transparent h-[200%] animate-scan-slow pointer-events-none">
-        </div>
-
-        <div class="flex justify-between items-start mb-4 border-b border-purple-500/30 pb-2 relative z-10 shrink-0">
-            <div>
-                <h2 class="text-base md:text-xl text-white tracking-[0.3em] uppercase italic">Entity_Profile</h2>
-                <p class="text-[8px] md:text-[10px] text-purple-400/70 tracking-widest">ACCESSING_DATABASE... DONE</p>
-            </div>
-            <button @click="$emit('back')"
-                class="border border-purple-500/50 px-2 md:px-3 py-1 text-[9px] md:text-[10px] text-purple-400 hover:bg-purple-500/20 transition-all">
-                CLOSE [X]
-            </button>
-        </div>
-
-        <div class="grow space-y-4 relative z-10 overflow-hidden">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-
-                <div class="col-span-1 flex flex-row md:flex-col gap-3 md:space-y-4 items-center md:items-stretch">
-                    <div
-                        class="w-16 h-16 md:w-full md:h-auto md:aspect-square bg-purple-900/20 border-2 border-purple-500/60 flex items-center justify-center relative group shrink-0">
-                        <div
-                            class="absolute inset-1.5 border border-purple-500/20 group-hover:border-purple-500/80 transition-all">
-                        </div>
-                        <span class="text-2xl md:text-4xl text-purple-500/40">?</span>
-                    </div>
-                    <div class="bg-white/5 border border-white/10 p-2 w-full">
-                        <div class="text-[8px] text-purple-500">TRUST_LEVEL</div>
-                        <div class="h-1 bg-purple-900 mt-1">
-                            <div class="h-full bg-purple-500 w-[75%] shadow-[0_0_10px_#a855f7]"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-span-1 md:col-span-2 space-y-3 md:space-y-6">
-                    <div>
-                        <label class="text-[8px] md:text-[9px] text-purple-500 block mb-1">IDENTIFICATION_TAG</label>
-                        <div
-                            class="text-white text-xs md:text-lg tracking-widest bg-white/5 p-1.5 border-l-2 border-purple-500 truncate">
-                            RICK_JURRASIC_BEYOND_01
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="text-[8px] md:text-[9px] text-purple-500 block mb-1">LAST_SEEN_LATENCY</label>
-                            <div class="text-[10px] md:text-xs text-white/80">14ms_STABLE</div>
-                        </div>
-                        <div>
-                            <label class="text-[8px] md:text-[9px] text-purple-500 block mb-1">NETWORK_ROLE</label>
-                            <div class="text-[10px] md:text-xs text-white/80 uppercase">Architect_Core</div>
-                        </div>
-                    </div>
-
-                    <div class="border border-white/5 p-2 md:p-4 bg-white/[0.02]">
-                        <label
-                            class="text-[8px] md:text-[9px] text-purple-500 block mb-1 md:mb-2 underline">ENCRYPTED_BIO</label>
-                        <p class="text-[9px] md:text-[11px] text-white/60 leading-tight italic truncate-3-lines">
-                            "Zabývá se vývojem Neonových rozhraní a AI-healing experimenty."
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-4 flex flex-col md:flex-row gap-2 md:gap-4 shrink-0">
-                <button
-                    class="w-full bg-purple-600/20 border border-purple-500/50 py-2 text-[9px] md:text-[10px] text-white uppercase hover:bg-purple-600/40 transition-all tracking-tighter truncate">
-                    Send_Encrypted_Message
-                </button>
-                <button
-                    class="w-full border border-red-500/30 py-2 text-[9px] md:text-[10px] text-red-400 uppercase hover:bg-red-500/10 transition-all tracking-tighter truncate">
-                    Sever_Connection
-                </button>
-            </div>
-        </div>
-    </div>
-</template>
 </file>
 
 <file path="resources/js/Layouts/AuthenticatedLayout.vue">
@@ -5883,6 +6348,86 @@ onMounted(() => {
         </div>
     </div>
 </template>
+</file>
+
+<file path="tests/Feature/FriendshipJobTest.php">
+<?php
+
+use App\Jobs\SendFriendRequest;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
+
+uses(RefreshDatabase::class);
+
+// 1. UNIT TEST: Ověříme, že job v sobě drží správná data
+it('holds the correct user and bot data', function () {
+    $user = User::factory()->create();
+    $botName = 'SENTINEL_01';
+
+    $job = new SendFriendRequest($user->id, $botName);
+
+    expect($job->userId)->toBe($user->id)
+        ->and($job->botName)->toBe($botName);
+});
+
+// 2. FEATURE TEST: Ověříme, že celý řetězec z frontendu funguje (spouští job)
+it('dispatches the SendFriendRequest job when system is initialized via route', function () {
+    Queue::fake();
+
+    $user = User::factory()->create();
+    // Vytvoříme bota, aby job neměl problém v 'handle' (i když Queue::fake() kód v handle nespouští, je dobré mít data)
+    User::factory()->create(['name' => 'SENTINEL_01']);
+
+    $this->actingAs($user)
+        ->post(route('system.initialize'))
+        ->assertStatus(200);
+
+    // Ověříme, že job byl poslán do fronty
+    Queue::assertPushed(SendFriendRequest::class, function ($job) use ($user) {
+        return $job->userId === $user->id && $job->botName === 'SENTINEL_01';
+    });
+});
+</file>
+
+<file path="app/Events/MessageReceived.php">
+<?php
+
+namespace App\Events;
+
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+
+class MessageReceived implements ShouldBroadcastNow
+{
+    use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    public function __construct(
+        public int $userId,
+        public array $data
+    ) {}
+
+    /**
+     * Definice dat, která skutečně poletí do prohlížeče.
+     * Zde vracíme kompletní data z Jobu, aby frontend měl i conversation_id atd.
+     */
+    public function broadcastWith(): array
+    {
+        return [
+            'data' => $this->data,
+        ];
+    }
+
+    public function broadcastOn(): array
+    {
+        return [
+            new PrivateChannel('App.Models.User.'.$this->userId),
+        ];
+    }
+}
 </file>
 
 <file path="app/Events/SystemAlertTriggered.php">
@@ -6152,42 +6697,65 @@ return [
 ];
 </file>
 
-<file path="database/seeders/DatabaseSeeder.php">
+<file path="database/migrations/0001_01_01_000000_create_users_table.php">
 <?php
 
-namespace Database\Seeders;
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
-
-class DatabaseSeeder extends Seeder
+return new class extends Migration
 {
-    use WithoutModelEvents;
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('users', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('email')->unique();
+
+            // 🌌 RECRUITER CYBERPUNK EXTENSIONS
+            $table->string('handle')->unique()->nullable();    // Např. @recruiter_alpha
+            $table->string('role')->default('EXTERNAL_NODE'); // Místo faction, přímo pro Vue networkRole
+            $table->text('bio')->nullable();                  // Pro tvůj ENCRYPTED_BIO
+            $table->integer('trust_level')->default(50);      // Pro TRUST_LEVEL bar (0-100)
+            $table->string('latency')->default('24ms_STABLE'); // Pro LAST_SEEN_LATENCY
+            $table->string('avatar_url')->nullable();         // Cesta k profilovce rekrutera
+
+            $table->timestamp('email_verified_at')->nullable();
+            $table->string('password');
+            $table->rememberToken();
+            $table->timestamps();
+        });
+
+        Schema::create('password_reset_tokens', function (Blueprint $table) {
+            $table->string('email')->primary();
+            $table->string('token');
+            $table->timestamp('created_at')->nullable();
+        });
+
+        Schema::create('sessions', function (Blueprint $table) {
+            $table->string('id')->primary();
+            $table->foreignId('user_id')->nullable()->index();
+            $table->string('ip_address', 45)->nullable();
+            $table->text('user_agent')->nullable();
+            $table->longText('payload');
+            $table->integer('last_activity')->index();
+        });
+    }
 
     /**
-     * Seed the application's database.
+     * Reverse the migrations.
      */
-    public function run(): void
+    public function down(): void
     {
-        // 🌌 Vytvoříme hlavního Demo rekrutera
-        User::updateOrCreate(
-            ['email' => 'demo@neonhub.io'],
-            [
-                'name' => 'Recruiter Phantom',
-                'handle' => '@recruiter_alpha',
-                'faction' => 'CORPO_ELITE',
-                'password' => Hash::make('neon-secret-password-2026'),
-            ]
-        );
-
-        // 🤖 Inicializace systémových entit (AI agentů)
-        $this->call([
-            BotSeeder::class,
-        ]);
+        Schema::dropIfExists('users');
+        Schema::dropIfExists('password_reset_tokens');
+        Schema::dropIfExists('sessions');
     }
-}
+};
 </file>
 
 <file path="resources/js/bootstrap.js">
@@ -6218,58 +6786,181 @@ window.Echo = new Echo({
 });
 </file>
 
-<file path="resources/js/Components/NeonMessages.vue">
+<file path="resources/js/Components/NeonUserProfile.vue">
 <script setup>
-import { storeToRefs } from 'pinia';
+import { computed } from 'vue';
 import { useNotificationStore } from '@/Stores/useNotificationStore';
 
-const emit = defineEmits(['back']);
+// Sjednoceno s NeonSocialCore.vue, které posílá :entityId="selectedEntityId"
+const props = defineProps({
+    entityId: {
+        type: Number,
+        required: true
+    }
+});
+
+defineEmits(['back']);
+
 const store = useNotificationStore();
-const { messages } = storeToRefs(store);
+
+// Dynamicky najdeme entitu buď v žádostech, nebo v aktivních přátelích podle předaného entityId
+const entity = computed(() => {
+    // Prohledáme friendRequests (kontrolujeme přímé id nebo schované uživatelské user_id)
+    const requestMatch = store.friendRequests.find(r => r.id === props.entityId || r.user_id === props.entityId);
+    if (requestMatch) return requestMatch;
+
+    // Prohledáme aktivní přátele
+    const friendMatch = store.friends.find(f => f.id === props.entityId || f.user_id === props.entityId);
+    return friendMatch || null;
+});
+
+// Pomocné reaktivní hodnoty s fallbacky pro případ, že data v DB chybí
+const idTag = computed(() => entity.value?.name || `UNKNOWN_NODE_${props.entityId}`);
+const networkRole = computed(() => entity.value?.role || 'EXTERNAL_NODE');
+const bio = computed(() => entity.value?.bio || '"Záznam v šifrovaném biu je prázdný."');
+const trustLevel = computed(() => entity.value?.trust_level ?? 50);
+const latency = computed(() => entity.value?.latency || '24ms_STABLE');
 </script>
 
 <template>
     <div
-        class="w-[82vw] md:w-full md:max-w-2xl bg-black/60 border border-cyan-500/20 p-5 md:p-8 font-mono rounded-[2rem] flex flex-col max-h-[75vh] overflow-hidden">
+        class="w-[82vw] max-w-sm md:w-full md:max-w-2xl bg-black/80 border border-purple-500/40 p-4 md:p-8 font-mono backdrop-blur-2xl shadow-[0_0_50px_rgba(168,85,247,0.2)] relative overflow-y-auto no-scrollbar max-h-[70vh] flex flex-col rounded-[2rem] shrink-0">
 
-        <div class="flex justify-between mb-8 border-b border-cyan-500/10 pb-2 shrink-0">
-            <span class="text-cyan-400 text-xs">>> INBOX_DECRYPTED</span>
+        <div
+            class="absolute inset-0 bg-gradient-to-b from-transparent via-purple-500/5 to-transparent h-[200%] animate-scan-slow pointer-events-none">
+        </div>
+
+        <div class="flex justify-between items-start mb-4 border-b border-purple-500/30 pb-2 relative z-10 shrink-0">
+            <div>
+                <h2 class="text-base md:text-xl text-white tracking-[0.3em] uppercase italic">Entity_Profile</h2>
+                <p class="text-[8px] md:text-[10px] text-purple-400/70 tracking-widest">
+                    ACCESSING_DATABASE... {{ entity ? 'DONE' : 'NOT_FOUND' }}
+                </p>
+            </div>
             <button @click="$emit('back')"
-                class="text-[10px] hover:text-white text-cyan-700 underline">CLOSE_SESSION</button>
+                class="border border-purple-500/50 px-2 md:px-3 py-1 text-[9px] md:text-[10px] text-purple-400 hover:bg-purple-500/20 transition-all">
+                CLOSE [X]
+            </button>
         </div>
 
-        <div class="space-y-6 overflow-y-auto no-scrollbar grow pr-1">
-            <div v-for="msg in messages" :key="msg.id" class="border-l-2 pl-4 py-2 transition-all duration-500"
-                :class="msg.read ? 'border-fuchsia-900 bg-fuchsia-900/5' : 'border-fuchsia-600 bg-fuchsia-600/5'">
+        <div v-if="entity" class="grow space-y-4 relative z-10 overflow-hidden">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
 
-                <div class="text-[9px]" :class="msg.read ? 'text-fuchsia-800' : 'text-fuchsia-500'">
-                    FROM: {{ msg.sender || 'UNKNOWN_SOURCE' }}
+                <div class="col-span-1 flex flex-row md:flex-col gap-3 md:space-y-4 items-center md:items-stretch">
+                    <div
+                        class="w-16 h-16 md:w-full md:h-auto md:aspect-square bg-purple-900/20 border-2 border-purple-500/60 flex items-center justify-center relative group shrink-0 overflow-hidden">
+                        <div
+                            class="absolute inset-1.5 border border-purple-500/20 group-hover:border-purple-500/80 transition-all z-20 pointer-events-none">
+                        </div>
+                        <img v-if="entity.avatar" :src="entity.avatar"
+                            class="w-full h-full object-cover relative z-10" />
+                        <span v-else class="text-2xl md:text-4xl text-purple-500/40 relative z-10">?</span>
+                    </div>
+
+                    <div class="bg-white/5 border border-white/10 p-2 w-full">
+                        <div class="text-[8px] text-purple-500">TRUST_LEVEL</div>
+                        <div class="h-1 bg-purple-900 mt-1">
+                            <div class="h-full bg-purple-500 shadow-[0_0_10px_#a855f7] transition-all duration-500"
+                                :style="{ width: trustLevel + '%' }"></div>
+                        </div>
+                    </div>
                 </div>
-                <div class="text-sm" :class="msg.read ? 'text-white/40' : 'text-white'">
-                    "{{ msg.text }}"
-                </div>
-                <div class="text-[8px] mt-1" :class="msg.read ? 'text-white/10' : 'text-white/30'">
-                    {{ msg.time }}
+
+                <div class="col-span-1 md:col-span-2 space-y-3 md:space-y-6">
+                    <div>
+                        <label class="text-[8px] md:text-[9px] text-purple-500 block mb-1">IDENTIFICATION_TAG</label>
+                        <div
+                            class="text-white text-xs md:text-lg tracking-widest bg-white/5 p-1.5 border-l-2 border-purple-500 truncate uppercase">
+                            {{ idTag }}
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[8px] md:text-[9px] text-purple-500 block mb-1">LAST_SEEN_LATENCY</label>
+                            <div class="text-[10px] md:text-xs text-white/80">{{ latency }}</div>
+                        </div>
+                        <div>
+                            <label class="text-[8px] md:text-[9px] text-purple-500 block mb-1">NETWORK_ROLE</label>
+                            <div class="text-[10px] md:text-xs text-white/80 uppercase">{{ networkRole }}</div>
+                        </div>
+                    </div>
+
+                    <div class="border border-white/5 p-2 md:p-4 bg-white/[0.02]">
+                        <label
+                            class="text-[8px] md:text-[9px] text-purple-500 block mb-1 md:mb-2 underline">ENCRYPTED_BIO</label>
+                        <p class="text-[9px] md:text-[11px] text-white/60 leading-tight italic whitespace-pre-line">
+                            {{ bio }}
+                        </p>
+                    </div>
                 </div>
             </div>
 
-            <div v-if="messages.length === 0" class="text-center text-white/20 text-[10px] py-10">
-                >> NO_ENCRYPTED_MESSAGES_FOUND
+            <div class="mt-4 flex flex-col md:flex-row gap-2 md:gap-4 shrink-0">
+                <button
+                    class="w-full bg-purple-600/20 border border-purple-500/50 py-2 text-[9px] md:text-[10px] text-white uppercase hover:bg-purple-600/40 transition-all tracking-tighter truncate">
+                    Send_Encrypted_Message
+                </button>
+                <button
+                    class="w-full border border-red-500/30 py-2 text-[9px] md:text-[10px] text-red-400 uppercase hover:bg-red-500/10 transition-all tracking-tighter truncate">
+                    Sever_Connection
+                </button>
             </div>
         </div>
-    </div>
+
+        <div v-else class="text-center py-12 text-red-400 text-xs tracking-widest">
+            >> ERROR: INVALID_ENTITY_ID_ACCESS_DENIED << </div>
+        </div>
 </template>
+</file>
 
-<style scoped>
-.no-scrollbar::-webkit-scrollbar {
-    width: 2px;
-}
+<file path="app/Jobs/SendFriendRequest.php">
+<?php
 
-.no-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(168, 85, 247, 0.2);
-    border-radius: 10px;
+namespace App\Jobs;
+
+use App\Actions\SendFriendRequestAction;
+use App\Models\User;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
+
+class SendFriendRequest implements ShouldQueue
+{
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public function __construct(
+        public int $userId,
+        public string $botName = 'SENTINEL_01'
+    ) {}
+
+    public function handle(SendFriendRequestAction $action): void
+    {
+        $bot = User::where('name', $this->botName)->firstOrFail();
+
+        // Finální neprůstřelná kontrola idempotence přímo v asynchronním Jobu
+        $exists = DB::table('friendships')
+            ->where(function ($query) use ($bot) {
+                $query->where('sender_id', $bot->id)
+                    ->where('recipient_id', $this->userId);
+            })
+            ->orWhere(function ($query) use ($bot) {
+                $query->where('sender_id', $this->userId)
+                    ->where('recipient_id', $bot->id);
+            })
+            ->exists();
+
+        // Pokud záznam v DB už existuje, job tiše a bezpečně ukončíme (nikam nic neduplikuje)
+        if ($exists) {
+            return;
+        }
+
+        $action->execute($bot->id, $this->userId);
+    }
 }
-</style>
 </file>
 
 <file path="bootstrap/app.php">
@@ -6412,6 +7103,47 @@ return [
     ],
 
 ];
+</file>
+
+<file path="database/seeders/DatabaseSeeder.php">
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\User;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+
+class DatabaseSeeder extends Seeder
+{
+    use WithoutModelEvents;
+
+    /**
+     * Seed the application's database.
+     */
+    public function run(): void
+    {
+        // 🌌 Vytvoříme hlavního Demo rekrutera
+        User::updateOrCreate(
+            [
+                'name' => 'Recruiter Phantom',
+                'email' => 'demo@neonhub.io',
+                'handle' => '@recruiter_alpha',
+                'role' => 'CORPO_ELITE', //
+                'bio' => 'Hlavní rekruter pro korporátní elitu. Vyhledává subjekty s vysokou latencí a čistým zdrojovým kódem.',
+                'trust_level' => 75,
+                'latency' => '18ms_STABLE',
+                'password' => Hash::make('password'), // Nebo tvoje heslo
+            ]
+        );
+
+        // 🤖 Inicializace systémových entit (AI agentů)
+        $this->call([
+            BotSeeder::class,
+        ]);
+    }
+}
 </file>
 
 <file path="resources/css/neon-ui.css">
@@ -6613,117 +7345,6 @@ defineProps({
 </style>
 </file>
 
-<file path="resources/js/Stores/useNotificationStore.js">
-import { defineStore } from "pinia";
-
-export const useNotificationStore = defineStore("notifications", {
-    state: () => ({
-        messages: [],
-        friendRequests: [],
-        friends: [], // Nové pole pro aktivní přátelství
-        alerts: [],
-        isListening: false,
-    }),
-
-    getters: {
-        // Zpátky vrácené gettery pro UI
-        hasUnreadMessages: (state) => state.messages.some((m) => !m.read),
-        hasUnreadRequests: (state) => state.friendRequests.some((r) => !r.read),
-        hasUnreadAlerts: (state) => state.alerts.some((a) => !a.read),
-
-        totalUnreadCount: (state) =>
-            state.messages.filter((m) => !m.read).length +
-            state.friendRequests.filter((r) => !r.read).length +
-            state.alerts.filter((a) => !a.read).length,
-    },
-
-    actions: {
-        // --- Přidávání dat ---
-        addMessage(message) {
-            this.messages.push({
-                id: Date.now(),
-                read: false,
-                time: new Date().toLocaleTimeString(),
-                ...message,
-            });
-        },
-        addFriendRequest(request) {
-            this.friendRequests.push({
-                id: request.id || Date.now(),
-                read: false,
-                status: "pending",
-                ...request,
-            });
-        },
-        addAlert(alert) {
-            this.alerts.push({
-                id: Date.now(),
-                read: false,
-                type: "alert",
-                ...alert,
-            });
-        },
-        addFriend(friend) {
-            this.friends.push(friend);
-        },
-
-        // --- Logika správy přátelství ---
-        updateFriendRequestStatus(id, newStatus) {
-            const index = this.friendRequests.findIndex((r) => r.id === id);
-            if (index !== -1) {
-                const req = this.friendRequests[index];
-                req.status = newStatus;
-                req.read = true;
-
-                if (newStatus === "accepted") {
-                    this.friends.push(req);
-                    this.friendRequests.splice(index, 1);
-                }
-            }
-        },
-        removeFriendRequest(id) {
-            this.friendRequests = this.friendRequests.filter(
-                (r) => r.id !== id,
-            );
-        },
-        removeFriend(id) {
-            this.friends = this.friends.filter((f) => f.id !== id);
-        },
-
-        // --- Přečtení notifikací ---
-        markMessagesAsRead() {
-            this.messages.forEach((m) => (m.read = true));
-        },
-        markRequestsAsRead() {
-            this.friendRequests.forEach((r) => (r.read = true));
-        },
-        markAlertsAsRead() {
-            this.alerts.forEach((a) => (a.read = true));
-        },
-
-        // --- Real-time propojení ---
-        initListeners(userId) {
-            if (this.isListening) return;
-            this.isListening = true;
-
-            window.Echo.private(`App.Models.User.${userId}`)
-                .listen("FriendRequestReceived", (e) =>
-                    this.addFriendRequest(e.data),
-                )
-                .listen("FriendshipAccepted", (e) =>
-                    this.updateFriendRequestStatus(e.friendshipId, "accepted"),
-                );
-        },
-
-        // --- Reset ---
-        resetAll() {
-            this.$reset();
-            this.isListening = false;
-        },
-    },
-});
-</file>
-
 <file path="tests/Feature/SystemAlertTest.php">
 <?php
 
@@ -6904,84 +7525,306 @@ createInertiaApp({
 });
 </file>
 
-<file path="resources/js/Components/NeonFriends.vue">
+<file path="resources/js/Components/NeonMessages.vue">
 <script setup>
-import { storeToRefs } from 'pinia';
-import { useNotificationStore } from '@/Stores/useNotificationStore';
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useNotificationStore } from '@/Stores/useNotificationStore'
 
-const emit = defineEmits(['back', 'view-profile']);
-const store = useNotificationStore();
-const { friendRequests, friends } = storeToRefs(store);
+const emit = defineEmits(['back'])
 
-const acceptRequest = async (id) => {
-    try {
-        await axios.patch(`/friendships/${id}`, { status: 'accepted' });
-        store.updateFriendRequestStatus(id, 'accepted');
-    } catch (e) { console.error("Accept failed", e); }
-};
+const store = useNotificationStore()
+const { messages } = storeToRefs(store)
 
-const declineRequest = async (id) => {
-    try {
-        await axios.delete(`/friendships/${id}`);
-        store.removeFriendRequest(id);
-    } catch (e) { console.error("Decline failed", e); }
-};
+const currentView = ref('inbox')
+const scrollContainer = ref(null)
 
-const removeLink = async (id) => {
-    try {
-        await axios.delete(`/friendships/${id}`);
-        store.removeFriend(id);
-    } catch (e) { console.error("Unlink failed", e); }
-};
+const activeConversationId = ref(null)
+const activeAgentName = ref('')
+const referenceMessageId = ref(null)
+
+const deletingId = ref(null)
+const replyText = ref('')
+
+onMounted(() => {
+    store.fetchMessages()
+})
+
+/**
+ * INBOX = poslední zpráva z každé konverzace (Nejnovější konverzace nahoře)
+ */
+const inboxConversations = computed(() => {
+    const map = {}
+
+    messages.value.forEach(m => {
+        const convId = m.conversation_id
+        if (!convId) return
+
+        // FIX: Porovnáváme primárně přes kompletní timestamp created_at
+        const messageDate = new Date(m.created_at || m.time || 0)
+
+        if (!map[convId] || new Date(map[convId].created_at || map[convId].time || 0) < messageDate) {
+            map[convId] = {
+                conversation_id: convId,
+                text: m.text || m.content || '',
+                time: m.time,
+                created_at: m.created_at || m.time,
+                sender: m.sender || m.role || 'UNKNOWN',
+                agentName: m.agent_name || m.agentName || '',
+                lastMessageId: m.id,
+                read: m.read ?? false
+            }
+        }
+    })
+
+    // Seřadíme konverzace v inboxu tak, aby nejnovější podle vytvoření byla nahoře
+    return Object.values(map).sort(
+        (a, b) => new Date(b.created_at || b.time) - new Date(a.created_at || a.time)
+    )
+})
+
+/**
+ * CHAT = Chronologické řazení (Nejstarší nahoře -> Nejnovější dole)
+ */
+const activeChatMessages = computed(() => {
+    if (!activeConversationId.value) return []
+
+    return messages.value
+        .filter(m => String(m.conversation_id) === String(activeConversationId.value))
+        .map(m => {
+            // KLÍČOVÁ OPRAVA: Použijeme ...m, abychom stoprocentně zachovali 'role',
+            // 'content' a všechny ostatní původní parametry z backendu!
+            return {
+                ...m,
+                // Pro jistotu sjednotíme text i content, ať šablona najde obojí pod jakýmkoliv názvem
+                text: m.text || m.content || '',
+                content: m.content || m.text || '',
+                // Připravíme si časové razítko pro sort
+                createdAt: m.created_at || m.time
+            }
+        })
+        // Neprůstřelný chronologický sort (Od nejstarší zprávy nahoře po nejnovější dole)
+        .sort((a, b) => {
+            const dateA = new Date(a.createdAt).getTime()
+            const dateB = new Date(b.createdAt).getTime()
+
+            if (!isNaN(dateA) && !isNaN(dateB)) {
+                return dateA - dateB
+            }
+            return 0
+        })
+})
+
+/**
+ * AUTO SCROLL
+ */
+const scrollToBottom = () => {
+    nextTick(() => {
+        if (scrollContainer.value) {
+            scrollContainer.value.scrollTop = scrollContainer.value.scrollHeight
+        }
+    })
+}
+
+// Sledujeme změny ve zprávách a odpalujeme scroll dolů
+watch(activeChatMessages, () => {
+    scrollToBottom()
+}, { deep: true })
+
+function openChat(conv) {
+    activeConversationId.value = conv.conversation_id
+    activeAgentName.value = conv.agentName
+    referenceMessageId.value = conv.lastMessageId
+    currentView.value = 'chat'
+    replyText.value = ''
+
+    // Zdvojený pojistný scroll, protože v-else-if v šabloně může chvíli montovat DOM element do stránky
+    scrollToBottom()
+    setTimeout(scrollToBottom, 50)
+}
+
+function closeChat() {
+    currentView.value = 'inbox'
+    activeConversationId.value = null
+    activeAgentName.value = ''
+    referenceMessageId.value = null
+}
+
+async function submitChatReply() {
+    if (!replyText.value.trim()) return
+
+    const textToSend = replyText.value
+    replyText.value = ''
+
+    const success = await store.sendReply(
+        referenceMessageId.value,
+        textToSend
+    )
+
+    if (!success) {
+        replyText.value = textToSend
+        return
+    }
+
+    const latest = messages.value
+        .filter(m => m.conversation_id === activeConversationId.value)
+        .slice(-1)[0]
+
+    if (latest) {
+        referenceMessageId.value = latest.id
+    }
+}
+
+async function purgeConversation(conversationId) {
+    // Zavoláme novou akci ve storu (viz krok 2 níže)
+    await store.deleteConversation(conversationId)
+
+    // Po úspěšném smazání resetujeme stav, čímž se menu schová
+    deletingId.value = null
+}
 </script>
 
 <template>
     <div
-        class="w-[82vw] max-w-xs md:w-full md:max-w-md bg-black/60 border border-purple-500/30 p-6 font-mono backdrop-blur-xl rounded-[2rem] flex flex-col max-h-[75vh]">
+        class="w-[82vw] md:w-full md:max-w-2xl bg-black/70 border border-cyan-500/20 p-4 md:p-8 font-mono rounded-[2rem] flex flex-col h-[75vh] max-h-[75vh] overflow-hidden backdrop-blur-md">
 
-        <div class="flex justify-between mb-6 border-b border-purple-500/20 pb-2">
-            <span class="text-purple-400 text-xs tracking-tighter">>> NEON_NETWORK_ENTITIES</span>
-            <button @click="$emit('back')"
-                class="text-[9px] hover:text-white text-purple-700 underline">TERMINATE_LINK</button>
-        </div>
+        <template v-if="currentView === 'inbox'">
+            <div class="flex justify-between mb-6 border-b border-cyan-500/10 pb-2 shrink-0">
+                <span class="text-cyan-400 text-xs animate-pulse">
+                    >> INBOX_DECRYPTED
+                </span>
 
-        <div class="space-y-4 overflow-y-auto no-scrollbar grow">
-            <div v-for="req in friendRequests" :key="req.id" @click="$emit('view-profile', req.id)"
-                class="flex items-center justify-between p-3 border border-purple-500/30 bg-purple-900/10 cursor-pointer">
+                <button @click="$emit('back')" class="text-[10px] text-cyan-700 underline active:text-white">
+                    CLOSE_SESSION
+                </button>
+            </div>
 
-                <div class="flex items-center gap-4">
-                    <div
-                        class="w-8 h-8 border border-purple-500/50 flex items-center justify-center bg-purple-900/30 text-purple-400">
-                        <span :class="!req.read ? 'animate-pulse' : ''">ID</span>
+            <div class="space-y-6 overflow-y-auto grow pr-1">
+                <div v-for="conv in inboxConversations" :key="conv.conversation_id"
+                    class="border-l-2 pl-4 py-2 transition-all duration-300 border-fuchsia-600 bg-fuchsia-600/5">
+                    <div class="text-[9px] text-fuchsia-500">
+                        <span v-if="conv.sender === 'YOU'">
+                            FROM: YOU ➔ {{ conv.agentName }}
+                        </span>
+                        <span v-else>
+                            FROM: {{ conv.sender }}
+                        </span>
                     </div>
-                    <span class="text-white text-xs">{{ req.name }}</span>
+
+                    <div class="text-sm mt-1 text-white break-words">
+                        "{{ conv.text }}"
+                    </div>
+
+                    <div class="text-[8px] mt-1 text-white/30">
+                        {{ conv.time }}
+                    </div>
+
+                    <div class="flex gap-4 mt-2 pt-1 border-t border-white/10">
+                        <button @click="openChat(conv)" class="text-[10px] text-cyan-500 underline">
+                            [OPEN SECURE CHANNEL]
+                        </button>
+
+                        <button @click="deletingId = conv.conversation_id" class="text-[10px] text-red-500 underline">
+                            [PURGE_NODE]
+                        </button>
+                    </div>
+
+                    <div v-if="deletingId === conv.conversation_id"
+                        class="mt-3 p-3 border border-red-500/30 bg-red-950/10 rounded-xl text-xs text-red-400 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 transition-all duration-300">
+                        <span class="font-mono animate-pulse text-[10px]">
+                            >> CRITICAL: WIPE ENTIRE DATA NODE AND HISTORY?
+                        </span>
+                        <div class="flex gap-4 font-bold text-[10px]">
+                            <button @click="purgeConversation(conv.conversation_id)"
+                                class="text-red-500 underline hover:text-red-400">
+                                [YES_PURGE]
+                            </button>
+                            <button @click="deletingId = null" class="text-white/50 underline hover:text-white">
+                                [NO_ABORT]
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="flex gap-2" v-if="req.status === 'pending'">
-                    <button @click.stop="acceptRequest(req.id)"
-                        class="text-[9px] px-2 py-1 bg-green-900/20 border border-green-500/30 text-green-400 hover:bg-green-500/20">ACCEPT</button>
-                    <button @click.stop="declineRequest(req.id)"
-                        class="text-[9px] px-2 py-1 bg-red-900/20 border border-red-500/30 text-red-400 hover:bg-red-500/20">DECLINE</button>
+                <div v-if="inboxConversations.length === 0" class="text-center text-white/20 text-[10px] py-10">
+                    >> NO_ENCRYPTED_MESSAGES_FOUND
+                </div>
+            </div>
+        </template>
+
+        <template v-else-if="currentView === 'chat'">
+            <div class="flex justify-between mb-4 border-b border-cyan-500/20 pb-2 shrink-0">
+                <span class="text-cyan-400 text-xs">
+                    >> SECURE_CHANNEL:
+                    <span class="text-fuchsia-400 font-bold">
+                        {{ activeAgentName }}
+                    </span>
+                </span>
+
+                <button @click="closeChat" class="text-[10px] text-cyan-600 underline">
+                    BACK_TO_INBOX
+                </button>
+            </div>
+
+            <!-- Kontejner se zprávami -->
+            <div ref="scrollContainer" class="space-y-4 overflow-y-auto grow mb-4 flex flex-col p-1">
+                <div v-for="cMsg in activeChatMessages" :key="cMsg.id"
+                    class="border-l-2 pl-3 py-1.5 rounded-r-lg max-w-[90%] transition-all duration-200" :class="cMsg.sender === 'YOU'
+                        ? 'border-cyan-500 bg-cyan-500/5 self-end text-right'
+                        : 'border-fuchsia-600 bg-fuchsia-600/5 self-start'">
+                    <div class="text-[8px] uppercase text-fuchsia-500">
+                        {{ cMsg.sender }}
+                    </div>
+
+                    <div class="text-xs text-white mt-1 break-words">
+                        "{{ cMsg.text }}"
+                    </div>
+
+                    <div class="text-[7px] text-white/30 mt-1">
+                        {{ cMsg.time }}
+                    </div>
                 </div>
             </div>
 
-            <div v-if="friends.length > 0" class="mt-6">
-                <div class="text-purple-400 text-xs pb-2 border-b border-purple-500/20">>> ACTIVE_LINKS</div>
-                <div v-for="friend in friends" :key="friend.id"
-                    class="flex items-center justify-between p-3 border border-purple-500/10 mt-2">
-                    <span class="text-white text-xs">{{ friend.name }}</span>
-                    <button @click="removeLink(friend.id)"
-                        class="text-[9px] text-red-500 hover:text-red-300 underline">UNLINK</button>
+            <div class="border border-cyan-500/30 p-2 bg-black/90 rounded-xl shrink-0">
+                <div class="flex gap-2">
+                    <input v-model="replyText" type="text" placeholder="Type datastream..."
+                        class="bg-black border border-cyan-500/20 rounded-lg px-3 py-2 text-xs text-white w-full focus:outline-none focus:border-cyan-500"
+                        @keyup.enter="submitChatReply" />
+
+                    <button @click="submitChatReply"
+                        class="text-[10px] bg-cyan-500 text-black px-5 py-2 rounded-lg font-bold hover:bg-cyan-400 active:scale-95 transition-all">
+                        SEND
+                    </button>
                 </div>
             </div>
-
-            <div v-if="friendRequests.length === 0 && friends.length === 0"
-                class="text-center text-purple-500/20 text-[10px] py-10">
-                >> NO_ACTIVE_OR_PENDING_LINKS
-            </div>
-        </div>
+        </template>
     </div>
 </template>
+
+<style scoped>
+.space-y-4 {
+    scroll-behavior: smooth;
+}
+
+/* Stylování scrollbaru pro tvůj sci-fi look */
+div::-webkit-scrollbar {
+    width: 4px;
+}
+
+div::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+div::-webkit-scrollbar-thumb {
+    background: rgba(6, 182, 212, 0.3);
+    border-radius: 4px;
+}
+
+div::-webkit-scrollbar-thumb:hover {
+    background: rgba(6, 182, 212, 0.6);
+}
+</style>
 </file>
 
 <file path="resources/js/Components/NeonOverlay.vue">
@@ -7360,113 +8203,6 @@ import { Cpu, Activity, Wifi, Zap } from 'lucide-vue-next';
 </style>
 </file>
 
-<file path="resources/js/Pages/Welcome.vue">
-<script setup>
-import { ref, watch, onMounted } from 'vue'; // watch stačí, onMounted tu teď nevyužijeme
-import { useNotificationStore } from '@/Stores/useNotificationStore';
-import { usePage } from '@inertiajs/vue3';
-
-const isOpened = ref(false);
-const store = useNotificationStore();
-const page = usePage(); // TADY jsi to měl chybějící!
-
-const openSystem = () => {
-    isOpened.value = true;
-};
-
-onMounted(() => {
-    // Tady se inicializace provede jednou, když se komponenta "v systému" poprvé vykreslí
-    if (page.props.auth?.user) {
-        store.initListeners(page.props.auth.user.id);
-    }
-});
-
-// Teď už 'page' existuje a watch ji může použít
-watch(isOpened, (newVal) => {
-    if (newVal && page.props.auth?.user) {
-        store.initListeners(page.props.auth.user.id);
-    }
-});
-</script>
-
-<template>
-    <div
-        class="relative h-screen w-full bg-[#02040a] overflow-hidden font-sans text-slate-200 selection:bg-purple-900/40 selection:text-white">
-
-        <!-- 1. Vrstva: Samotná aplikace (v pozadí) -->
-        <NeonSocialCore :isOpened="isOpened" />
-
-        <!-- 2. Vrstva: Mechanická brána -->
-        <NeonGate :isOpened="isOpened" />
-
-        <!-- 3. Vrstva: HUD a Vstupní karta (zůstává na vrchu) -->
-        <NeonOverlay :isOpened="isOpened" @open="openSystem" />
-
-    </div>
-</template>
-</file>
-
-<file path="routes/web.php">
-<?php
-
-use App\Events\SystemAlertTriggered;
-use App\Http\Controllers\FriendshipController;
-use App\Http\Controllers\ProfileController;
-use App\Jobs\SendFriendRequest;
-use App\Jobs\SendMessage;
-use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
-
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
-});
-
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-});
-
-Route::get('/test-signal', function () {
-    // Teď posíláme ID uživatele, aby Event věděl, kam broadcastovat
-    event(new SystemAlertTriggered(auth()->id(), 'Krizový stav aktivován!'));
-
-    return 'Signál odpálen!';
-});
-
-Route::get('/test-message', function () {
-    SendMessage::dispatch(auth()->id(), [
-        'sender' => 'CYBER_OPERATOR',
-        'text' => 'Připojení k uzlu navázáno.',
-    ])->delay(now()->addSeconds(1)); // Zpoždění 5 sekund
-
-    return 'Zpráva naplánována za 5 sekund.';
-});
-
-Route::get('/test-friend', function () {
-    // Dispatchne job, který se po 3 sekundách automaticky provede
-    SendFriendRequest::dispatch(auth()->id(), 999)
-        ->delay(now()->addSeconds(3));
-
-    return 'Žádost o přátelství byla naplánována za 3 sekundy.';
-});
-
-Route::get('/dashboard', function () {
-    return inertia('Dashboard'); // nebo co tam teď máš místo dashboardu
-})->middleware(['auth', 'verified'])->name('dashboard');
-
-Route::patch('/friendships/{id}', [FriendshipController::class, 'update'])->name('friendships.update');
-Route::delete('/friendships/{id}', [FriendshipController::class, 'destroy']);
-
-require __DIR__.'/auth.php';
-</file>
-
 <file path="components.d.ts">
 /* eslint-disable */
 // @ts-nocheck
@@ -7510,85 +8246,414 @@ declare module 'vue' {
 }
 </file>
 
+<file path="resources/js/Components/NeonFriends.vue">
+<script setup>
+import { ref } from 'vue';
+import { storeToRefs } from 'pinia';
+import { useNotificationStore } from '@/Stores/useNotificationStore';
+import axios from 'axios'; // <-- OPRAVENO: Import zde chyběl
+
+const emit = defineEmits(['back', 'view-profile']);
+const store = useNotificationStore();
+const { friendRequests, friends } = storeToRefs(store);
+
+// Stavy pro inline potvrzování bez alert oken
+const decliningRequestId = ref(null);
+const unlinkingFriendId = ref(null);
+
+const acceptRequest = async (id) => {
+    try {
+        await axios.patch(`/friendships/${id}`, { status: 'accepted' });
+        store.updateFriendRequestStatus(id, 'accepted');
+    } catch (e) { console.error("Accept failed", e); }
+};
+
+const declineRequest = async (id) => {
+    try {
+        await axios.delete(`/friendships/${id}`);
+        store.removeFriendRequest(id);
+        decliningRequestId.value = null; // Reset inline okna
+    } catch (e) { console.error("Decline failed", e); }
+};
+
+const removeLink = async (id) => {
+    try {
+        await axios.delete(`/friendships/${id}`);
+        store.removeFriend(id);
+        unlinkingFriendId.value = null; // Reset inline okna
+    } catch (e) { console.error("Unlink failed", e); }
+};
+</script>
+
+<template>
+    <div
+        class="w-[82vw] max-w-xs md:w-full md:max-w-md bg-black/60 border border-purple-500/30 p-6 font-mono backdrop-blur-xl rounded-[2rem] flex flex-col max-h-[75vh]">
+
+        <div class="flex justify-between mb-6 border-b border-purple-500/20 pb-2">
+            <span class="text-purple-400 text-xs tracking-tighter">>> NEON_NETWORK_ENTITIES</span>
+            <button @click="$emit('back')"
+                class="text-[9px] text-purple-700 underline active:text-white py-1 px-2 -mr-2 select-none">TERMINATE_LINK</button>
+        </div>
+
+        <div class="space-y-4 overflow-y-auto no-scrollbar grow">
+
+            <div v-for="req in friendRequests" :key="req.id" @click="$emit('view-profile', req.id)"
+                class="flex items-center justify-between p-3 border border-purple-500/30 bg-purple-900/10 cursor-pointer active:bg-purple-500/10 transition-all group">
+
+                <div class="flex items-center gap-4">
+                    <div
+                        class="w-8 h-8 border border-purple-500/50 flex items-center justify-center bg-purple-900/30 text-purple-400 group-hover:border-purple-400">
+                        <span
+                            :class="!req.read ? 'animate-pulse text-purple-300 shadow-[0_0_10px_#a855f7]' : ''">ID</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-white text-xs uppercase tracking-wider">{{ req.name }}</span>
+                        <span class="text-[8px] text-purple-400/60">REQUEST_PENDING</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-2 shrink-0" v-if="req.status === 'pending'">
+                    <template v-if="decliningRequestId === req.id">
+                        <span class="text-[8px] text-red-500 animate-pulse font-bold self-center">DECLINE?</span>
+                        <button @click.stop="declineRequest(req.id)"
+                            class="text-[9px] px-2 py-1 bg-red-950/50 border border-red-500/40 text-red-400 active:bg-red-500 active:text-black font-bold select-none">
+                            YES
+                        </button>
+                        <button @click.stop="decliningRequestId = null"
+                            class="text-[9px] px-2 py-1 text-white/40 underline active:text-white select-none">
+                            NO
+                        </button>
+                    </template>
+                    <template v-else>
+                        <button @click.stop="acceptRequest(req.id)"
+                            class="text-[9px] px-2 py-1.5 bg-green-900/20 border border-green-500/30 text-green-400 active:bg-green-500/40 transition-all select-none">
+                            ACCEPT
+                        </button>
+                        <button @click.stop="decliningRequestId = req.id"
+                            class="text-[9px] px-2 py-1.5 bg-red-900/20 border border-red-500/30 text-red-400 active:bg-red-500/40 transition-all select-none">
+                            DECLINE
+                        </button>
+                    </template>
+                </div>
+            </div>
+
+            <div v-if="friends.length > 0" class="mt-6">
+                <div class="text-purple-400 text-xs pb-2 border-b border-purple-500/20">>> ACTIVE_LINKS</div>
+
+                <div v-for="friend in friends" :key="friend.id" @click="$emit('view-profile', friend.id)"
+                    class="flex items-center justify-between p-3 border border-purple-500/10 mt-2 bg-white/[0.01] cursor-pointer active:bg-purple-500/5 transition-all group">
+
+                    <div class="flex items-center gap-4">
+                        <div class="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_#a855f7] animate-pulse"></div>
+                        <span
+                            class="text-white text-xs uppercase tracking-wider group-hover:text-purple-300 transition-colors">{{
+                                friend.name }}</span>
+                    </div>
+
+                    <div v-if="unlinkingFriendId === friend.id" class="flex items-center gap-2 shrink-0" @click.stop>
+                        <span class="text-[8px] text-red-500 animate-pulse font-bold">UNLINK?</span>
+                        <button @click="removeLink(friend.id)"
+                            class="text-[9px] px-2 py-1 bg-red-950/50 border border-red-500/40 text-red-400 active:bg-red-500 active:text-black font-bold select-none">
+                            YES
+                        </button>
+                        <button @click="unlinkingFriendId = null"
+                            class="text-[9px] px-2 py-1 text-white/40 underline active:text-white select-none">
+                            NO
+                        </button>
+                    </div>
+                    <button v-else @click.stop="unlinkingFriendId = friend.id"
+                        class="text-[9px] text-red-500 active:text-red-400 underline relative z-15 py-2 px-3 -mr-2 select-none">
+                        UNLINK
+                    </button>
+                </div>
+            </div>
+
+            <div v-if="friendRequests.length === 0 && friends.length === 0"
+                class="text-center text-purple-500/20 text-[10px] py-10">
+                >> NO_ACTIVE_OR_PENDING_LINKS
+            </div>
+        </div>
+    </div>
+</template>
+</file>
+
+<file path="resources/js/Stores/useNotificationStore.js">
+import { defineStore } from "pinia";
+import axios from "axios";
+
+export const useNotificationStore = defineStore("notifications", {
+    state: () => ({
+        messages: [],
+        friendRequests: [],
+        friends: [],
+        alerts: [],
+        isListening: false,
+    }),
+
+    getters: {
+        // FIX: Striktně kontrolujeme, zda hodnota odpovídá nepřečtenému stavu
+        hasUnreadMessages: (state) =>
+            state.messages.some(
+                (m) => m.read === false || m.read === 0 || m.read === "0",
+            ),
+        hasUnreadRequests: (state) => state.friendRequests.some((r) => !r.read),
+        hasUnreadAlerts: (state) => state.alerts.some((a) => !a.read),
+
+        totalUnreadCount: (state) =>
+            state.messages.filter(
+                (m) => m.read === false || m.read === 0 || m.read === "0",
+            ).length +
+            state.friendRequests.filter((r) => !r.read).length +
+            state.alerts.filter((a) => !a.read).length,
+    },
+
+    actions: {
+        async fetchMessages() {
+            try {
+                const response = await axios.get(route("messages.index"));
+                this.messages = response.data;
+            } catch (error) {
+                console.error("Failed to fetch messages:", error);
+            }
+        },
+
+        async sendReply(messageId, text) {
+            try {
+                const response = await axios.post("/messages", {
+                    message_id: messageId,
+                    text: text,
+                });
+                this.addMessage(response.data);
+                return true;
+            } catch (error) {
+                console.error("Failed to forward response:", error);
+                return false;
+            }
+        },
+
+        async deleteConversation(conversationId) {
+            try {
+                // 1. Okamžitě vymažeme z frontendu VŠECHNY zprávy patřící do této konverzace
+                this.messages = this.messages.filter(
+                    (m) => String(m.conversation_id) !== String(conversationId),
+                );
+
+                // 2. Pošleme požadavek na backend s ID konverzace
+                await axios.delete(`/conversations/${conversationId}`);
+            } catch (error) {
+                console.error("Failed to purge conversation node:", error);
+                // Pokud backend selže, pro jistotu natáhneme data znovu, ať neodpovídají realitě
+                this.fetchMessages();
+            }
+        },
+
+        hydrateSystem(stateData) {
+            if (!stateData) return;
+            this.friendRequests = stateData.friendships?.requests || [];
+
+            this.friends = (stateData.friendships?.active || []).map(
+                (friend) => ({
+                    ...friend,
+                    id: friend.pivot?.id || friend.friendship_id || friend.id,
+                    user_id: friend.user_id || friend.id,
+                }),
+            );
+
+            // FIX: Normalizace zpráv hned při startu aplikace
+            this.messages = (stateData.messages || []).map((m) => ({
+                ...m,
+                // Pokud je rovno true, číslu 1 nebo řetězci "1", je to true. Cokoliv jiného (0, "0", null) je false.
+                read: m.read === true || m.read === 1 || m.read === "1",
+            }));
+
+            this.alerts = stateData.alerts || [];
+        },
+
+        addMessage(message) {
+            if (!message) return;
+
+            const normalized = {
+                id: message.id || Date.now(),
+                conversation_id:
+                    message.conversation_id || message.conversationId || null,
+                text: message.text || message.content || "",
+                sender: message.sender || message.role || "UNKNOWN",
+                agent_name: message.agent_name || message.agentName || null,
+                time:
+                    message.time ||
+                    (message.created_at
+                        ? new Date(message.created_at)
+                              .toTimeString()
+                              .split(" ")[0]
+                        : new Date().toTimeString().split(" ")[0]),
+                created_at: message.created_at || new Date().toISOString(),
+
+                // FIX: Striktní převod na boolean, aby neproklouzlo 0 / "0"
+                read:
+                    message.read === true ||
+                    message.read === 1 ||
+                    message.read === "1",
+            };
+
+            const exists = this.messages.some((m) => m.id === normalized.id);
+            if (exists) return;
+
+            this.messages.push(normalized);
+        },
+
+        addFriendRequest(request) {
+            this.friendRequests.push({
+                id: request.id || Date.now(),
+                user_id: request.user_id || request.sender_id,
+                name: request.name,
+                role: request.role || "EXTERNAL_NODE",
+                bio: request.bio || '"Šifrované bio prázdné."',
+                trust_level: request.trust_level ?? 50,
+                latency: request.latency || "24ms_STABLE",
+                avatar: request.avatar || request.avatar_url,
+                read: false,
+                status: "pending",
+            });
+        },
+
+        addAlert(alert) {
+            this.alerts.push({
+                id: Date.now(),
+                read: false,
+                type: "alert",
+                ...alert,
+            });
+        },
+
+        addFriend(friend) {
+            this.friends.push({
+                id: friend.id,
+                user_id: friend.user_id,
+                name: friend.name,
+                role: friend.role || "EXTERNAL_NODE",
+                bio: friend.bio || '"Šifrované bio prázdné."',
+                trust_level: friend.trust_level ?? 50,
+                latency: friend.latency || "24ms_STABLE",
+                avatar: friend.avatar,
+                status: "accepted",
+            });
+        },
+
+        removeFriend(id) {
+            this.friends = this.friends.filter((f) => f.id !== id);
+        },
+
+        removeFriendRequest(id) {
+            this.friendRequests = this.friendRequests.filter(
+                (r) => r.id !== id,
+            );
+        },
+
+        updateFriendRequestStatus(id, newStatus) {
+            const index = this.friendRequests.findIndex((r) => r.id === id);
+            if (index !== -1) {
+                const req = this.friendRequests[index];
+                req.status = newStatus;
+                req.read = true;
+                if (newStatus === "accepted") {
+                    this.addFriend(req);
+                    this.friendRequests.splice(index, 1);
+                }
+            }
+        },
+
+        markMessagesAsRead() {
+            this.messages.forEach((m) => (m.read = true));
+        },
+        markRequestsAsRead() {
+            this.friendRequests.forEach((r) => (r.read = true));
+        },
+        markAlertsAsRead() {
+            this.alerts.forEach((a) => (a.read = true));
+        },
+
+        initListeners(userId) {
+            if (this.isListening) return;
+            this.isListening = true;
+
+            window.Echo.private(`App.Models.User.${userId}`)
+                .listen("FriendRequestReceived", (e) =>
+                    this.addFriendRequest(e.data),
+                )
+                .listen("FriendshipAccepted", (e) =>
+                    this.updateFriendRequestStatus(e.friendshipId, "accepted"),
+                )
+                .listen("MessageReceived", (e) => {
+                    // Ošetření struktury payloadu (podpora e.data i e.message z backendu)
+                    const incomingMessage = e.data || e.message;
+                    if (incomingMessage) {
+                        this.addMessage(incomingMessage);
+                    }
+                });
+        },
+    },
+});
+</file>
+
 <file path="README.md">
 <div align="center">
 
   <h1>🌌 Neon Social Hub</h1>
-  <h3>Full-Stack Inertia.js SPA Demonstration</h3>
+  <h3>Full-Stack Inertia.js SPA - High-Performance Cybernetic Interface</h3>
 
   <p>
-    <img src="https://img.shields.io/badge/Status-In--Development-orange?style=for-the-badge&logo=laravel" alt="Status">
+    <img src="https://img.shields.io/badge/Status-Alpha-green?style=for-the-badge&logo=laravel" alt="Status">
     <img src="https://img.shields.io/badge/Stack-Laravel_13_%2B_Vue_3-6366f1?style=for-the-badge&logo=vue.js" alt="Tech Stack">
+    <img src="https://img.shields.io/badge/Testing-PestPHP-00a8e8?style=for-the-badge&logo=php" alt="Testing">
   </p>
 
   <p>
-    <img src="preview.png" alt="Neon Social Hub - Main Interface" width="100%" style="border-radius: 6px; border: 1px solid #1e1e2f; margin-bottom: 10px;">
-  </p>
-
-  <p>
-    <img src="preview2.png" alt="Neon Social Hub - Neon Network Entities" width="49%" style="border-radius: 6px; border: 1px solid #1e1e2f; margin-right: 1%;">
-    <img src="preview3.png" alt="Neon Social Hub - Entity Profile Diagnostic" width="49%" style="border-radius: 6px; border: 1px solid #1e1e2f;">
-  </p>
-
-  <p style="max-width: 800px; margin-top: 15px;">
-    <strong>Neon Social Hub</strong> is a high-performance, responsive Single Page Application (SPA) showcasing a sophisticated cybernetic user interface. The entire frontend architecture, complex layout components, hardware-accelerated animations, and responsive breakpoints are fully completed, serving as a robust shell for an upcoming asynchronous backend layer.
+    <strong>Neon Social Hub</strong> is a high-performance, responsive Single Page Application (SPA) demonstrating a sophisticated cybernetic user interface coupled with a robust, event-driven backend.
   </p>
 
 </div>
 
 <hr>
 
-<h2>🏗️ Architectural Blueprint</h2>
+<h2>✨ Core Capabilities & Architecture</h2>
 
-<p>The application leverages a modern monolithic SPA architecture using Inertia.js to eliminate the overhead of a decoupled REST API, ensuring a seamless bridge between a bleeding-edge PHP runtime and a reactive user interface.</p>
+<p>The system leverages modern reactive primitives to bridge the gap between heavy-duty server-side logic and client-side fluidity.</p>
 
 <ul>
-  <li><strong>Core Engine:</strong> Laravel 13 (PHP 8.5+) — <em>Boilerplate framework structure and default web routing established</em></li>
-  <li><strong>Reactive Bridge:</strong> Inertia.js (SSR Ready)</li>
-  <li><strong>Client Interface:</strong> Vue 3 (Composition API) + Vite 7 — <em>Core UI fully built</em></li>
-  <li><strong>Visual Framework:</strong> Tailwind CSS 4 (High-performance hardware-accelerated layouts)</li>
-  <li><strong>Iconography:</strong> Lucide Vue Next</li>
+  <li><strong>Core Engine:</strong> Laravel 13 (PHP 8.5+) — <em>Event-driven, high-concurrency architecture.</em></li>
+  <li><strong>Real-time Bridge:</strong> <strong>Laravel Reverb</strong> for native WebSockets, enabling instant UI updates without polling.</li>
+  <li><strong>Autonomous Agent:</strong> <code>SENTINEL_01</code> — An internal AI-logic layer handling entity-to-entity friendship pipelines.</li>
+  <li><strong>Testing Suite:</strong> Fully test-driven using <strong>PestPHP</strong>, ensuring architectural stability across all feature modules.</li>
+  <li><strong>Client Interface:</strong> Vue 3 (Composition API) + Tailwind CSS 4 (Hardware-accelerated layouts).</li>
 </ul>
 
 <hr>
 
-<h2>🎭 Fully Implemented Frontend Core Modules</h2>
+<h2>📡 Feature Breakdown</h2>
 
-<p>The system's client layer is fully modeled with high visual fidelity, sci-fi styling indicators, and isolated scopes. The following specialized Vue components are completed and ready for data serialization:</p>
+<h3>1. 🔒 System Entry Portal</h3>
+<p>Dual-wing gateway structure running 1800ms hardware-accelerated transforms. Features a <code>conic-gradient</code> rotating border mechanism with authentication-gate logic.</p>
 
-<h3>1. 🔒 System Entry Portal (<code>NeonGate.vue</code> & <code>NeonOverlay.vue</code>)</h3>
-<p>A dual-wing gateway structure running synchronous 1800ms hardware-accelerated transforms (<code>translate3d</code>). Features a <code>conic-gradient</code> rotating border mechanism displaying the high-level system manifesto and restricting user input until authorization occurs.</p>
+<h3>2. 🤖 Autonomous Node Initialization (SENTINEL_01)</h3>
+<p>Upon system initialization, the agent triggers an asynchronous friendship request workflow. The process is fully handled via <strong>Laravel Queues</strong> and <strong>Reverb Events</strong>, ensuring the frontend reflects state changes instantly.</p>
 
-<h3>2. 📡 Telemetry Dashboard Navigation (<code>NeonNav.vue</code>)</h3>
-<p>A persistent, high-density dashboard matrix tracking mock infrastructure parameters in real-time. Displays simulated connection metrics (Network Latency: 12ms, System Uptime: 99.98%, Active Nodes: 1,204), administrative tags (<code>Admin_Root // 0x882_ALPHA</code>), and animated visual hardware status indicators.</p>
-
-<h3>3. 🤝 Network Entities Terminal (<code>NeonFriends.vue</code>)</h3>
-<p>A high-capacity, scroll-contained directory displaying active encryption endpoints (Friend Matrix). Built using custom lightweight scrollbar definitions and standard flex structures, prepared to ingest live Eloquent database collections.</p>
-
-<h3>4. 💬 Comms Stream Sub-System (<code>NeonCommentSection.vue</code>)</h3>
-<p>A reactive discussion interface utilizing strict event-based emit signatures (<code>send-comment</code>) to communicate with parent scopes. Features deep style definitions for scroll containers, localized data structures tracking target metadata (<code>author</code>, <code>text</code>, <code>timestamp</code>), and layout metrics optimized for messaging.</p>
-
-<h3>5. 📥 Signal Inbox Decryptor (<code>NeonMessages.vue</code>)</h3>
-<p>An isolated message preview workspace designed to visualize backend communication packets, populated with clean template configurations and standard event hooks for modular termination.</p>
+<h3>3. 🤝 Network Entities Terminal</h3>
+<p>High-capacity directory utilizing reactive data serialization to ingest live Eloquent database collections, styled for high-density information display.</p>
 
 <hr>
 
-<h2>🛠️ Installation & Setup</h2>
+<h2>🛠️ Installation</h2>
 
 <ol>
-  <li>
-    <strong>Clone the repository & install dependencies:</strong>
+  <li><strong>Clone & Install:</strong>
     <pre><code>git clone https://github.com/RickJurrasic/neon-hub
 composer install && npm install</code></pre>
   </li>
-  <li>
-    <strong>Configure environment variables & initialize application key:</strong>
+  <li><strong>Environment:</strong>
     <pre><code>cp .env.example .env && php artisan key:generate</code></pre>
   </li>
-  <li>
-    <strong>Compile assets and start the local development server:</strong>
-    <pre><code>npm run dev
-php artisan serve</code></pre>
+  <li><strong>Boot System:</strong>
+    <pre><code>npm run dev & php artisan serve</code></pre>
   </li>
 </ol>
 
@@ -7597,12 +8662,50 @@ php artisan serve</code></pre>
 <h2>🗺️ Project Roadmap</h2>
 
 <ul>
-  <li>✔️ High-fidelity sci-fi UI/UX with 100% fluid responsiveness across all target screens.</li>
-  <li>✔️ Complete component parsing architecture with isolated style sheets and mock data models.</li>
-  <li>⏳ Integrating <strong>Laravel Reverb</strong> for native asynchronous WebSocket event broadcasting (<em>Current Milestone</em>).</li>
-  <li>⬜ Designing database migrations and Eloquent relationships to drive active entity pipelines.</li>
-  <li>⬜ Full deployment audit and production server integration.</li>
+  <li>✅ <strong>UI/UX:</strong> High-fidelity sci-fi responsive interface complete.</li>
+  <li>✅ <strong>Real-time:</strong> Laravel Reverb integration for bi-directional communication.</li>
+  <li>✅ <strong>Testing:</strong> Full PestPHP feature suite implemented.</li>
+  <li>✅ <strong>AI Logic:</strong> Sentinel agent fully operational in background queues.</li>
+  <li>⬜ <strong>Production:</strong> Final security audit and deployment CI/CD pipeline.</li>
 </ul>
+</file>
+
+<file path="resources/js/Pages/Welcome.vue">
+<script setup>
+import { ref, watch } from 'vue';
+import { useNotificationStore } from '@/Stores/useNotificationStore';
+import { usePage } from '@inertiajs/vue3';
+
+const isOpened = ref(false);
+const store = useNotificationStore();
+const page = usePage();
+
+const openSystem = () => {
+    isOpened.value = true;
+
+    // Inicializace přes API
+    if (page.props.auth?.user) {
+        axios.post(route('system.initialize'))
+            .then(() => console.log('System_Core: Node initialized.'))
+            .catch(err => console.error('System_Core_Error:', err));
+    }
+};
+
+// Watcher hlídá, kdy se brána otevře, a tehdy spustí listenery
+watch(isOpened, (newVal) => {
+    if (newVal && page.props.auth?.user) {
+        store.initListeners(page.props.auth.user.id);
+    }
+});
+</script>
+
+<template>
+    <div class="relative h-screen w-full bg-[#02040a] overflow-hidden font-sans text-slate-200">
+        <NeonSocialCore :isOpened="isOpened" :initialState="page.props.initialState" />
+        <NeonGate :isOpened="isOpened" />
+        <NeonOverlay :isOpened="isOpened" @open="openSystem" />
+    </div>
+</template>
 </file>
 
 <file path="resources/js/Components/NeonSocialActions.vue">
@@ -7977,6 +9080,71 @@ const isAlertMode = computed(() => props.mode === 'alerts');
 </style>
 </file>
 
+<file path="routes/web.php">
+<?php
+
+use App\Events\SystemAlertTriggered;
+use App\Http\Controllers\FriendshipController;
+use App\Http\Controllers\MessageController;
+use App\Http\Controllers\NeonHubController;
+use App\Http\Controllers\ProfileController;
+use App\Jobs\HandleAgentResponse; // FIX: Nový sjednocený job
+use App\Jobs\SendFriendRequest;
+use App\Jobs\SendMessage;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', [NeonHubController::class, 'index'])->name('neon.hub');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Inicializace uzlu s automatickým Sentinel pozdravem
+    Route::post('/system/initialize-node', function () {
+        $userId = auth()->id();
+
+        // 1. Pošle žádost o přátelství od Sentinela
+        SendFriendRequest::dispatch($userId, 'SENTINEL_01')
+            ->delay(now()->addSeconds(4));
+
+        // 2. FIX: Použití nového sjednoceného jobu pro úvodní pozdrav
+        HandleAgentResponse::dispatch($userId, null, 'SENTINEL_01')
+            ->delay(now()->addSeconds(7));
+
+        return response()->json(['status' => 'NODE_INITIALIZED']);
+    })->name('system.initialize');
+
+    Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
+    Route::post('/messages', [MessageController::class, 'store'])->name('messages.store');
+    Route::delete('/conversations/{id}', [MessageController::class, 'destroy']);
+});
+
+Route::get('/test-signal', function () {
+    event(new SystemAlertTriggered(auth()->id(), 'Krizový stav aktivován!'));
+
+    return 'Signál odpálen!';
+});
+
+Route::get('/test-message', function () {
+    SendMessage::dispatch(auth()->id(), [
+        'sender' => 'CYBER_OPERATOR',
+        'text' => 'Připojení k uzlu navázáno.',
+    ])->delay(now()->addSeconds(1));
+
+    return 'Zpráva naplánována za 1 sekundu.';
+});
+
+Route::get('/dashboard', function () {
+    return inertia('Dashboard');
+})->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::patch('/friendships/{id}', [FriendshipController::class, 'update'])->name('friendships.update');
+Route::delete('/friendships/{id}', [FriendshipController::class, 'destroy']);
+
+require __DIR__.'/auth.php';
+</file>
+
 <file path="resources/js/Components/NeonSocialCore.vue">
 <script setup>
 import { ref, watch } from 'vue';
@@ -7990,7 +9158,8 @@ import NeonFriends from './NeonFriends.vue';
 import NeonUserProfile from './NeonUserProfile.vue';
 
 const props = defineProps({
-    isOpened: { type: Boolean, default: false }
+    isOpened: { type: Boolean, default: false },
+    initialState: { type: Object, default: null } // <--- Zachycení dat z Welcome.vue
 });
 
 const store = useNotificationStore();
@@ -8032,9 +9201,14 @@ const openEntityProfile = (id) => {
     activeTab.value = 'profile';
 };
 
-// --- WATCHER ---
+// --- WATCHER (ŘÍZENÍ BRÁNY A HYDRATACE) ---
 watch(() => props.isOpened, (newVal) => {
     if (newVal) {
+        // Jakmile uživatel projde mechanickou bránou, okamžitě hydratujeme Pinia store z DB dat
+        if (props.initialState) {
+            store.hydrateSystem(props.initialState);
+        }
+
         setTimeout(() => { stage1.value = true; }, 100);
         setTimeout(() => { stage2.value = true; }, 500);
         setTimeout(() => { stage3.value = true; }, 900);
