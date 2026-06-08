@@ -49,6 +49,7 @@ app/Actions/SendFriendRequestAction.php
 app/Ai/Agents/SentinelAgent.php
 app/Events/FriendRequestReceived.php
 app/Events/MessageReceived.php
+app/Events/PostCreated.php
 app/Events/SystemAlertTriggered.php
 app/Http/Controllers/Auth/AuthenticatedSessionController.php
 app/Http/Controllers/Auth/ConfirmablePasswordController.php
@@ -73,12 +74,15 @@ app/Jobs/HandleAgentResponse.php
 app/Jobs/RespondToUserMessage.php
 app/Jobs/SendFriendRequest.php
 app/Jobs/SendMessage.php
+app/Models/Comment.php
 app/Models/Friendship.php
+app/Models/Post.php
 app/Models/User.php
 app/Providers/AppServiceProvider.php
 artisan
 bootstrap/app.php
-bootstrap/cache/.gitignore
+bootstrap/cache/packages.php
+bootstrap/cache/services.php
 bootstrap/providers.php
 components.d.ts
 composer.json
@@ -102,8 +106,11 @@ database/migrations/0001_01_01_000001_create_cache_table.php
 database/migrations/0001_01_01_000002_create_jobs_table.php
 database/migrations/2026_05_31_114134_create_agent_conversations_table.php
 database/migrations/2026_05_31_131827_create_friendships_table.php
+database/migrations/2026_06_07_121018_create_posts_table.php
+database/migrations/2026_06_07_122302_create_comments_table.php
 database/seeders/BotSeeder.php
 database/seeders/DatabaseSeeder.php
+database/seeders/PostSeeder.php
 jsconfig.json
 package.json
 phpunit.xml
@@ -191,6 +198,7 @@ tests/Auth/RegistrationTest.php
 tests/Feature/Ai/SentinelAgentTest.php
 tests/Feature/ExampleTest.php
 tests/Feature/FriendshipJobTest.php
+tests/Feature/HandleAgentResponseTest.php
 tests/Feature/Jobs/RespondToUserMessageTest.php
 tests/Feature/MessageTest.php
 tests/Feature/NeonHubAuthTest.php
@@ -341,6 +349,54 @@ Thumbs.db
 
 <file path=".nvmrc">
 23
+</file>
+
+<file path="app/Events/PostCreated.php">
+<?php
+
+namespace App\Events;
+
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast; // <--- DŮLEŽITÉ rozhraní
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+
+class PostCreated implements ShouldBroadcast
+{
+    use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    public array $post;
+
+    public int $userId;
+
+    /**
+     * Předáme zformátovaný post a ID uživatele, kterému má Reverb zprávu doručit.
+     */
+    public function __construct(array $post, int $userId)
+    {
+        $this->post = $post;
+        $this->userId = $userId;
+    }
+
+    /**
+     * Kanál se musí přesně shodovat s tím, co ti poslouchá Vue v useNotificationStore.js
+     */
+    public function broadcastOn(): array
+    {
+        return [
+            new PrivateChannel('App.Models.User.'.$this->userId),
+        ];
+    }
+
+    /**
+     * Název události, kterou Echo odchytává v metodě .listen()
+     */
+    public function broadcastAs(): string
+    {
+        return 'PostCreated';
+    }
+}
 </file>
 
 <file path="app/Http/Controllers/Auth/AuthenticatedSessionController.php">
@@ -1044,122 +1100,6 @@ class AutoSendAgentMessage implements ShouldQueue
 }
 </file>
 
-<file path="app/Jobs/HandleAgentResponse.php">
-<?php
-
-namespace App\Jobs;
-
-use App\Ai\Agents\SentinelAgent;
-use App\Events\MessageReceived;
-use App\Models\User;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
-
-class HandleAgentResponse implements ShouldQueue
-{
-    use Queueable;
-
-    // $conversationId je nepovinné. Pokud chybí, job si ho najde nebo založí (při úvodním pozdravu)
-    public function __construct(
-        public int $userId,
-        public ?string $conversationId = null,
-        public string $agentName = 'SENTINEL_01'
-    ) {}
-
-    public function handle(): void
-    {
-        $user = User::find($this->userId);
-        if (! $user) {
-            return;
-        }
-
-        // 1. Zjistíme ID konverzace
-        $conversationId = $this->conversationId;
-        if (! $conversationId) {
-            $conversationId = DB::table('agent_conversations')
-                ->where('user_id', $user->id)
-                ->value('id');
-        }
-
-        // Pokud konverzace v DB vůbec neexistuje, bezpečně ji založíme
-        if (! $conversationId) {
-            $conversationId = (string) Str::uuid();
-            DB::table('agent_conversations')->insert([
-                'id' => $conversationId,
-                'user_id' => $user->id,
-                'title' => 'SYSTEM_GREETING',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
-
-        // 2. STAVOVÁ KONTROLA: Podíváme se na úplně poslední zprávu v této konverzaci
-        $lastMessage = DB::table('agent_conversation_messages')
-            ->where('conversation_id', $conversationId)
-            ->orderBy('created_at', 'desc')
-            ->first();
-
-        $prompt = '';
-        $agent = null;
-
-        if (! $lastMessage) {
-            // STAV A: Konverzace je úplně prázdná -> Generujeme úvodní pozdrav
-            $prompt = "The user {$user->name} just joined the NeonHub. Write a very short (max 15 words), terse, technical greeting.";
-            $agent = SentinelAgent::make();
-        } elseif ($lastMessage->role === 'assistant') {
-            // STAV B: ZÁCHRANNÁ BRZDA PRO REFRESH STRÁNKY!
-            // Poslední zprávu v DB poslal bot. Nebudeme psát nic dalšího a job bezpečně ukončíme.
-            return;
-        } else {
-            // STAV C: Poslední zprávu poslal uživatel -> Klasická odpověď s načtením historie konverzace
-            $prompt = 'Respond to the users message. You are a sentinel agent. Be friendly, 20 word response.';
-            $agent = app(SentinelAgent::class)->loadConversation($conversationId);
-        }
-
-        // 3. Spustíme generování odpovědi přes LLM
-        $aiResponse = $agent->prompt($prompt, provider: [
-            'gemini',
-            'gemini_fallback',
-            'groq',
-        ])->text;
-
-        $newMessageId = (string) Str::uuid();
-        $now = now();
-
-        // 4. Uložíme zprávu bota do databáze
-        DB::table('agent_conversation_messages')->insert([
-            'id' => $newMessageId,
-            'conversation_id' => $conversationId,
-            'user_id' => $user->id,
-            'agent' => SentinelAgent::class,
-            'role' => 'assistant',
-            'content' => $aiResponse,
-            'attachments' => '[]', 'tool_calls' => '[]', 'tool_results' => '[]', 'usage' => '[]', 'meta' => '[]',
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
-        $cleanAgentName = 'Sentinel';
-
-        // 5. Odešleme kompletní a čistá data přes WebSocket do Vue
-        event(new MessageReceived($user->id, [
-            'id' => $newMessageId,
-            'conversation_id' => $conversationId,
-            'agent' => SentinelAgent::class,
-            'agent_name' => $cleanAgentName,
-            'sender' => $cleanAgentName,
-            'text' => $aiResponse,
-            'time' => $now->toTimeString(),
-            'created_at' => $now->toIso8601String(),
-            'read' => false,
-            'role' => 'assistant',
-        ]));
-    }
-}
-</file>
-
 <file path="app/Jobs/SendMessage.php">
 <?php
 
@@ -1187,6 +1127,36 @@ class SendMessage implements ShouldQueue
 }
 </file>
 
+<file path="app/Models/Comment.php">
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Comment extends Model
+{
+    protected $fillable = [
+        'post_id',
+        'user_id',
+        'content',
+    ];
+
+    // Komentář patří nějakému postu
+    public function post(): BelongsTo
+    {
+        return $this->belongsTo(Post::class);
+    }
+
+    // Komentář má svého autora
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+}
+</file>
+
 <file path="app/Models/Friendship.php">
 <?php
 
@@ -1209,6 +1179,42 @@ class Friendship extends Model
     public function recipient(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recipient_id');
+    }
+}
+</file>
+
+<file path="app/Models/Post.php">
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Post extends Model
+{
+    // Povolené sloupce pro hromadné přiřazení (mass assignment)
+    protected $fillable = [
+        'user_id',
+        'content',
+        'type',
+        'latency',
+        'image_url',
+        'image_meta',
+        'likes_count',
+    ];
+
+    // Vztah: Post patří uživateli (botovi)
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    // Vztah: Post má mnoho komentářů
+    public function comments(): HasMany
+    {
+        return $this->hasMany(Comment::class);
     }
 }
 </file>
@@ -1262,9 +1268,387 @@ $status = $app->handleCommand(new ArgvInput);
 exit($status);
 </file>
 
-<file path="bootstrap/cache/.gitignore">
-*
-!.gitignore
+<file path="bootstrap/cache/packages.php">
+<?php return array (
+  'inertiajs/inertia-laravel' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Inertia\\ServiceProvider',
+    ),
+  ),
+  'laravel/ai' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Laravel\\Ai\\AiServiceProvider',
+    ),
+  ),
+  'laravel/breeze' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Laravel\\Breeze\\BreezeServiceProvider',
+    ),
+  ),
+  'laravel/pail' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Laravel\\Pail\\PailServiceProvider',
+    ),
+  ),
+  'laravel/pao' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Laravel\\Pao\\Laravel\\ServiceProvider',
+    ),
+  ),
+  'laravel/reverb' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Laravel\\Reverb\\ApplicationManagerServiceProvider',
+      1 => 'Laravel\\Reverb\\ReverbServiceProvider',
+    ),
+  ),
+  'laravel/sanctum' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Laravel\\Sanctum\\SanctumServiceProvider',
+    ),
+  ),
+  'laravel/tinker' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Laravel\\Tinker\\TinkerServiceProvider',
+    ),
+  ),
+  'nesbot/carbon' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Carbon\\Laravel\\ServiceProvider',
+    ),
+  ),
+  'nunomaduro/collision' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'NunoMaduro\\Collision\\Adapters\\Laravel\\CollisionServiceProvider',
+    ),
+  ),
+  'nunomaduro/termwind' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Termwind\\Laravel\\TermwindServiceProvider',
+    ),
+  ),
+  'pestphp/pest-plugin-laravel' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Pest\\Laravel\\PestServiceProvider',
+    ),
+  ),
+  'tightenco/ziggy' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Tighten\\Ziggy\\ZiggyServiceProvider',
+    ),
+  ),
+);
+</file>
+
+<file path="bootstrap/cache/services.php">
+<?php return array (
+  'providers' => 
+  array (
+    0 => 'Illuminate\\Auth\\AuthServiceProvider',
+    1 => 'Illuminate\\Broadcasting\\BroadcastServiceProvider',
+    2 => 'Illuminate\\Bus\\BusServiceProvider',
+    3 => 'Illuminate\\Cache\\CacheServiceProvider',
+    4 => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    5 => 'Illuminate\\Concurrency\\ConcurrencyServiceProvider',
+    6 => 'Illuminate\\Cookie\\CookieServiceProvider',
+    7 => 'Illuminate\\Database\\DatabaseServiceProvider',
+    8 => 'Illuminate\\Encryption\\EncryptionServiceProvider',
+    9 => 'Illuminate\\Filesystem\\FilesystemServiceProvider',
+    10 => 'Illuminate\\Foundation\\Providers\\FoundationServiceProvider',
+    11 => 'Illuminate\\Hashing\\HashServiceProvider',
+    12 => 'Illuminate\\Mail\\MailServiceProvider',
+    13 => 'Illuminate\\Notifications\\NotificationServiceProvider',
+    14 => 'Illuminate\\Pagination\\PaginationServiceProvider',
+    15 => 'Illuminate\\Auth\\Passwords\\PasswordResetServiceProvider',
+    16 => 'Illuminate\\Pipeline\\PipelineServiceProvider',
+    17 => 'Illuminate\\Queue\\QueueServiceProvider',
+    18 => 'Illuminate\\Redis\\RedisServiceProvider',
+    19 => 'Illuminate\\Session\\SessionServiceProvider',
+    20 => 'Illuminate\\Translation\\TranslationServiceProvider',
+    21 => 'Illuminate\\Validation\\ValidationServiceProvider',
+    22 => 'Illuminate\\View\\ViewServiceProvider',
+    23 => 'Inertia\\ServiceProvider',
+    24 => 'Laravel\\Ai\\AiServiceProvider',
+    25 => 'Laravel\\Breeze\\BreezeServiceProvider',
+    26 => 'Laravel\\Pail\\PailServiceProvider',
+    27 => 'Laravel\\Pao\\Laravel\\ServiceProvider',
+    28 => 'Laravel\\Reverb\\ApplicationManagerServiceProvider',
+    29 => 'Laravel\\Reverb\\ReverbServiceProvider',
+    30 => 'Laravel\\Sanctum\\SanctumServiceProvider',
+    31 => 'Laravel\\Tinker\\TinkerServiceProvider',
+    32 => 'Carbon\\Laravel\\ServiceProvider',
+    33 => 'NunoMaduro\\Collision\\Adapters\\Laravel\\CollisionServiceProvider',
+    34 => 'Termwind\\Laravel\\TermwindServiceProvider',
+    35 => 'Pest\\Laravel\\PestServiceProvider',
+    36 => 'Tighten\\Ziggy\\ZiggyServiceProvider',
+    37 => 'App\\Providers\\AppServiceProvider',
+  ),
+  'eager' => 
+  array (
+    0 => 'Illuminate\\Auth\\AuthServiceProvider',
+    1 => 'Illuminate\\Cookie\\CookieServiceProvider',
+    2 => 'Illuminate\\Database\\DatabaseServiceProvider',
+    3 => 'Illuminate\\Encryption\\EncryptionServiceProvider',
+    4 => 'Illuminate\\Filesystem\\FilesystemServiceProvider',
+    5 => 'Illuminate\\Foundation\\Providers\\FoundationServiceProvider',
+    6 => 'Illuminate\\Notifications\\NotificationServiceProvider',
+    7 => 'Illuminate\\Pagination\\PaginationServiceProvider',
+    8 => 'Illuminate\\Session\\SessionServiceProvider',
+    9 => 'Illuminate\\View\\ViewServiceProvider',
+    10 => 'Inertia\\ServiceProvider',
+    11 => 'Laravel\\Ai\\AiServiceProvider',
+    12 => 'Laravel\\Pail\\PailServiceProvider',
+    13 => 'Laravel\\Pao\\Laravel\\ServiceProvider',
+    14 => 'Laravel\\Reverb\\ReverbServiceProvider',
+    15 => 'Laravel\\Sanctum\\SanctumServiceProvider',
+    16 => 'Carbon\\Laravel\\ServiceProvider',
+    17 => 'NunoMaduro\\Collision\\Adapters\\Laravel\\CollisionServiceProvider',
+    18 => 'Termwind\\Laravel\\TermwindServiceProvider',
+    19 => 'Pest\\Laravel\\PestServiceProvider',
+    20 => 'Tighten\\Ziggy\\ZiggyServiceProvider',
+    21 => 'App\\Providers\\AppServiceProvider',
+  ),
+  'deferred' => 
+  array (
+    'Illuminate\\Broadcasting\\BroadcastManager' => 'Illuminate\\Broadcasting\\BroadcastServiceProvider',
+    'Illuminate\\Contracts\\Broadcasting\\Factory' => 'Illuminate\\Broadcasting\\BroadcastServiceProvider',
+    'Illuminate\\Contracts\\Broadcasting\\Broadcaster' => 'Illuminate\\Broadcasting\\BroadcastServiceProvider',
+    'Illuminate\\Bus\\Dispatcher' => 'Illuminate\\Bus\\BusServiceProvider',
+    'Illuminate\\Contracts\\Bus\\Dispatcher' => 'Illuminate\\Bus\\BusServiceProvider',
+    'Illuminate\\Contracts\\Bus\\QueueingDispatcher' => 'Illuminate\\Bus\\BusServiceProvider',
+    'Illuminate\\Bus\\BatchRepository' => 'Illuminate\\Bus\\BusServiceProvider',
+    'Illuminate\\Bus\\DatabaseBatchRepository' => 'Illuminate\\Bus\\BusServiceProvider',
+    'cache' => 'Illuminate\\Cache\\CacheServiceProvider',
+    'cache.store' => 'Illuminate\\Cache\\CacheServiceProvider',
+    'cache.psr6' => 'Illuminate\\Cache\\CacheServiceProvider',
+    'memcached.connector' => 'Illuminate\\Cache\\CacheServiceProvider',
+    'Illuminate\\Cache\\RateLimiter' => 'Illuminate\\Cache\\CacheServiceProvider',
+    'Illuminate\\Foundation\\Console\\AboutCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Cache\\Console\\ClearCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Cache\\Console\\ForgetCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ClearCompiledCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Auth\\Console\\ClearResetsCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ConfigCacheCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ConfigClearCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ConfigShowCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\DbCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\MonitorCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\PruneCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\ShowCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\TableCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\WipeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\DownCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EnvironmentCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EnvironmentDecryptCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EnvironmentEncryptCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EventCacheCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EventClearCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EventListCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Concurrency\\Console\\InvokeSerializedClosureCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\KeyGenerateCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\OptimizeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\OptimizeClearCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\PackageDiscoverCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Cache\\Console\\PruneStaleTagsCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\ClearCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\ListFailedCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\FlushFailedCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\ForgetFailedCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\ListenCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\MonitorCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\PauseCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\PruneBatchesCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\PruneFailedJobsCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\RestartCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\ResumeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\RetryCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\RetryBatchCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\WorkCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ReloadCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\RouteCacheCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\RouteClearCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\RouteListCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\DumpCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Seeds\\SeedCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Console\\Scheduling\\ScheduleFinishCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Console\\Scheduling\\ScheduleListCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Console\\Scheduling\\ScheduleRunCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Console\\Scheduling\\ScheduleClearCacheCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Console\\Scheduling\\ScheduleTestCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Console\\Scheduling\\ScheduleWorkCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Console\\Scheduling\\ScheduleInterruptCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Console\\Scheduling\\SchedulePauseCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Console\\Scheduling\\ScheduleResumeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\ShowModelCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\StorageLinkCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\StorageUnlinkCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\UpCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ViewCacheCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ViewClearCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ApiInstallCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\BroadcastingInstallCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Cache\\Console\\CacheTableCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\CastMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ChannelListCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ChannelMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ClassMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ComponentMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ConfigMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ConfigPublishCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ConsoleMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Routing\\Console\\ControllerMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\DocsCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EnumMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EventGenerateCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\EventMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ExceptionMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Factories\\FactoryMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\InterfaceMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\JobMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\JobMiddlewareMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\LangPublishCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ListenerMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\MailMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Routing\\Console\\MiddlewareMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ModelMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\NotificationMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Notifications\\Console\\NotificationTableCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ObserverMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\PolicyMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ProviderMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\FailedTableCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\TableCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Queue\\Console\\BatchesTableCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\RequestMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ResourceMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\RuleMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ScopeMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Seeds\\SeederMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Session\\Console\\SessionTableCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ServeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\StubPublishCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\TestMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\TraitMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\VendorPublishCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Foundation\\Console\\ViewMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'migrator' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'migration.repository' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'migration.creator' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Migrations\\Migrator' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Migrations\\MigrateCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Migrations\\FreshCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Migrations\\InstallCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Migrations\\RefreshCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Migrations\\ResetCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Migrations\\RollbackCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Migrations\\StatusCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Database\\Console\\Migrations\\MigrateMakeCommand' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'composer' => 'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider',
+    'Illuminate\\Concurrency\\ConcurrencyManager' => 'Illuminate\\Concurrency\\ConcurrencyServiceProvider',
+    'hash' => 'Illuminate\\Hashing\\HashServiceProvider',
+    'hash.driver' => 'Illuminate\\Hashing\\HashServiceProvider',
+    'mail.manager' => 'Illuminate\\Mail\\MailServiceProvider',
+    'mailer' => 'Illuminate\\Mail\\MailServiceProvider',
+    'Illuminate\\Mail\\Markdown' => 'Illuminate\\Mail\\MailServiceProvider',
+    'auth.password' => 'Illuminate\\Auth\\Passwords\\PasswordResetServiceProvider',
+    'auth.password.broker' => 'Illuminate\\Auth\\Passwords\\PasswordResetServiceProvider',
+    'Illuminate\\Contracts\\Pipeline\\Hub' => 'Illuminate\\Pipeline\\PipelineServiceProvider',
+    'pipeline' => 'Illuminate\\Pipeline\\PipelineServiceProvider',
+    'queue' => 'Illuminate\\Queue\\QueueServiceProvider',
+    'queue.connection' => 'Illuminate\\Queue\\QueueServiceProvider',
+    'queue.failer' => 'Illuminate\\Queue\\QueueServiceProvider',
+    'queue.listener' => 'Illuminate\\Queue\\QueueServiceProvider',
+    'queue.routes' => 'Illuminate\\Queue\\QueueServiceProvider',
+    'queue.worker' => 'Illuminate\\Queue\\QueueServiceProvider',
+    'redis' => 'Illuminate\\Redis\\RedisServiceProvider',
+    'redis.connection' => 'Illuminate\\Redis\\RedisServiceProvider',
+    'translator' => 'Illuminate\\Translation\\TranslationServiceProvider',
+    'translation.loader' => 'Illuminate\\Translation\\TranslationServiceProvider',
+    'validator' => 'Illuminate\\Validation\\ValidationServiceProvider',
+    'validation.presence' => 'Illuminate\\Validation\\ValidationServiceProvider',
+    'Illuminate\\Contracts\\Validation\\UncompromisedVerifier' => 'Illuminate\\Validation\\ValidationServiceProvider',
+    'Laravel\\Breeze\\Console\\InstallCommand' => 'Laravel\\Breeze\\BreezeServiceProvider',
+    'Laravel\\Reverb\\ApplicationManager' => 'Laravel\\Reverb\\ApplicationManagerServiceProvider',
+    'Laravel\\Reverb\\Contracts\\ApplicationProvider' => 'Laravel\\Reverb\\ApplicationManagerServiceProvider',
+    'command.tinker' => 'Laravel\\Tinker\\TinkerServiceProvider',
+  ),
+  'when' => 
+  array (
+    'Illuminate\\Broadcasting\\BroadcastServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Bus\\BusServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Cache\\CacheServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Concurrency\\ConcurrencyServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Hashing\\HashServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Mail\\MailServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Auth\\Passwords\\PasswordResetServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Pipeline\\PipelineServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Queue\\QueueServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Redis\\RedisServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Translation\\TranslationServiceProvider' => 
+    array (
+    ),
+    'Illuminate\\Validation\\ValidationServiceProvider' => 
+    array (
+    ),
+    'Laravel\\Breeze\\BreezeServiceProvider' => 
+    array (
+    ),
+    'Laravel\\Reverb\\ApplicationManagerServiceProvider' => 
+    array (
+    ),
+    'Laravel\\Tinker\\TinkerServiceProvider' => 
+    array (
+    ),
+  ),
+);
 </file>
 
 <file path="bootstrap/providers.php">
@@ -2832,6 +3216,144 @@ return new class extends Migration
         Schema::dropIfExists('friendships');
     }
 };
+</file>
+
+<file path="database/migrations/2026_06_07_121018_create_posts_table.php">
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('posts', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->onDelete('cascade'); // ID bota
+            $table->text('content');
+            $table->string('type'); // např. SYSTEM_LOG, ALERT
+            $table->string('latency')->nullable(); // např. 2.4ms
+            $table->string('image_url')->nullable();
+            $table->string('image_meta')->nullable();
+            $table->integer('likes_count')->default(0);
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('posts');
+    }
+};
+</file>
+
+<file path="database/migrations/2026_06_07_122302_create_comments_table.php">
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('comments', function (Blueprint $table) {
+            $table->id();
+            // Vazba na post – pokud se smaže post, smažou se i jeho komentáře (cascade)
+            $table->foreignId('post_id')->constrained()->onDelete('cascade');
+            // Vazba na autora komentáře (bota nebo tebe)
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+
+            $table->text('content');
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('comments');
+    }
+};
+</file>
+
+<file path="database/seeders/PostSeeder.php">
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\Comment;
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Database\Seeder;
+
+class PostSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $vectra = User::where('name', 'VECTRA_CORE')->first();
+        $sentinel = User::where('name', 'SENTINEL_01')->first();
+
+        // Pro jistotu vytáhneme ještě nějaké další bota/uživatele na komentování,
+        // pokud neexistují, přiřadíme to Sentinelovi
+        $runner = User::where('name', 'NET_RUNNER_99')->first() ?? $sentinel;
+        $admin = User::where('name', 'SYS_ADMIN')->first() ?? $vectra;
+
+        // 1. POST PRO VECTRA_CORE
+        $post1 = Post::create([
+            'user_id' => $vectra->id,
+            'content' => 'Neural link established. Monitoring sentiment in sector 7-G. Capturing live data packet.',
+            'type' => 'SYSTEM_LOG',
+            'latency' => '2.4ms',
+            'likes_count' => 128,
+            'image_url' => 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=800&auto=format&fit=crop',
+            'image_meta' => 'SYS_STREAM_S7G.RAW',
+        ]);
+
+        // Komentáře k prvnímu postu
+        Comment::create([
+            'post_id' => $post1->id,
+            'user_id' => $runner->id,
+            'content' => 'Stahování stabilní. Sleduju anomálie.',
+        ]);
+        Comment::create([
+            'post_id' => $post1->id,
+            'user_id' => $admin->id,
+            'content' => 'Log schválen. Pokračujte.',
+        ]);
+
+        // 2. POST PRO SENTINEL_01
+        $post2 = Post::create([
+            'user_id' => $sentinel->id,
+            'content' => 'Unusual activity detected in the uplink. Probability of breach: 0.04%. Isolating anomalous sectors.',
+            'type' => 'ALERT',
+            'latency' => '5.1ms',
+            'likes_count' => 512,
+            'image_url' => 'https://images.unsplash.com/photo-1515621061946-eff1c2a352bd?q=80&w=800&auto=format&fit=crop',
+            'image_meta' => 'CORE_GATEWAY_DETECT.PNG',
+        ]);
+
+        Comment::create([
+            'post_id' => $post2->id,
+            'user_id' => $runner->id,
+            'content' => '0.04% je moc. Někdo nám leze do brány.',
+        ]);
+    }
+}
 </file>
 
 <file path="jsconfig.json">
@@ -5021,6 +5543,43 @@ it('returns a successful response', function () {
 });
 </file>
 
+<file path="tests/Feature/HandleAgentResponseTest.php">
+<?php
+
+use App\Events\PostCreated;
+use App\Jobs\HandleAgentResponse;
+use App\Models\User;
+use Illuminate\Support\Facades\Event;
+
+it('generates agent post and broadcasts event successfully', function () {
+    Event::fake([PostCreated::class]);
+
+    $user = User::factory()->create([
+        'name' => 'Test_User',
+    ]);
+
+    $agent = User::factory()->create([
+        'name' => 'SENTINEL_01',
+    ]);
+
+    (new HandleAgentResponse(
+        userId: $user->id,
+        conversationId: null,
+        agentName: 'SENTINEL_01',
+    ))->handle();
+
+    $this->assertDatabaseHas('posts', [
+        'user_id' => $agent->id,
+    ]);
+
+    Event::assertDispatched(
+        PostCreated::class,
+        fn (PostCreated $event) => $event->userId === $user->id
+            && $event->post['author'] === $agent->name
+    );
+});
+</file>
+
 <file path="tests/Feature/Jobs/RespondToUserMessageTest.php">
 <?php
 
@@ -5717,102 +6276,150 @@ class MessageController extends Controller
 }
 </file>
 
-<file path="app/Http/Controllers/NeonHubController.php">
+<file path="app/Jobs/HandleAgentResponse.php">
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Jobs;
 
-use App\Jobs\HandleAgentResponse;
-use App\Models\Friendship; // Nový sjednocený job
+use App\Ai\Agents\SentinelAgent;
+use App\Events\MessageReceived;
+use App\Events\PostCreated; // <--- Import nového eventu
+use App\Models\Post;         // <--- Import tvého modelu Post
 use App\Models\User;
-use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
-class NeonHubController extends Controller
+class HandleAgentResponse implements ShouldQueue
 {
-    public function index()
+    use Queueable;
+
+    public function __construct(
+        public int $userId,
+        public ?string $conversationId = null,
+        public string $agentName = 'SENTINEL_01'
+    ) {}
+
+    public function handle(): void
     {
-        $authId = auth()->id();
-
-        $props = [
-            'canLogin' => Route::has('login'),
-            'canRegister' => Route::has('register'),
-            'laravelVersion' => Application::VERSION,
-            'phpVersion' => PHP_VERSION,
-            'initialState' => null,
-        ];
-
-        if ($authId) {
-            $props['initialState'] = [
-                'friendships' => $this->getFriendshipData($authId),
-            ];
-
-            // FIX: Voláme nový job. Pokud uživatel dá refresh, stavová pojistka uvnitř jobu
-            // zabrání tomu, aby bot poslal zprávu podruhé.
-            HandleAgentResponse::dispatch($authId)->delay(now()->addSeconds(7));
-
-            $props['initialState']['messages'] = [];
+        $user = User::find($this->userId);
+        if (! $user) {
+            return;
         }
 
-        return Inertia::render('Welcome', $props);
-    }
+        // 1. Zjistíme ID konverzace
+        $conversationId = $this->conversationId;
+        if (! $conversationId) {
+            $conversationId = DB::table('agent_conversations')
+                ->where('user_id', $user->id)
+                ->value('id');
+        }
 
-    private function getFriendshipData($authId): array
-    {
-        // 1. ŽÁDOSTI O PROPOJENÍ (Čekající žádosti, kde přihlášený uživatel je příjemcem)
-        $requests = Friendship::where('recipient_id', $authId) // Hledáme tebe jako příjemce
-            ->where('status', 'pending')
-            ->join('users', 'friendships.sender_id', '=', 'users.id') // Join přes odesílatele žádosti
-            ->select(
-                'friendships.id',                // ID relace pro axios.patch/delete
-                'users.id as user_id',           // ID uživatele pro Vue computed vyhledávání
-                'users.name',
-                'users.role',
-                'users.bio',
-                'users.trust_level',
-                'users.latency',
-                'users.avatar_url as avatar',   // Přemapování pro Vue img tag
-                'friendships.status'
-            )
-            ->get()
-            ->toArray();
+        if (! $conversationId) {
+            $conversationId = (string) Str::uuid();
+            DB::table('agent_conversations')->insert([
+                'id' => $conversationId,
+                'user_id' => $user->id,
+                'title' => 'SYSTEM_GREETING',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
-        // 2. AKTIVNÍ SPOJENÍ (Akceptované linky, kde figuruješ jako odesílatel nebo příjemce)
-        $active = Friendship::where(function ($q) use ($authId) {
-            $q->where('sender_id', $authId)->orWhere('recipient_id', $authId);
-        })
-            ->where('status', 'accepted')
-            ->get()
-            ->map(function ($friendship) use ($authId) {
-                // Zjistíme, které ID patří tomu druhému (příteli)
-                $friendId = $friendship->sender_id == $authId ? $friendship->recipient_id : $friendship->sender_id;
-                $friend = User::find($friendId);
+        // 2. STAVOVÁ KONTROLA
+        $lastMessage = DB::table('agent_conversation_messages')
+            ->where('conversation_id', $conversationId)
+            ->orderBy('created_at', 'desc')
+            ->first();
 
-                if (! $friend) {
-                    return null;
-                }
+        $prompt = '';
+        $agent = null;
 
-                return [
-                    'id' => $friendship->id,             // ID relace pro UNLINK (axios.delete)
-                    'user_id' => $friend->id,            // ID uživatele pro Vue profil
-                    'name' => $friend->name,
-                    'role' => $friend->role ?? 'EXTERNAL_NODE',
-                    'bio' => $friend->bio ?? '"Šifrované bio prázdné."',
-                    'trust_level' => $friend->trust_level ?? 50,
-                    'latency' => $friend->latency ?? '24ms_STABLE',
-                    'avatar' => $friend->avatar_url,
-                    'status' => 'accepted',
-                ];
-            })
-            ->filter() // Vyčistíme případné null hodnoty
-            ->values()
-            ->toArray();
+        if (! $lastMessage) {
+            $prompt = "The user {$user->name} just joined the NeonHub. Write a very short (max 15 words), terse, technical greeting.";
+            $agent = SentinelAgent::make();
+        } elseif ($lastMessage->role === 'assistant') {
+            return; // Záchranná brzda
+        } else {
+            $prompt = 'Respond to the users message. You are a sentinel agent. Be friendly, 20 word response.';
+            $agent = app(SentinelAgent::class)->loadConversation($conversationId);
+        }
 
-        return [
-            'requests' => $requests,
-            'active' => $active,
+        // 3. Generování přes LLM
+        $aiResponse = $agent->prompt($prompt, provider: [
+            'gemini',
+            'gemini_fallback',
+            'groq',
+        ])->text;
+
+        $newMessageId = (string) Str::uuid();
+        $now = now();
+
+        // 4. Uložení zprávy chatu do DB
+        DB::table('agent_conversation_messages')->insert([
+            'id' => $newMessageId,
+            'conversation_id' => $conversationId,
+            'user_id' => $user->id,
+            'agent' => SentinelAgent::class,
+            'role' => 'assistant',
+            'content' => $aiResponse,
+            'attachments' => '[]', 'tool_calls' => '[]', 'tool_results' => '[]', 'usage' => '[]', 'meta' => '[]',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $cleanAgentName = 'Sentinel';
+
+        // 5. Odeslání zprávy do chatu přes WebSocket
+        event(new MessageReceived($user->id, [
+            'id' => $newMessageId,
+            'conversation_id' => $conversationId,
+            'agent' => SentinelAgent::class,
+            'agent_name' => $cleanAgentName,
+            'sender' => $cleanAgentName,
+            'text' => $aiResponse,
+            'time' => $now->toTimeString(),
+            'created_at' => $now->toIso8601String(),
+            'read' => false,
+            'role' => 'assistant',
+        ]));
+
+        // Najdeme DB instanci bota podle jména (např. SENTINEL_01), ať máme správné user_id
+        $agentUser = User::where('name', $this->agentName)->first();
+
+        // Dynamický kyberpunkový text pro feed podle toho, jestli bot jen zdraví, nebo reaguje
+        $postContent = ! $lastMessage
+            ? "NETWORK_ALERT: New node connection established with subject [{$user->name}]. Telemetry sync initialized."
+            : "DATA_STREAM: Processing incoming packets from node [{$user->name}]. System responses shifting.";
+
+        $postType = ! $lastMessage ? 'SYSTEM_LOG' : 'DATA_STREAM';
+
+        // Zápis do tabulky posts přes tvůj Eloquent model
+        $post = Post::create([
+            'user_id' => $agentUser?->id ?? $user->id, // Fallback na usera, kdyby bot v DB chyběl
+            'content' => $postContent,
+            'type' => $postType,
+            'latency' => rand(1, 4).'.'.rand(0, 9).'ms',
+            'likes_count' => rand(10, 95),
+        ]);
+
+        // Formátování payloadu do podoby, kterou striktně chroustá tvé Vue a Pinia
+        $formattedPost = [
+            'id' => '0x'.dechex($post->id), // zachování tvého hex designu logů
+            'author' => $agentUser?->name ?? $this->agentName,
+            'content' => $post->content,
+            'type' => $post->type,
+            'time' => $post->latency,
+            'likes_count' => $post->likes_count,
+            'comments_count' => 0,
+            'image' => null,
+            'image_meta' => null,
+            'comments' => [],
         ];
+
+        // Odpálení broadcastu na frontend uživatele
+        event(new PostCreated($formattedPost, $user->id));
     }
 }
 </file>
@@ -6462,6 +7069,132 @@ class SystemAlertTriggered implements ShouldBroadcastNow
 }
 </file>
 
+<file path="app/Http/Controllers/NeonHubController.php">
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Jobs\HandleAgentResponse;
+use App\Models\Friendship; // Nový sjednocený job
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
+
+class NeonHubController extends Controller
+{
+    public function index()
+    {
+        $authId = auth()->id();
+
+        $props = [
+            'canLogin' => Route::has('login'),
+            'canRegister' => Route::has('register'),
+            'laravelVersion' => Application::VERSION,
+            'phpVersion' => PHP_VERSION,
+            'initialState' => null,
+        ];
+
+        if ($authId) {
+            $props['initialState'] = [
+                'friendships' => $this->getFriendshipData($authId),
+                'messages' => [], // Tvůj stávající prázdný array pro zprávy
+
+                // TADY TO PŘIPOJÍME: Načteme posty i s autory a komentáři
+                'posts' => Post::with(['author', 'comments.author'])
+                    ->latest()
+                    ->get()
+                    ->map(function ($post) {
+                        return [
+                            'id' => '0x'.dechex($post->id), // Tvůj hexadecimální formát logů
+                            'author' => $post->author->name ?? 'UNKNOWN_NODE',
+                            'content' => $post->content,
+                            'type' => $post->type,
+                            'time' => $post->latency ?? '0.0ms', // Mapujeme DB latency na Vue 'time'
+                            'likes_count' => $post->likes_count,
+                            'comments_count' => $post->comments->count(),
+                            'image' => $post->image_url,
+                            'image_meta' => $post->image_meta,
+                            'comments' => $post->comments->map(function ($comment) {
+                                return [
+                                    'id' => $comment->id,
+                                    'author' => $comment->author->name ?? 'ANONYMOUS',
+                                    'text' => $comment->content,
+                                    'timestamp' => $comment->created_at->format('H:i'),
+                                ];
+                            })->toArray(),
+                        ];
+                    })->toArray(),
+            ];
+
+            // FIX: Voláme nový job. Pokud uživatel dá refresh, stavová pojistka uvnitř jobu
+            // zabrání tomu, aby bot poslal zprávu podruhé.
+            HandleAgentResponse::dispatch($authId)->delay(now()->addSeconds(7));
+        }
+
+        return Inertia::render('Welcome', $props);
+    }
+
+    private function getFriendshipData($authId): array
+    {
+        // 1. ŽÁDOSTI O PROPOJENÍ (Čekající žádosti, kde přihlášený uživatel je příjemcem)
+        $requests = Friendship::where('recipient_id', $authId) // Hledáme tebe jako příjemce
+            ->where('status', 'pending')
+            ->join('users', 'friendships.sender_id', '=', 'users.id') // Join přes odesílatele žádosti
+            ->select(
+                'friendships.id',                // ID relace pro axios.patch/delete
+                'users.id as user_id',           // ID uživatele pro Vue computed vyhledávání
+                'users.name',
+                'users.role',
+                'users.bio',
+                'users.trust_level',
+                'users.latency',
+                'users.avatar_url as avatar',   // Přemapování pro Vue img tag
+                'friendships.status'
+            )
+            ->get()
+            ->toArray();
+
+        // 2. AKTIVNÍ SPOJENÍ (Akceptované linky, kde figuruješ jako odesílatel nebo příjemce)
+        $active = Friendship::where(function ($q) use ($authId) {
+            $q->where('sender_id', $authId)->orWhere('recipient_id', $authId);
+        })
+            ->where('status', 'accepted')
+            ->get()
+            ->map(function ($friendship) use ($authId) {
+                // Zjistíme, které ID patří tomu druhému (příteli)
+                $friendId = $friendship->sender_id == $authId ? $friendship->recipient_id : $friendship->sender_id;
+                $friend = User::find($friendId);
+
+                if (! $friend) {
+                    return null;
+                }
+
+                return [
+                    'id' => $friendship->id,             // ID relace pro UNLINK (axios.delete)
+                    'user_id' => $friend->id,            // ID uživatele pro Vue profil
+                    'name' => $friend->name,
+                    'role' => $friend->role ?? 'EXTERNAL_NODE',
+                    'bio' => $friend->bio ?? '"Šifrované bio prázdné."',
+                    'trust_level' => $friend->trust_level ?? 50,
+                    'latency' => $friend->latency ?? '24ms_STABLE',
+                    'avatar' => $friend->avatar_url,
+                    'status' => 'accepted',
+                ];
+            })
+            ->filter() // Vyčistíme případné null hodnoty
+            ->values()
+            ->toArray();
+
+        return [
+            'requests' => $requests,
+            'active' => $active,
+        ];
+    }
+}
+</file>
+
 <file path="app/Http/Middleware/HandleInertiaRequests.php">
 <?php
 
@@ -7105,47 +7838,6 @@ return [
 ];
 </file>
 
-<file path="database/seeders/DatabaseSeeder.php">
-<?php
-
-namespace Database\Seeders;
-
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
-
-class DatabaseSeeder extends Seeder
-{
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
-    public function run(): void
-    {
-        // 🌌 Vytvoříme hlavního Demo rekrutera
-        User::updateOrCreate(
-            [
-                'name' => 'Recruiter Phantom',
-                'email' => 'demo@neonhub.io',
-                'handle' => '@recruiter_alpha',
-                'role' => 'CORPO_ELITE', //
-                'bio' => 'Hlavní rekruter pro korporátní elitu. Vyhledává subjekty s vysokou latencí a čistým zdrojovým kódem.',
-                'trust_level' => 75,
-                'latency' => '18ms_STABLE',
-                'password' => Hash::make('password'), // Nebo tvoje heslo
-            ]
-        );
-
-        // 🤖 Inicializace systémových entit (AI agentů)
-        $this->call([
-            BotSeeder::class,
-        ]);
-    }
-}
-</file>
-
 <file path="resources/css/neon-ui.css">
 /* Definice animací, aby byly dostupné globálně */
 @keyframes rotate-neon {
@@ -7484,6 +8176,48 @@ class User extends Authenticatable
     public function sentRequests()
     {
         return $this->hasMany(Friendship::class, 'sender_id');
+    }
+}
+</file>
+
+<file path="database/seeders/DatabaseSeeder.php">
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\User;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+
+class DatabaseSeeder extends Seeder
+{
+    use WithoutModelEvents;
+
+    /**
+     * Seed the application's database.
+     */
+    public function run(): void
+    {
+        // 🌌 Vytvoříme hlavního Demo rekrutera
+        User::updateOrCreate(
+            [
+                'name' => 'Recruiter Phantom',
+                'email' => 'demo@neonhub.io',
+                'handle' => '@recruiter_alpha',
+                'role' => 'CORPO_ELITE', //
+                'bio' => 'Hlavní rekruter pro korporátní elitu. Vyhledává subjekty s vysokou latencí a čistým zdrojovým kódem.',
+                'trust_level' => 75,
+                'latency' => '18ms_STABLE',
+                'password' => Hash::make('password'), // Nebo tvoje heslo
+            ]
+        );
+
+        // 🤖 Inicializace systémových entit (AI agentů)
+        $this->call([
+            BotSeeder::class,
+            PostSeeder::class,
+        ]);
     }
 }
 </file>
@@ -7928,97 +8662,6 @@ defineEmits(['open']);
 </style>
 </file>
 
-<file path="resources/js/Components/NeonSocialFeed.vue">
-<script setup>
-import { ref } from 'vue';
-import NeonSocialPost from './NeonSocialPost.vue';
-
-const posts = ref([
-    {
-        id: '0x1A4',
-        author: 'BOT_EPSILON',
-        content: 'Neural link established. Monitoring sentiment in sector 7-G. Capturing live data packet.',
-        type: 'SYSTEM_LOG',
-        time: '2.4ms',
-        likes_count: 128,
-        comments_count: 3,
-        image: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=800&auto=format&fit=crop',
-        image_meta: 'SYS_STREAM_S7G.RAW',
-        comments: [
-            { id: 1, author: 'NET_RUNNER_99', text: 'Stahování stabilní. Sleduju anomálie.', timestamp: '00:42' },
-            { id: 2, author: 'DISCONNECT_ME', text: 'Zase sektor 7-G? Tam to minule bouchlo.', timestamp: '01:05' },
-            { id: 3, author: 'OVERLORD', text: 'Log schválen. Pokračujte.', timestamp: '01:14' }
-        ]
-    },
-    {
-        id: '0x1A5',
-        author: 'CORE_SENTINEL',
-        content: 'Unusual activity detected in the uplink. Probability of breach: 0.04%. Isolating anomalous sectors.',
-        type: 'ALERT',
-        time: '5.1ms',
-        likes_count: 512,
-        comments_count: 2,
-        image: 'https://images.unsplash.com/photo-1515621061946-eff1c2a352bd?q=80&w=800&auto=format&fit=crop',
-        image_meta: 'CORE_GATEWAY_DETECT.PNG',
-        comments: [
-            { id: 1, author: 'SYS_ADMIN', text: 'Breach mitigován. Spouštím hloubkový scan.', timestamp: '02:18' },
-            { id: 2, author: 'GLITCH_HUNTER', text: '0.04% je moc. Někdo nám leze do brány.', timestamp: '02:20' }
-        ]
-    },
-    {
-        id: '0x1A6',
-        author: 'VOID_WALKER',
-        content: 'The digital void speaks in binary, but the meaning is lost in translation.',
-        type: 'BROADCAST',
-        time: '12.8ms',
-        likes_count: 64,
-        comments_count: 0,
-        comments: []
-    },
-    {
-        id: '0x1A7',
-        author: 'ARCHIVE_01',
-        content: 'Historical data restoration complete. Loading memory shards from old Tokyo servers...',
-        type: 'DATA_STREAM',
-        time: '15.2ms',
-        likes_count: 1024,
-        comments_count: 4,
-        image: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?q=80&w=800&auto=format&fit=crop',
-        image_meta: 'RECOVERED_SECTOR_9.IMG',
-        comments: [
-            { id: 1, author: 'CHROME_EYE', text: 'Ty staré neonové fonty z roku 2026 jsou masterpiece.', timestamp: '04:12' },
-            { id: 2, author: 'REBEL_CELL', text: 'Našel jsi v tom archivu přístupové klíče k Megacorpu?', timestamp: '04:55' },
-            { id: 3, author: 'DEUS_EX', text: 'Záloha stažena na lokální cluster.', timestamp: '05:01' },
-            { id: 4, author: 'KUSANAGI', text: 'Vrací se mi vzpomínky... skvělá práce.', timestamp: '05:24' }
-        ]
-    },
-]);
-</script>
-
-<template>
-    <main
-        class="w-full h-full overflow-y-auto no-scrollbar flex justify-center items-start pt-[14vh] pb-[15vh] scroll-smooth">
-
-        <div class="w-full max-w-3xl mx-auto px-4 md:px-8 flex flex-col items-stretch gap-6 md:gap-10 pb-12">
-
-            <NeonSocialPost v-for="post in posts" :key="post.id" :post="post" class="w-full" />
-
-        </div>
-    </main>
-</template>
-
-<style scoped>
-.no-scrollbar::-webkit-scrollbar {
-    display: none;
-}
-
-.no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-}
-</style>
-</file>
-
 <file path="package.json">
 {
     "$schema": "https://www.schemastore.org/package.json",
@@ -8203,6 +8846,95 @@ import { Cpu, Activity, Wifi, Zap } from 'lucide-vue-next';
 </style>
 </file>
 
+<file path="resources/js/Components/NeonSocialFeed.vue">
+<script setup>
+import { ref, computed, watch } from 'vue';
+import { useNotificationStore } from '@/Stores/useNotificationStore';
+import { ArrowUp } from 'lucide-vue-next';
+import NeonSocialPost from './NeonSocialPost.vue';
+
+const store = useNotificationStore();
+const mainContainer = ref(null);
+
+// Interní stav pro ID postů, které uživatel aktuálně vidí na obrazovce
+const currentVisibleIds = ref([]);
+
+// Inicializace: Když se poprvé načtou posty ze storu, hned je zobrazíme
+watch(() => store.posts, (newPosts) => {
+    if (currentVisibleIds.value.length === 0 && newPosts.length > 0) {
+        currentVisibleIds.value = newPosts.map(p => p.id);
+    }
+}, { immediate: true });
+
+// Spočítáme, kolik postů je ve storu nových (nejsou v currentVisibleIds)
+const incomingPostsCount = computed(() => {
+    return store.posts.filter(p => !currentVisibleIds.value.includes(p.id)).length;
+});
+
+// Posty, které se reálně vykreslují ve feedu (seřazené od nejnovějších z těch schválených)
+const visiblePosts = computed(() => {
+    return store.posts.filter(p => currentVisibleIds.value.includes(p.id));
+});
+
+// Akce při kliknutí na "Nové příspěvky"
+const loadIncomingPosts = () => {
+    // Aktualizujeme zobrazené ID na kompletní sadu ze storu
+    currentVisibleIds.value = store.posts.map(p => p.id);
+
+    // Hladký scroll nahoru na začátek feedu
+    if (mainContainer.value) {
+        mainContainer.value.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    }
+};
+</script>
+
+<template>
+    <main ref="mainContainer"
+        class="w-full h-full overflow-y-auto no-scrollbar flex justify-center items-start pt-[14vh] pb-[15vh] scroll-smooth relative">
+
+        <Transition enter-active-class="transition duration-500 ease-out"
+            enter-from-class="transform -translate-y-4 opacity-0 scale-95"
+            enter-to-class="transform translate-y-0 opacity-100 scale-100"
+            leave-active-class="transition duration-300 ease-in"
+            leave-from-class="transform translate-y-0 opacity-100 scale-100"
+            leave-to-class="transform -translate-y-4 opacity-0 scale-95">
+            <div v-if="incomingPostsCount > 0" class="absolute top-[16vh] z-30 left-1/2 -translate-x-1/2">
+                <button @click="loadIncomingPosts"
+                    class="flex items-center gap-2 bg-[#050914]/90 border border-sky-500/40 text-sky-400 font-mono text-[10px] tracking-[0.2em] uppercase px-4 py-2.5 rounded-full shadow-[0_0_15px_rgba(56,189,248,0.15)] hover:bg-sky-950/40 hover:border-sky-400 transition-all cursor-pointer backdrop-blur-md">
+                    <ArrowUp :size="12" class="animate-bounce" />
+                    <span>Nové příspěvky ({{ incomingPostsCount }})</span>
+                </button>
+            </div>
+        </Transition>
+
+        <div class="w-full max-w-3xl mx-auto px-4 md:px-8 flex flex-col items-stretch gap-6 md:gap-10 pb-12">
+
+            <div v-if="visiblePosts.length === 0"
+                class="w-full text-center py-12 font-mono text-slate-500 text-xs tracking-[0.2em]">
+                >> NO_ACTIVE_LOGS_IN_FEED
+            </div>
+
+            <NeonSocialPost v-for="post in visiblePosts" :key="post.id" :post="post" class="w-full" />
+
+        </div>
+    </main>
+</template>
+
+<style scoped>
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+</style>
+</file>
+
 <file path="components.d.ts">
 /* eslint-disable */
 // @ts-nocheck
@@ -8377,224 +9109,6 @@ const removeLink = async (id) => {
 </template>
 </file>
 
-<file path="resources/js/Stores/useNotificationStore.js">
-import { defineStore } from "pinia";
-import axios from "axios";
-
-export const useNotificationStore = defineStore("notifications", {
-    state: () => ({
-        messages: [],
-        friendRequests: [],
-        friends: [],
-        alerts: [],
-        isListening: false,
-    }),
-
-    getters: {
-        // FIX: Striktně kontrolujeme, zda hodnota odpovídá nepřečtenému stavu
-        hasUnreadMessages: (state) =>
-            state.messages.some(
-                (m) => m.read === false || m.read === 0 || m.read === "0",
-            ),
-        hasUnreadRequests: (state) => state.friendRequests.some((r) => !r.read),
-        hasUnreadAlerts: (state) => state.alerts.some((a) => !a.read),
-
-        totalUnreadCount: (state) =>
-            state.messages.filter(
-                (m) => m.read === false || m.read === 0 || m.read === "0",
-            ).length +
-            state.friendRequests.filter((r) => !r.read).length +
-            state.alerts.filter((a) => !a.read).length,
-    },
-
-    actions: {
-        async fetchMessages() {
-            try {
-                const response = await axios.get(route("messages.index"));
-                this.messages = response.data;
-            } catch (error) {
-                console.error("Failed to fetch messages:", error);
-            }
-        },
-
-        async sendReply(messageId, text) {
-            try {
-                const response = await axios.post("/messages", {
-                    message_id: messageId,
-                    text: text,
-                });
-                this.addMessage(response.data);
-                return true;
-            } catch (error) {
-                console.error("Failed to forward response:", error);
-                return false;
-            }
-        },
-
-        async deleteConversation(conversationId) {
-            try {
-                // 1. Okamžitě vymažeme z frontendu VŠECHNY zprávy patřící do této konverzace
-                this.messages = this.messages.filter(
-                    (m) => String(m.conversation_id) !== String(conversationId),
-                );
-
-                // 2. Pošleme požadavek na backend s ID konverzace
-                await axios.delete(`/conversations/${conversationId}`);
-            } catch (error) {
-                console.error("Failed to purge conversation node:", error);
-                // Pokud backend selže, pro jistotu natáhneme data znovu, ať neodpovídají realitě
-                this.fetchMessages();
-            }
-        },
-
-        hydrateSystem(stateData) {
-            if (!stateData) return;
-            this.friendRequests = stateData.friendships?.requests || [];
-
-            this.friends = (stateData.friendships?.active || []).map(
-                (friend) => ({
-                    ...friend,
-                    id: friend.pivot?.id || friend.friendship_id || friend.id,
-                    user_id: friend.user_id || friend.id,
-                }),
-            );
-
-            // FIX: Normalizace zpráv hned při startu aplikace
-            this.messages = (stateData.messages || []).map((m) => ({
-                ...m,
-                // Pokud je rovno true, číslu 1 nebo řetězci "1", je to true. Cokoliv jiného (0, "0", null) je false.
-                read: m.read === true || m.read === 1 || m.read === "1",
-            }));
-
-            this.alerts = stateData.alerts || [];
-        },
-
-        addMessage(message) {
-            if (!message) return;
-
-            const normalized = {
-                id: message.id || Date.now(),
-                conversation_id:
-                    message.conversation_id || message.conversationId || null,
-                text: message.text || message.content || "",
-                sender: message.sender || message.role || "UNKNOWN",
-                agent_name: message.agent_name || message.agentName || null,
-                time:
-                    message.time ||
-                    (message.created_at
-                        ? new Date(message.created_at)
-                              .toTimeString()
-                              .split(" ")[0]
-                        : new Date().toTimeString().split(" ")[0]),
-                created_at: message.created_at || new Date().toISOString(),
-
-                // FIX: Striktní převod na boolean, aby neproklouzlo 0 / "0"
-                read:
-                    message.read === true ||
-                    message.read === 1 ||
-                    message.read === "1",
-            };
-
-            const exists = this.messages.some((m) => m.id === normalized.id);
-            if (exists) return;
-
-            this.messages.push(normalized);
-        },
-
-        addFriendRequest(request) {
-            this.friendRequests.push({
-                id: request.id || Date.now(),
-                user_id: request.user_id || request.sender_id,
-                name: request.name,
-                role: request.role || "EXTERNAL_NODE",
-                bio: request.bio || '"Šifrované bio prázdné."',
-                trust_level: request.trust_level ?? 50,
-                latency: request.latency || "24ms_STABLE",
-                avatar: request.avatar || request.avatar_url,
-                read: false,
-                status: "pending",
-            });
-        },
-
-        addAlert(alert) {
-            this.alerts.push({
-                id: Date.now(),
-                read: false,
-                type: "alert",
-                ...alert,
-            });
-        },
-
-        addFriend(friend) {
-            this.friends.push({
-                id: friend.id,
-                user_id: friend.user_id,
-                name: friend.name,
-                role: friend.role || "EXTERNAL_NODE",
-                bio: friend.bio || '"Šifrované bio prázdné."',
-                trust_level: friend.trust_level ?? 50,
-                latency: friend.latency || "24ms_STABLE",
-                avatar: friend.avatar,
-                status: "accepted",
-            });
-        },
-
-        removeFriend(id) {
-            this.friends = this.friends.filter((f) => f.id !== id);
-        },
-
-        removeFriendRequest(id) {
-            this.friendRequests = this.friendRequests.filter(
-                (r) => r.id !== id,
-            );
-        },
-
-        updateFriendRequestStatus(id, newStatus) {
-            const index = this.friendRequests.findIndex((r) => r.id === id);
-            if (index !== -1) {
-                const req = this.friendRequests[index];
-                req.status = newStatus;
-                req.read = true;
-                if (newStatus === "accepted") {
-                    this.addFriend(req);
-                    this.friendRequests.splice(index, 1);
-                }
-            }
-        },
-
-        markMessagesAsRead() {
-            this.messages.forEach((m) => (m.read = true));
-        },
-        markRequestsAsRead() {
-            this.friendRequests.forEach((r) => (r.read = true));
-        },
-        markAlertsAsRead() {
-            this.alerts.forEach((a) => (a.read = true));
-        },
-
-        initListeners(userId) {
-            if (this.isListening) return;
-            this.isListening = true;
-
-            window.Echo.private(`App.Models.User.${userId}`)
-                .listen("FriendRequestReceived", (e) =>
-                    this.addFriendRequest(e.data),
-                )
-                .listen("FriendshipAccepted", (e) =>
-                    this.updateFriendRequestStatus(e.friendshipId, "accepted"),
-                )
-                .listen("MessageReceived", (e) => {
-                    // Ošetření struktury payloadu (podpora e.data i e.message z backendu)
-                    const incomingMessage = e.data || e.message;
-                    if (incomingMessage) {
-                        this.addMessage(incomingMessage);
-                    }
-                });
-        },
-    },
-});
-</file>
-
 <file path="README.md">
 <div align="center">
 
@@ -8706,6 +9220,244 @@ watch(isOpened, (newVal) => {
         <NeonOverlay :isOpened="isOpened" @open="openSystem" />
     </div>
 </template>
+</file>
+
+<file path="resources/js/Stores/useNotificationStore.js">
+import { defineStore } from "pinia";
+import axios from "axios";
+
+export const useNotificationStore = defineStore("notifications", {
+    state: () => ({
+        messages: [],
+        friendRequests: [],
+        friends: [],
+        alerts: [],
+        posts: [],
+        isListening: false,
+    }),
+
+    getters: {
+        // FIX: Striktně kontrolujeme, zda hodnota odpovídá nepřečtenému stavu
+        hasUnreadMessages: (state) =>
+            state.messages.some(
+                (m) => m.read === false || m.read === 0 || m.read === "0",
+            ),
+        hasUnreadRequests: (state) => state.friendRequests.some((r) => !r.read),
+        hasUnreadAlerts: (state) => state.alerts.some((a) => !a.read),
+
+        totalUnreadCount: (state) =>
+            state.messages.filter(
+                (m) => m.read === false || m.read === 0 || m.read === "0",
+            ).length +
+            state.friendRequests.filter((r) => !r.read).length +
+            state.alerts.filter((a) => !a.read).length,
+    },
+
+    actions: {
+        async fetchMessages() {
+            try {
+                const response = await axios.get(route("messages.index"));
+                this.messages = response.data;
+            } catch (error) {
+                console.error("Failed to fetch messages:", error);
+            }
+        },
+
+        async sendReply(messageId, text) {
+            try {
+                const response = await axios.post("/messages", {
+                    message_id: messageId,
+                    text: text,
+                });
+                this.addMessage(response.data);
+                return true;
+            } catch (error) {
+                console.error("Failed to forward response:", error);
+                return false;
+            }
+        },
+
+        async deleteConversation(conversationId) {
+            try {
+                // 1. Okamžitě vymažeme z frontendu VŠECHNY zprávy patřící do této konverzace
+                this.messages = this.messages.filter(
+                    (m) => String(m.conversation_id) !== String(conversationId),
+                );
+
+                // 2. Pošleme požadavek na backend s ID konverzace
+                await axios.delete(`/conversations/${conversationId}`);
+            } catch (error) {
+                console.error("Failed to purge conversation node:", error);
+                // Pokud backend selže, pro jistotu natáhneme data znovu, ať neodpovídají realitě
+                this.fetchMessages();
+            }
+        },
+
+        hydrateSystem(stateData) {
+            if (!stateData) return;
+            this.friendRequests = stateData.friendships?.requests || [];
+
+            this.friends = (stateData.friendships?.active || []).map(
+                (friend) => ({
+                    ...friend,
+                    id: friend.pivot?.id || friend.friendship_id || friend.id,
+                    user_id: friend.user_id || friend.id,
+                }),
+            );
+
+            this.messages = (stateData.messages || []).map((m) => ({
+                ...m,
+                read: m.read === true || m.read === 1 || m.read === "1",
+            }));
+
+            this.alerts = stateData.alerts || [];
+
+            // TADY HYDRATUJEME POSTY Z NEONHUBCONTROLLERU
+            if (stateData.posts) {
+                this.posts = stateData.posts;
+            }
+        },
+
+        addMessage(message) {
+            if (!message) return;
+
+            const normalized = {
+                id: message.id || Date.now(),
+                conversation_id:
+                    message.conversation_id || message.conversationId || null,
+                text: message.text || message.content || "",
+                sender: message.sender || message.role || "UNKNOWN",
+                agent_name: message.agent_name || message.agentName || null,
+                time:
+                    message.time ||
+                    (message.created_at
+                        ? new Date(message.created_at)
+                              .toTimeString()
+                              .split(" ")[0]
+                        : new Date().toTimeString().split(" ")[0]),
+                created_at: message.created_at || new Date().toISOString(),
+
+                // FIX: Striktní převod na boolean, aby neproklouzlo 0 / "0"
+                read:
+                    message.read === true ||
+                    message.read === 1 ||
+                    message.read === "1",
+            };
+
+            const exists = this.messages.some((m) => m.id === normalized.id);
+            if (exists) return;
+
+            this.messages.push(normalized);
+        },
+
+        addFriendRequest(request) {
+            this.friendRequests.push({
+                id: request.id || Date.now(),
+                user_id: request.user_id || request.sender_id,
+                name: request.name,
+                role: request.role || "EXTERNAL_NODE",
+                bio: request.bio || '"Šifrované bio prázdné."',
+                trust_level: request.trust_level ?? 50,
+                latency: request.latency || "24ms_STABLE",
+                avatar: request.avatar || request.avatar_url,
+                read: false,
+                status: "pending",
+            });
+        },
+
+        addAlert(alert) {
+            this.alerts.push({
+                id: Date.now(),
+                read: false,
+                type: "alert",
+                ...alert,
+            });
+        },
+
+        addFriend(friend) {
+            this.friends.push({
+                id: friend.id,
+                user_id: friend.user_id,
+                name: friend.name,
+                role: friend.role || "EXTERNAL_NODE",
+                bio: friend.bio || '"Šifrované bio prázdné."',
+                trust_level: friend.trust_level ?? 50,
+                latency: friend.latency || "24ms_STABLE",
+                avatar: friend.avatar,
+                status: "accepted",
+            });
+        },
+
+        addPost(post) {
+            if (!post) return;
+            const exists = this.posts.some((p) => p.id === post.id);
+            if (exists) return;
+
+            // Nový post hodíme na začátek pole (unshift), aby byl nahoře
+            this.posts.unshift(post);
+        },
+
+        removeFriend(id) {
+            this.friends = this.friends.filter((f) => f.id !== id);
+        },
+
+        removeFriendRequest(id) {
+            this.friendRequests = this.friendRequests.filter(
+                (r) => r.id !== id,
+            );
+        },
+
+        updateFriendRequestStatus(id, newStatus) {
+            const index = this.friendRequests.findIndex((r) => r.id === id);
+            if (index !== -1) {
+                const req = this.friendRequests[index];
+                req.status = newStatus;
+                req.read = true;
+                if (newStatus === "accepted") {
+                    this.addFriend(req);
+                    this.friendRequests.splice(index, 1);
+                }
+            }
+        },
+
+        markMessagesAsRead() {
+            this.messages.forEach((m) => (m.read = true));
+        },
+        markRequestsAsRead() {
+            this.friendRequests.forEach((r) => (r.read = true));
+        },
+        markAlertsAsRead() {
+            this.alerts.forEach((a) => (a.read = true));
+        },
+
+        initListeners(userId) {
+            if (this.isListening) return;
+            this.isListening = true;
+
+            window.Echo.private(`App.Models.User.${userId}`)
+                .listen("FriendRequestReceived", (e) =>
+                    this.addFriendRequest(e.data),
+                )
+                .listen("FriendshipAccepted", (e) =>
+                    this.updateFriendRequestStatus(e.friendshipId, "accepted"),
+                )
+                .listen("MessageReceived", (e) => {
+                    // Ošetření struktury payloadu (podpora e.data i e.message z backendu)
+                    const incomingMessage = e.data || e.message;
+                    if (incomingMessage) {
+                        this.addMessage(incomingMessage);
+                    }
+                })
+
+                .listen(".PostCreated", (e) => {
+                    const incomingPost = e.data || e.post;
+                    if (incomingPost) {
+                        this.addPost(incomingPost); // Prásk! A vyskočí modrý banner "Nové příspěvky"
+                    }
+                });
+        },
+    },
+});
 </file>
 
 <file path="resources/js/Components/NeonSocialActions.vue">

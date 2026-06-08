@@ -29,6 +29,29 @@ export const useNotificationStore = defineStore("notifications", {
     },
 
     actions: {
+        async toggleLike(post) {
+            // Uložíme si původní stav pro případ, že by selhala sítě (rollback)
+            const originalIsLiked = post.is_liked;
+            const originalCount = post.likes_count || 0;
+
+            // OPTIMISTICKÝ UPDATE: Okamžitě změníme stav v UI
+            post.is_liked = !post.is_liked;
+            post.likes_count = originalCount + (post.is_liked ? 1 : -1);
+
+            try {
+                if (post.is_liked) {
+                    await axios.post(`/posts/${post.id}/like`);
+                } else {
+                    await axios.delete(`/posts/${post.id}/like`);
+                }
+            } catch (error) {
+                console.error("Failed to sync pulse reaction:", error);
+                // Síť nebo server selhal -> vrátíme původní hodnoty
+                post.is_liked = originalIsLiked;
+                post.likes_count = originalCount;
+            }
+        },
+
         async fetchMessages() {
             try {
                 const response = await axios.get(route("messages.index"));
@@ -217,19 +240,25 @@ export const useNotificationStore = defineStore("notifications", {
                     this.updateFriendRequestStatus(e.friendshipId, "accepted"),
                 )
                 .listen("MessageReceived", (e) => {
-                    // Ošetření struktury payloadu (podpora e.data i e.message z backendu)
                     const incomingMessage = e.data || e.message;
                     if (incomingMessage) {
                         this.addMessage(incomingMessage);
                     }
                 })
-
                 .listen(".PostCreated", (e) => {
                     const incomingPost = e.data || e.post;
                     if (incomingPost) {
-                        this.addPost(incomingPost); // Prásk! A vyskočí modrý banner "Nové příspěvky"
+                        this.addPost(incomingPost);
                     }
                 });
+
+            window.Echo.channel("posts").listen(".PostLiked", (e) => {
+                // Najdeme post v poli a aktualizujeme pouze jeho počítadlo
+                const post = this.posts.find((p) => p.id === e.postId);
+                if (post) {
+                    post.likes_count = e.likesCount;
+                }
+            });
         },
     },
 });
