@@ -2,13 +2,16 @@
 import { ref, onMounted, nextTick } from 'vue';
 import { Heart, MessageSquare, Eye } from 'lucide-vue-next';
 import NeonCommentSection from './NeonCommentSection.vue';
+import { useNotificationStore } from '@/Stores/useNotificationStore';
 
 defineProps(['post']);
+
+// Inicializace storu pro obsluhu real-time lajků (Pulse)
+const notificationStore = useNotificationStore();
 
 const cardRef = ref(null);
 const isVisible = ref(false);
 const showComments = ref(false);
-
 
 const toggleComments = () => {
     // Prostě jenom otočíme true/false a zbytek necháme na přírodě.
@@ -88,9 +91,13 @@ onMounted(() => {
                     class="w-full mt-4 md:mt-5 pt-4 border-t border-white/5 flex justify-between items-center text-slate-500">
                     <div class="flex gap-5 md:gap-8">
 
-                        <button
+                        <button @click="notificationStore.toggleLike(post)"
                             class="group flex items-center gap-2 font-mono text-[10px] hover:text-sky-400 transition-colors uppercase tracking-widest outline-none">
-                            <Heart :size="13" class="group-hover:scale-110 transition-transform" />
+                            <Heart :size="13" :class="[
+                                post.is_liked
+                                    ? 'text-sky-400 fill-sky-400/20 drop-shadow-[0_0_8px_#3b82f6] scale-110'
+                                    : 'group-hover:scale-110 transition-transform'
+                            ]" class="transition-all duration-300" />
                             <span>Pulse</span>
                             <span class="text-sky-500/50 font-bold">({{ post.likes_count || 0 }})</span>
                         </button>

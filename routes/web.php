@@ -2,6 +2,7 @@
 
 use App\Events\SystemAlertTriggered;
 use App\Http\Controllers\FriendshipController;
+use App\Http\Controllers\LikeController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NeonHubController;
 use App\Http\Controllers\ProfileController;
@@ -17,7 +18,9 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    // Inicializace uzlu s automatickým Sentinel pozdravem
+    Route::post('/posts/{post}/like', [LikeController::class, 'store'])->name('posts.like');
+    Route::delete('/posts/{post}/like', [LikeController::class, 'destroy'])->name('posts.unlike');
+
     Route::post('/system/initialize-node', function () {
         $userId = auth()->id();
 

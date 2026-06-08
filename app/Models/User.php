@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -50,13 +51,35 @@ class User extends Authenticatable
         ];
     }
 
-    public function receivedRequests()
+    /**
+     * Vztah: Uživatel přijal žádosti o přátelství
+     */
+    public function receivedRequests(): HasMany
     {
         return $this->hasMany(Friendship::class, 'recipient_id')->where('status', 'pending');
     }
 
-    public function sentRequests()
+    /**
+     * Vztah: Uživatel odeslal žádosti o přátelství
+     */
+    public function sentRequests(): HasMany
     {
         return $this->hasMany(Friendship::class, 'sender_id');
+    }
+
+    /**
+     * Vztah: Uživatel vytvořil lajky
+     */
+    public function likes(): HasMany
+    {
+        return $this->hasMany(Like::class);
+    }
+
+    /**
+     * Vztah: Uživatel vytvořil komentáře
+     */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(Comment::class);
     }
 }

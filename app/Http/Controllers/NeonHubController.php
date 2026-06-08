@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\HandleAgentResponse;
-use App\Models\Friendship; // Nový sjednocený job
+use App\Models\Friendship;
 use App\Models\Post;
 use App\Models\User;
 use Illuminate\Foundation\Application;
@@ -29,18 +29,26 @@ class NeonHubController extends Controller
                 'friendships' => $this->getFriendshipData($authId),
                 'messages' => [], // Tvůj stávající prázdný array pro zprávy
 
-                // TADY TO PŘIPOJÍME: Načteme posty i s autory a komentáři
+                // TADY TO PŘIPOJUJEME: Načteme posty, autory, komentáře a zjistíme stav lajků
                 'posts' => Post::with(['author', 'comments.author'])
+                    // Dynamicky spočítá lajky z relace (pokud nemáš v DB tabulce pevný sloupec)
+                    ->withCount('likes')
+                    // Vytvoří virtuální sloupec `likes_exists` přejmenovaný na `is_liked` (true/false) podle přihlášeného uživatele
+                    ->withExists(['likes as is_liked' => function ($query) use ($authId) {
+                        $query->where('where_id', $authId) // Předpokládám standardní user_id cizí klíč v tabulce likes
+                            ->orWhere('user_id', $authId); // Pojistka pro tvé pojmenování sloupce
+                    }])
                     ->latest()
                     ->get()
                     ->map(function ($post) {
                         return [
-                            'id' => '0x'.dechex($post->id), // Tvůj hexadecimální formát logů
+                            'id' => $post->id,
                             'author' => $post->author->name ?? 'UNKNOWN_NODE',
                             'content' => $post->content,
                             'type' => $post->type,
                             'time' => $post->latency ?? '0.0ms', // Mapujeme DB latency na Vue 'time'
-                            'likes_count' => $post->likes_count,
+                            'likes_count' => $post->likes_count ?? 0,
+                            'is_liked' => (bool) $post->is_liked, // ZÁSADNÍ OPRAVA: Předáváme boolean stav do Pinia store hydratace!
                             'comments_count' => $post->comments->count(),
                             'image' => $post->image_url,
                             'image_meta' => $post->image_meta,
@@ -67,18 +75,18 @@ class NeonHubController extends Controller
     private function getFriendshipData($authId): array
     {
         // 1. ŽÁDOSTI O PROPOJENÍ (Čekající žádosti, kde přihlášený uživatel je příjemcem)
-        $requests = Friendship::where('recipient_id', $authId) // Hledáme tebe jako příjemce
+        $requests = Friendship::where('recipient_id', $authId)
             ->where('status', 'pending')
-            ->join('users', 'friendships.sender_id', '=', 'users.id') // Join přes odesílatele žádosti
+            ->join('users', 'friendships.sender_id', '=', 'users.id')
             ->select(
-                'friendships.id',                // ID relace pro axios.patch/delete
-                'users.id as user_id',           // ID uživatele pro Vue computed vyhledávání
+                'friendships.id',
+                'users.id as user_id',
                 'users.name',
                 'users.role',
                 'users.bio',
                 'users.trust_level',
                 'users.latency',
-                'users.avatar_url as avatar',   // Přemapování pro Vue img tag
+                'users.avatar_url as avatar',
                 'friendships.status'
             )
             ->get()
@@ -91,7 +99,6 @@ class NeonHubController extends Controller
             ->where('status', 'accepted')
             ->get()
             ->map(function ($friendship) use ($authId) {
-                // Zjistíme, které ID patří tomu druhému (příteli)
                 $friendId = $friendship->sender_id == $authId ? $friendship->recipient_id : $friendship->sender_id;
                 $friend = User::find($friendId);
 
@@ -100,8 +107,8 @@ class NeonHubController extends Controller
                 }
 
                 return [
-                    'id' => $friendship->id,             // ID relace pro UNLINK (axios.delete)
-                    'user_id' => $friend->id,            // ID uživatele pro Vue profil
+                    'id' => $friendship->id,
+                    'user_id' => $friend->id,
                     'name' => $friend->name,
                     'role' => $friend->role ?? 'EXTERNAL_NODE',
                     'bio' => $friend->bio ?? '"Šifrované bio prázdné."',
@@ -111,7 +118,7 @@ class NeonHubController extends Controller
                     'status' => 'accepted',
                 ];
             })
-            ->filter() // Vyčistíme případné null hodnoty
+            ->filter()
             ->values()
             ->toArray();
 
