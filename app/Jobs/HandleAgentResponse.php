@@ -4,8 +4,9 @@ namespace App\Jobs;
 
 use App\Ai\Agents\SentinelAgent;
 use App\Events\MessageReceived;
-use App\Events\PostCreated; // <--- Import nového eventu
-use App\Models\Post;         // <--- Import tvého modelu Post
+use App\Events\NewActivityAlert; // <--- Import nového eventu
+use App\Events\PostCreated;         // <--- Import tvého modelu Post
+use App\Models\Post;
 use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -108,6 +109,8 @@ class HandleAgentResponse implements ShouldQueue
 
         // Najdeme DB instanci bota podle jména (např. SENTINEL_01), ať máme správné user_id
         $agentUser = User::where('name', $this->agentName)->first();
+        $authorName = $agentUser?->name ?? $this->agentName;
+        $alertMessage = "User {$authorName} has created a new post!";
 
         // Dynamický kyberpunkový text pro feed podle toho, jestli bot jen zdraví, nebo reaguje
         $postContent = ! $lastMessage
@@ -141,5 +144,11 @@ class HandleAgentResponse implements ShouldQueue
 
         // Odpálení broadcastu na frontend uživatele
         event(new PostCreated($formattedPost, $user->id));
+
+        event(new NewActivityAlert(
+            $user->id,
+            $alertMessage
+        ));
+
     }
 }
