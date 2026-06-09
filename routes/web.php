@@ -2,6 +2,7 @@
 
 use App\Events\SystemAlertTriggered;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\CoreEngineController;
 use App\Http\Controllers\FriendshipController;
 use App\Http\Controllers\LikeController;
 use App\Http\Controllers\MessageController;
@@ -42,6 +43,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
     Route::post('/messages', [MessageController::class, 'store'])->name('messages.store');
     Route::delete('/conversations/{id}', [MessageController::class, 'destroy']);
+    Route::get('/api/core-engine/telemetry', [CoreEngineController::class, 'getTelemetry']);
 });
 
 Route::get('/test-signal', function () {
