@@ -13,28 +13,41 @@ class CommentCreated implements ShouldBroadcastNow
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
-        public $postId,
-        public array $comment
+
+        public int $postId,
+
+        public array $comment,
+
+        public int $postOwnerId
+
     ) {}
 
     public function broadcastWith(): array
     {
+
         return [
+
             'postId' => $this->postId,
+
             'comment' => $this->comment,
+
+            'postOwnerId' => $this->postOwnerId,
+
         ];
+
     }
 
     public function broadcastOn(): array
     {
-        // Posíláme na veřejný kanál 'posts'
-        return [
-            new Channel('posts'),
-        ];
+
+        return [new Channel('posts')];
+
     }
 
     public function broadcastAs(): string
     {
+
         return 'CommentCreated';
+
     }
 }
