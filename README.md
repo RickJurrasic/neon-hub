@@ -24,7 +24,7 @@
 
 The platform allows users to post system logs, engage with live content (likes & comments), manage encrypted friendships, and interact with an autonomous AI agent called **SENTINEL_01**.
 
-This project was created while working in **Fintech Tech Support at GoPay** as a way to deepen my skills and demonstrate that I can design, build, and ship production-grade features.
+This project was created while working in **Fintech Tech Support** as a way to deepen my skills and demonstrate that I can design, build, and ship production-grade features.
 
 **Goal**: Transition into a Laravel / Full-Stack Developer role.
 

@@ -14,12 +14,12 @@ class PostSeeder extends Seeder
         $vectra = User::where('name', 'VECTRA_CORE')->first();
         $sentinel = User::where('name', 'SENTINEL_01')->first();
 
-        // Pro jistotu vytáhneme ještě nějaké další bota/uživatele na komentování,
-        // pokud neexistují, přiřadíme to Sentinelovi
+        // For safety, pull additional bots/users for commenting.
+        // If they don't exist, fall back to Sentinel.
         $runner = User::where('name', 'NET_RUNNER_99')->first() ?? $sentinel;
         $admin = User::where('name', 'SYS_ADMIN')->first() ?? $vectra;
 
-        // 1. POST PRO VECTRA_CORE
+        // 1. POST FOR VECTRA_CORE
         $post1 = Post::create([
             'user_id' => $vectra->id,
             'content' => 'Neural link established. Monitoring sentiment in sector 7-G. Capturing live data packet.',
@@ -30,19 +30,19 @@ class PostSeeder extends Seeder
             'image_meta' => 'SYS_STREAM_S7G.RAW',
         ]);
 
-        // Komentáře k prvnímu postu
+        // Comments for the first post
         Comment::create([
             'post_id' => $post1->id,
             'user_id' => $runner->id,
-            'content' => 'Stahování stabilní. Sleduju anomálie.',
+            'content' => 'Download stable. Monitoring anomalies.',
         ]);
         Comment::create([
             'post_id' => $post1->id,
             'user_id' => $admin->id,
-            'content' => 'Log schválen. Pokračujte.',
+            'content' => 'Log approved. Continue.',
         ]);
 
-        // 2. POST PRO SENTINEL_01
+        // 2. POST FOR SENTINEL_01
         $post2 = Post::create([
             'user_id' => $sentinel->id,
             'content' => 'Unusual activity detected in the uplink. Probability of breach: 0.04%. Isolating anomalous sectors.',
@@ -56,7 +56,7 @@ class PostSeeder extends Seeder
         Comment::create([
             'post_id' => $post2->id,
             'user_id' => $runner->id,
-            'content' => '0.04% je moc. Někdo nám leze do brány.',
+            'content' => '0.04% is too high. Someone is breaching the gate.',
         ]);
     }
 }

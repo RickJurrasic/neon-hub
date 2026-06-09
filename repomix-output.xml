@@ -1343,94 +1343,94 @@ exit($status);
 
 <file path="bootstrap/cache/packages.php">
 <?php return array (
-  'inertiajs/inertia-laravel' => 
+  'inertiajs/inertia-laravel' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Inertia\\ServiceProvider',
     ),
   ),
-  'laravel/ai' => 
+  'laravel/ai' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Laravel\\Ai\\AiServiceProvider',
     ),
   ),
-  'laravel/breeze' => 
+  'laravel/breeze' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Laravel\\Breeze\\BreezeServiceProvider',
     ),
   ),
-  'laravel/pail' => 
+  'laravel/pail' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Laravel\\Pail\\PailServiceProvider',
     ),
   ),
-  'laravel/pao' => 
+  'laravel/pao' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Laravel\\Pao\\Laravel\\ServiceProvider',
     ),
   ),
-  'laravel/reverb' => 
+  'laravel/reverb' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Laravel\\Reverb\\ApplicationManagerServiceProvider',
       1 => 'Laravel\\Reverb\\ReverbServiceProvider',
     ),
   ),
-  'laravel/sanctum' => 
+  'laravel/sanctum' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Laravel\\Sanctum\\SanctumServiceProvider',
     ),
   ),
-  'laravel/tinker' => 
+  'laravel/tinker' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Laravel\\Tinker\\TinkerServiceProvider',
     ),
   ),
-  'nesbot/carbon' => 
+  'nesbot/carbon' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Carbon\\Laravel\\ServiceProvider',
     ),
   ),
-  'nunomaduro/collision' => 
+  'nunomaduro/collision' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'NunoMaduro\\Collision\\Adapters\\Laravel\\CollisionServiceProvider',
     ),
   ),
-  'nunomaduro/termwind' => 
+  'nunomaduro/termwind' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Termwind\\Laravel\\TermwindServiceProvider',
     ),
   ),
-  'pestphp/pest-plugin-laravel' => 
+  'pestphp/pest-plugin-laravel' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Pest\\Laravel\\PestServiceProvider',
     ),
   ),
-  'tightenco/ziggy' => 
+  'tightenco/ziggy' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Tighten\\Ziggy\\ZiggyServiceProvider',
     ),
@@ -1440,7 +1440,7 @@ exit($status);
 
 <file path="bootstrap/cache/services.php">
 <?php return array (
-  'providers' => 
+  'providers' =>
   array (
     0 => 'Illuminate\\Auth\\AuthServiceProvider',
     1 => 'Illuminate\\Broadcasting\\BroadcastServiceProvider',
@@ -1481,7 +1481,7 @@ exit($status);
     36 => 'Tighten\\Ziggy\\ZiggyServiceProvider',
     37 => 'App\\Providers\\AppServiceProvider',
   ),
-  'eager' => 
+  'eager' =>
   array (
     0 => 'Illuminate\\Auth\\AuthServiceProvider',
     1 => 'Illuminate\\Cookie\\CookieServiceProvider',
@@ -1506,7 +1506,7 @@ exit($status);
     20 => 'Tighten\\Ziggy\\ZiggyServiceProvider',
     21 => 'App\\Providers\\AppServiceProvider',
   ),
-  'deferred' => 
+  'deferred' =>
   array (
     'Illuminate\\Broadcasting\\BroadcastManager' => 'Illuminate\\Broadcasting\\BroadcastServiceProvider',
     'Illuminate\\Contracts\\Broadcasting\\Factory' => 'Illuminate\\Broadcasting\\BroadcastServiceProvider',
@@ -1670,54 +1670,54 @@ exit($status);
     'Laravel\\Reverb\\Contracts\\ApplicationProvider' => 'Laravel\\Reverb\\ApplicationManagerServiceProvider',
     'command.tinker' => 'Laravel\\Tinker\\TinkerServiceProvider',
   ),
-  'when' => 
+  'when' =>
   array (
-    'Illuminate\\Broadcasting\\BroadcastServiceProvider' => 
+    'Illuminate\\Broadcasting\\BroadcastServiceProvider' =>
     array (
     ),
-    'Illuminate\\Bus\\BusServiceProvider' => 
+    'Illuminate\\Bus\\BusServiceProvider' =>
     array (
     ),
-    'Illuminate\\Cache\\CacheServiceProvider' => 
+    'Illuminate\\Cache\\CacheServiceProvider' =>
     array (
     ),
-    'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider' => 
+    'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider' =>
     array (
     ),
-    'Illuminate\\Concurrency\\ConcurrencyServiceProvider' => 
+    'Illuminate\\Concurrency\\ConcurrencyServiceProvider' =>
     array (
     ),
-    'Illuminate\\Hashing\\HashServiceProvider' => 
+    'Illuminate\\Hashing\\HashServiceProvider' =>
     array (
     ),
-    'Illuminate\\Mail\\MailServiceProvider' => 
+    'Illuminate\\Mail\\MailServiceProvider' =>
     array (
     ),
-    'Illuminate\\Auth\\Passwords\\PasswordResetServiceProvider' => 
+    'Illuminate\\Auth\\Passwords\\PasswordResetServiceProvider' =>
     array (
     ),
-    'Illuminate\\Pipeline\\PipelineServiceProvider' => 
+    'Illuminate\\Pipeline\\PipelineServiceProvider' =>
     array (
     ),
-    'Illuminate\\Queue\\QueueServiceProvider' => 
+    'Illuminate\\Queue\\QueueServiceProvider' =>
     array (
     ),
-    'Illuminate\\Redis\\RedisServiceProvider' => 
+    'Illuminate\\Redis\\RedisServiceProvider' =>
     array (
     ),
-    'Illuminate\\Translation\\TranslationServiceProvider' => 
+    'Illuminate\\Translation\\TranslationServiceProvider' =>
     array (
     ),
-    'Illuminate\\Validation\\ValidationServiceProvider' => 
+    'Illuminate\\Validation\\ValidationServiceProvider' =>
     array (
     ),
-    'Laravel\\Breeze\\BreezeServiceProvider' => 
+    'Laravel\\Breeze\\BreezeServiceProvider' =>
     array (
     ),
-    'Laravel\\Reverb\\ApplicationManagerServiceProvider' => 
+    'Laravel\\Reverb\\ApplicationManagerServiceProvider' =>
     array (
     ),
-    'Laravel\\Tinker\\TinkerServiceProvider' => 
+    'Laravel\\Tinker\\TinkerServiceProvider' =>
     array (
     ),
   ),
@@ -9165,7 +9165,7 @@ const loadIncomingPosts = () => {
                 <button @click="loadIncomingPosts"
                     class="flex items-center gap-2 bg-[#050914]/90 border border-sky-500/40 text-sky-400 font-mono text-[10px] tracking-[0.2em] uppercase px-4 py-2.5 rounded-full shadow-[0_0_15px_rgba(56,189,248,0.15)] hover:bg-sky-950/40 hover:border-sky-400 transition-all cursor-pointer backdrop-blur-md">
                     <ArrowUp :size="12" class="animate-bounce" />
-                    <span>Nové příspěvky ({{ incomingPostsCount }})</span>
+                    <span> New posts ({{ incomingPostsCount }})</span>
                 </button>
             </div>
         </Transition>
