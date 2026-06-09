@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Events\CommentCreated;
+use App\Events\NewActivityAlert;
 use App\Models\Comment;
 use App\Models\Post;
 use Illuminate\Http\Request;
@@ -35,6 +36,7 @@ class CommentController extends Controller
 
         // Odpálíme real-time synchronizaci pro ostatní připojené uzly
         broadcast(new CommentCreated($post->id, $commentData))->toOthers();
+        event(new NewActivityAlert($post->user_id, 'Někdo komentoval tvůj post.'));
 
         // Vrátíme přímou JSON odpověď odesílateli pro okamžitý zápis do Pinie
         return response()->json($commentData);
