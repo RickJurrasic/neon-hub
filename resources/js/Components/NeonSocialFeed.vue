@@ -7,32 +7,48 @@ import NeonSocialPost from './NeonSocialPost.vue';
 const store = useNotificationStore();
 const mainContainer = ref(null);
 
-// Interní stav pro ID postů, které uživatel aktuálně vidí na obrazovce
+// Interní stav pro ID postů – budeme zde držet VŽDY čistá čísla (Numbers)
 const currentVisibleIds = ref([]);
 
-// Inicializace: Když se poprvé načtou posty ze storu, hned je zobrazíme
+// HLAVNÍ FIX: Watcher inteligentně spravuje ID a normalizuje typy
 watch(() => store.posts, (newPosts) => {
-    if (currentVisibleIds.value.length === 0 && newPosts.length > 0) {
-        currentVisibleIds.value = newPosts.map(p => p.id);
-    }
-}, { immediate: true });
+    if (!newPosts || newPosts.length === 0) return;
 
-// Spočítáme, kolik postů je ve storu nových (nejsou v currentVisibleIds)
+    // 1. Pokud je feed prázdný (první načtení), vezmeme všechno a přetypujeme na čísla
+    if (currentVisibleIds.value.length === 0) {
+        currentVisibleIds.value = newPosts.map(p => Number(p.id));
+        return;
+    }
+
+    // 2. Ochrana reaktivity při updatech (lajky/komentáře)
+    const currentMaxId = Math.max(...currentVisibleIds.value);
+
+    newPosts.forEach(post => {
+        const postId = Number(post.id);
+        // Pokud post už známe nebo je starší, pojistíme, aby byl ve viditelných ID jako Number
+        if (postId <= currentMaxId && !currentVisibleIds.value.includes(postId)) {
+            currentVisibleIds.value.push(postId);
+        }
+    });
+}, { deep: true, immediate: true });
+
+// Spočítáme nové příspěvky (porovnáváme čistá čísla)
 const incomingPostsCount = computed(() => {
-    return store.posts.filter(p => !currentVisibleIds.value.includes(p.id)).length;
+    if (currentVisibleIds.value.length === 0) return 0;
+    const currentMaxId = Math.max(...currentVisibleIds.value);
+    return store.posts.filter(p => Number(p.id) > currentMaxId).length;
 });
 
-// Posty, které se reálně vykreslují ve feedu (seřazené od nejnovějších z těch schválených)
+// Posty pro vykreslení – porovnáváme Number s polem Numbers
 const visiblePosts = computed(() => {
-    return store.posts.filter(p => currentVisibleIds.value.includes(p.id));
+    return store.posts.filter(p => currentVisibleIds.value.includes(Number(p.id)));
 });
 
 // Akce při kliknutí na "Nové příspěvky"
 const loadIncomingPosts = () => {
-    // Aktualizujeme zobrazené ID na kompletní sadu ze storu
-    currentVisibleIds.value = store.posts.map(p => p.id);
+    // Všechna ID natlačíme jako striktní čísla
+    currentVisibleIds.value = store.posts.map(p => Number(p.id));
 
-    // Hladký scroll nahoru na začátek feedu
     if (mainContainer.value) {
         mainContainer.value.scrollTo({
             top: 0,

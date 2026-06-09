@@ -1,47 +1,30 @@
 <script setup>
-import { ref, onMounted, nextTick } from 'vue';
+import { ref } from 'vue';
 import { Heart, MessageSquare, Eye } from 'lucide-vue-next';
 import NeonCommentSection from './NeonCommentSection.vue';
 import { useNotificationStore } from '@/Stores/useNotificationStore';
 
-defineProps(['post']);
+defineProps({
+    post: {
+        type: Object,
+        required: true
+    }
+});
 
-// Inicializace storu pro obsluhu real-time lajků (Pulse)
 const notificationStore = useNotificationStore();
-
-const cardRef = ref(null);
-const isVisible = ref(false);
 const showComments = ref(false);
 
 const toggleComments = () => {
-    // Prostě jenom otočíme true/false a zbytek necháme na přírodě.
     showComments.value = !showComments.value;
 };
-
-onMounted(() => {
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                isVisible.value = true;
-            }
-        });
-    }, {
-        threshold: 0.02,
-        rootMargin: '200px 0px 400px 0px' // Načítáme s větším předstihem, plynulejší zážitek
-    });
-
-    if (cardRef.value) observer.observe(cardRef.value);
-});
 </script>
 
 <template>
-    <article ref="cardRef"
-        class="neon-panel-wrapper w-full rounded-[1.5rem] transition-all duration-[500ms] ease-out min-h-[100px]"
-        :class="[isVisible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-10 scale-[0.98] translate-y-3']"
-        style="will-change: transform, opacity; overflow-anchor: none;">
+    <article class="neon-panel-wrapper w-full rounded-[1.5rem] min-h-[100px] opacity-100 scale-100 translate-y-0"
+        style="overflow-anchor: none;">
 
         <div class="relative w-full">
-            <div v-if="isVisible" class="neon-border-active opacity-10"></div>
+            <div class="neon-border-active opacity-10"></div>
 
             <div
                 class="neon-glass-core w-full !items-stretch p-5 md:p-8 rounded-[1.4rem] bg-[#050914]/90 border border-white/5 shadow-xl">
@@ -49,14 +32,14 @@ onMounted(() => {
                 <div
                     class="w-full flex justify-between items-center mb-4 md:mb-5 border-b border-white/10 pb-3 md:pb-4">
                     <div class="flex items-center gap-3 md:gap-4">
-                        <div class="w-2.5 h-2.5 bg-sky-500 shadow-[0_0_12px_#3b82f6] rounded-full animate-pulse">
-                        </div>
+                        <div class="w-2.5 h-2.5 bg-sky-500 shadow-[0_0_12px_#3b82f6] rounded-full animate-pulse"></div>
                         <span class="font-mono text-xs text-sky-400 tracking-[0.4em] font-black uppercase italic">
                             {{ post.author }}
                         </span>
                     </div>
-                    <span
-                        class="font-mono text-[8px] md:text-[9px] text-slate-600 uppercase tracking-widest">Authorized_Stream</span>
+                    <span class="font-mono text-[8px] md:text-[9px] text-slate-600 uppercase tracking-widest">
+                        Authorized_Stream
+                    </span>
                 </div>
 
                 <div class="py-1 md:py-2 w-full text-left">
@@ -81,10 +64,8 @@ onMounted(() => {
                         <span>VISUAL_ATTACHMENT // {{ post.image_meta || 'SECURE_LINK' }}</span>
                     </div>
 
-                    <img :src="post.image" alt="Visual Payload" class="w-full h-auto max-h-[35vh] object-cover transition-all duration-700
-                       opacity-100 md:opacity-85 md:group-hover:opacity-100
-                       md:scale-100 md:group-hover:scale-[1.01]
-                       filter grayscale-0 md:grayscale md:group-hover:grayscale-0" />
+                    <img :src="post.image" alt="Visual Payload"
+                        class="w-full h-auto max-h-[35vh] object-cover transition-all duration-700 opacity-100 md:opacity-85 md:group-hover:opacity-100 md:scale-100 md:group-hover:scale-[1.01] filter grayscale-0 md:grayscale md:group-hover:grayscale-0" />
                 </div>
 
                 <div
@@ -112,7 +93,8 @@ onMounted(() => {
 
                     </div>
                     <div class="font-mono text-[8px] tracking-[0.3em] opacity-40 hidden sm:block">
-                        NODE_REACTION_{{ post.id }}</div>
+                        NODE_REACTION_{{ post.id }}
+                    </div>
                 </div>
 
                 <Transition enter-active-class="transition duration-300 ease-out"
@@ -121,7 +103,8 @@ onMounted(() => {
                     leave-active-class="transition duration-200 ease-in"
                     leave-from-class="transform scale-100 opacity-100 translate-y-0"
                     leave-to-class="transform scale-98 opacity-0 -translate-y-1">
-                    <NeonCommentSection v-if="showComments" :comments="post.comments" />
+
+                    <NeonCommentSection v-if="showComments" :post-id="post.id" :comments="post.comments" />
                 </Transition>
 
             </div>

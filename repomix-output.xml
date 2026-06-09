@@ -50,6 +50,7 @@ app/Ai/Agents/SentinelAgent.php
 app/Events/FriendRequestReceived.php
 app/Events/MessageReceived.php
 app/Events/PostCreated.php
+app/Events/PostLiked.php
 app/Events/SystemAlertTriggered.php
 app/Http/Controllers/Auth/AuthenticatedSessionController.php
 app/Http/Controllers/Auth/ConfirmablePasswordController.php
@@ -62,6 +63,7 @@ app/Http/Controllers/Auth/RegisteredUserController.php
 app/Http/Controllers/Auth/VerifyEmailController.php
 app/Http/Controllers/Controller.php
 app/Http/Controllers/FriendshipController.php
+app/Http/Controllers/LikeController.php
 app/Http/Controllers/MessageController.php
 app/Http/Controllers/NeonHubController.php
 app/Http/Controllers/ProfileController.php
@@ -76,6 +78,7 @@ app/Jobs/SendFriendRequest.php
 app/Jobs/SendMessage.php
 app/Models/Comment.php
 app/Models/Friendship.php
+app/Models/Like.php
 app/Models/Post.php
 app/Models/User.php
 app/Providers/AppServiceProvider.php
@@ -100,6 +103,7 @@ config/reverb.php
 config/services.php
 config/session.php
 database/.gitignore
+database/factories/PostFactory.php
 database/factories/UserFactory.php
 database/migrations/0001_01_01_000000_create_users_table.php
 database/migrations/0001_01_01_000001_create_cache_table.php
@@ -108,6 +112,7 @@ database/migrations/2026_05_31_114134_create_agent_conversations_table.php
 database/migrations/2026_05_31_131827_create_friendships_table.php
 database/migrations/2026_06_07_121018_create_posts_table.php
 database/migrations/2026_06_07_122302_create_comments_table.php
+database/migrations/2026_06_08_184524_create_likes_table.php
 database/seeders/BotSeeder.php
 database/seeders/DatabaseSeeder.php
 database/seeders/PostSeeder.php
@@ -202,6 +207,7 @@ tests/Feature/HandleAgentResponseTest.php
 tests/Feature/Jobs/RespondToUserMessageTest.php
 tests/Feature/MessageTest.php
 tests/Feature/NeonHubAuthTest.php
+tests/Feature/PostPulseTest.php
 tests/Feature/ProfileTest.php
 tests/Feature/SystemAlertTest.php
 tests/Pest.php
@@ -395,6 +401,45 @@ class PostCreated implements ShouldBroadcast
     public function broadcastAs(): string
     {
         return 'PostCreated';
+    }
+}
+</file>
+
+<file path="app/Events/PostLiked.php">
+<?php
+
+namespace App\Events;
+
+use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow; // Okamžitý broadcast bez fronty
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+
+class PostLiked implements ShouldBroadcastNow
+{
+    use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    public int $postId;
+
+    public int $likesCount;
+
+    public function __construct(int $postId, int $likesCount)
+    {
+        $this->postId = $postId;
+        $this->likesCount = $likesCount;
+    }
+
+    public function broadcastOn(): array
+    {
+        return [
+            new Channel('posts'),
+        ];
+    }
+
+    public function broadcastAs(): string
+    {
+        return 'PostLiked';
     }
 }
 </file>
@@ -804,6 +849,47 @@ abstract class Controller
 }
 </file>
 
+<file path="app/Http/Controllers/LikeController.php">
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Events\PostLiked;
+use App\Models\Post;
+
+class LikeController extends Controller
+{
+    public function store(Post $post)
+    {
+        // firstOrCreate zabrání duplicitám na úrovni aplikace
+        $post->likes()->firstOrCreate(['user_id' => auth()->id()]);
+        $likesCount = $post->likes()->count();
+
+        // Vyvoláme real-time broadcast pro ostatní uživatele
+        event(new PostLiked($post->id, $likesCount));
+
+        return response()->json([
+            'likes_count' => $likesCount,
+            'is_liked' => true,
+        ]);
+    }
+
+    public function destroy(Post $post)
+    {
+        $post->likes()->where('user_id', auth()->id())->delete();
+        $likesCount = $post->likes()->count();
+
+        // Vyvoláme real-time broadcast pro ostatní uživatele
+        event(new PostLiked($post->id, $likesCount));
+
+        return response()->json([
+            'likes_count' => $likesCount,
+            'is_liked' => false,
+        ]);
+    }
+}
+</file>
+
 <file path="app/Http/Controllers/ProfileController.php">
 <?php
 
@@ -1183,38 +1269,25 @@ class Friendship extends Model
 }
 </file>
 
-<file path="app/Models/Post.php">
+<file path="app/Models/Like.php">
 <?php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Post extends Model
+class Like extends Model
 {
-    // Povolené sloupce pro hromadné přiřazení (mass assignment)
-    protected $fillable = [
-        'user_id',
-        'content',
-        'type',
-        'latency',
-        'image_url',
-        'image_meta',
-        'likes_count',
-    ];
+    protected $fillable = ['user_id', 'post_id'];
 
-    // Vztah: Post patří uživateli (botovi)
-    public function author(): BelongsTo
+    public function post()
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(Post::class);
     }
 
-    // Vztah: Post má mnoho komentářů
-    public function comments(): HasMany
+    public function user()
     {
-        return $this->hasMany(Comment::class);
+        return $this->belongsTo(User::class);
     }
 }
 </file>
@@ -2982,6 +3055,37 @@ return [
 *.sqlite*
 </file>
 
+<file path="database/factories/PostFactory.php">
+<?php
+
+namespace Database\Factories;
+
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+class PostFactory extends Factory
+{
+    protected $model = Post::class;
+
+    /**
+     * Definice výchozího stavu pro testovací post.
+     */
+    public function definition(): array
+    {
+        return [
+            // Pokud v testu nepředáš konkrétního uživatele, factory automaticky vyrobí nového
+            'user_id' => User::factory(),
+            'content' => $this->faker->realText(100),
+            'type' => $this->faker->randomElement(['status', 'log', 'alert']),
+            'latency' => $this->faker->randomFloat(1, 0.5, 45).'ms_STABLE',
+            'image_url' => null, // Výchozí bez obrázku
+            'image_meta' => null,
+        ];
+    }
+}
+</file>
+
 <file path="database/factories/UserFactory.php">
 <?php
 
@@ -3287,6 +3391,41 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('comments');
+    }
+};
+</file>
+
+<file path="database/migrations/2026_06_08_184524_create_likes_table.php">
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up()
+    {
+        Schema::create('likes', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('post_id')->constrained()->onDelete('cascade');
+            $table->timestamps();
+
+            // Prevence duplicit: Uživatel může lajknout post jen jednou
+            $table->unique(['user_id', 'post_id']);
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('likes');
     }
 };
 </file>
@@ -5693,6 +5832,53 @@ test('inertia page shares authenticated user data with neon components', functio
 });
 </file>
 
+<file path="tests/Feature/PostPulseTest.php">
+<?php
+
+use App\Models\Post;
+use App\Models\User;
+
+use function Pest\Laravel\actingAs;
+use function Pest\Laravel\assertDatabaseHas;
+use function Pest\Laravel\post;
+
+beforeEach(function () {
+    // Vytvoříme uživatele a přihlásíme ho
+    $this->user = User::factory()->create();
+});
+
+test('neon hub index returns posts with standard integer IDs', function () {
+    // Vytvoříme testovací post spojený s autorem
+    $post = Post::factory()->create([
+        'user_id' => $this->user->id,
+    ]);
+
+    actingAs($this->user)
+        ->get('/') // Doplň routu tvého indexu, pokud se liší
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('initialState.posts.0', fn ($postProp) => $postProp
+                ->where('id', $post->id) // Ověříme, že ID je čistý integer (např. 1) a ne '0x1'
+                ->etc()
+            )
+        );
+});
+
+test('authenticated user can pulse a post using integer id', function () {
+    $post = Post::factory()->create();
+
+    actingAs($this->user)
+        ->post("/posts/{$post->id}/like") // Tvoje Axios URL z frontendu
+        ->assertOk(); // Případně ->assertStatus(201) podle tvého controlleru
+
+    // Ověříme, že se lajk reálně uložil do DB
+    assertDatabaseHas('likes', [
+        'user_id' => $this->user->id,
+        'post_id' => $post->id,
+    ]);
+});
+</file>
+
 <file path="tests/Feature/ProfileTest.php">
 <?php
 
@@ -6503,6 +6689,50 @@ class RespondToUserMessage implements ShouldQueue
 }
 </file>
 
+<file path="app/Models/Post.php">
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Post extends Model
+{
+    use HasFactory;
+
+    // Povolené sloupce pro hromadné přiřazení (mass assignment)
+    protected $fillable = [
+        'user_id',
+        'content',
+        'type',
+        'latency',
+        'image_url',
+        'image_meta',
+        'likes_count',
+    ];
+
+    // Vztah: Post patří uživateli (botovi)
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    // Vztah: Post má mnoho komentářů
+    public function comments(): HasMany
+    {
+        return $this->hasMany(Comment::class);
+    }
+
+    public function likes()
+    {
+        return $this->hasMany(Like::class);
+    }
+}
+</file>
+
 <file path="config/ai.php">
 <?php
 
@@ -7069,132 +7299,6 @@ class SystemAlertTriggered implements ShouldBroadcastNow
 }
 </file>
 
-<file path="app/Http/Controllers/NeonHubController.php">
-<?php
-
-namespace App\Http\Controllers;
-
-use App\Jobs\HandleAgentResponse;
-use App\Models\Friendship; // Nový sjednocený job
-use App\Models\Post;
-use App\Models\User;
-use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
-
-class NeonHubController extends Controller
-{
-    public function index()
-    {
-        $authId = auth()->id();
-
-        $props = [
-            'canLogin' => Route::has('login'),
-            'canRegister' => Route::has('register'),
-            'laravelVersion' => Application::VERSION,
-            'phpVersion' => PHP_VERSION,
-            'initialState' => null,
-        ];
-
-        if ($authId) {
-            $props['initialState'] = [
-                'friendships' => $this->getFriendshipData($authId),
-                'messages' => [], // Tvůj stávající prázdný array pro zprávy
-
-                // TADY TO PŘIPOJÍME: Načteme posty i s autory a komentáři
-                'posts' => Post::with(['author', 'comments.author'])
-                    ->latest()
-                    ->get()
-                    ->map(function ($post) {
-                        return [
-                            'id' => '0x'.dechex($post->id), // Tvůj hexadecimální formát logů
-                            'author' => $post->author->name ?? 'UNKNOWN_NODE',
-                            'content' => $post->content,
-                            'type' => $post->type,
-                            'time' => $post->latency ?? '0.0ms', // Mapujeme DB latency na Vue 'time'
-                            'likes_count' => $post->likes_count,
-                            'comments_count' => $post->comments->count(),
-                            'image' => $post->image_url,
-                            'image_meta' => $post->image_meta,
-                            'comments' => $post->comments->map(function ($comment) {
-                                return [
-                                    'id' => $comment->id,
-                                    'author' => $comment->author->name ?? 'ANONYMOUS',
-                                    'text' => $comment->content,
-                                    'timestamp' => $comment->created_at->format('H:i'),
-                                ];
-                            })->toArray(),
-                        ];
-                    })->toArray(),
-            ];
-
-            // FIX: Voláme nový job. Pokud uživatel dá refresh, stavová pojistka uvnitř jobu
-            // zabrání tomu, aby bot poslal zprávu podruhé.
-            HandleAgentResponse::dispatch($authId)->delay(now()->addSeconds(7));
-        }
-
-        return Inertia::render('Welcome', $props);
-    }
-
-    private function getFriendshipData($authId): array
-    {
-        // 1. ŽÁDOSTI O PROPOJENÍ (Čekající žádosti, kde přihlášený uživatel je příjemcem)
-        $requests = Friendship::where('recipient_id', $authId) // Hledáme tebe jako příjemce
-            ->where('status', 'pending')
-            ->join('users', 'friendships.sender_id', '=', 'users.id') // Join přes odesílatele žádosti
-            ->select(
-                'friendships.id',                // ID relace pro axios.patch/delete
-                'users.id as user_id',           // ID uživatele pro Vue computed vyhledávání
-                'users.name',
-                'users.role',
-                'users.bio',
-                'users.trust_level',
-                'users.latency',
-                'users.avatar_url as avatar',   // Přemapování pro Vue img tag
-                'friendships.status'
-            )
-            ->get()
-            ->toArray();
-
-        // 2. AKTIVNÍ SPOJENÍ (Akceptované linky, kde figuruješ jako odesílatel nebo příjemce)
-        $active = Friendship::where(function ($q) use ($authId) {
-            $q->where('sender_id', $authId)->orWhere('recipient_id', $authId);
-        })
-            ->where('status', 'accepted')
-            ->get()
-            ->map(function ($friendship) use ($authId) {
-                // Zjistíme, které ID patří tomu druhému (příteli)
-                $friendId = $friendship->sender_id == $authId ? $friendship->recipient_id : $friendship->sender_id;
-                $friend = User::find($friendId);
-
-                if (! $friend) {
-                    return null;
-                }
-
-                return [
-                    'id' => $friendship->id,             // ID relace pro UNLINK (axios.delete)
-                    'user_id' => $friend->id,            // ID uživatele pro Vue profil
-                    'name' => $friend->name,
-                    'role' => $friend->role ?? 'EXTERNAL_NODE',
-                    'bio' => $friend->bio ?? '"Šifrované bio prázdné."',
-                    'trust_level' => $friend->trust_level ?? 50,
-                    'latency' => $friend->latency ?? '24ms_STABLE',
-                    'avatar' => $friend->avatar_url,
-                    'status' => 'accepted',
-                ];
-            })
-            ->filter() // Vyčistíme případné null hodnoty
-            ->values()
-            ->toArray();
-
-        return [
-            'requests' => $requests,
-            'active' => $active,
-        ];
-    }
-}
-</file>
-
 <file path="app/Http/Middleware/HandleInertiaRequests.php">
 <?php
 
@@ -7645,6 +7749,139 @@ const latency = computed(() => entity.value?.latency || '24ms_STABLE');
             >> ERROR: INVALID_ENTITY_ID_ACCESS_DENIED << </div>
         </div>
 </template>
+</file>
+
+<file path="app/Http/Controllers/NeonHubController.php">
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Jobs\HandleAgentResponse;
+use App\Models\Friendship;
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
+
+class NeonHubController extends Controller
+{
+    public function index()
+    {
+        $authId = auth()->id();
+
+        $props = [
+            'canLogin' => Route::has('login'),
+            'canRegister' => Route::has('register'),
+            'laravelVersion' => Application::VERSION,
+            'phpVersion' => PHP_VERSION,
+            'initialState' => null,
+        ];
+
+        if ($authId) {
+            $props['initialState'] = [
+                'friendships' => $this->getFriendshipData($authId),
+                'messages' => [], // Tvůj stávající prázdný array pro zprávy
+
+                // TADY TO PŘIPOJUJEME: Načteme posty, autory, komentáře a zjistíme stav lajků
+                'posts' => Post::with(['author', 'comments.author'])
+                    // Dynamicky spočítá lajky z relace (pokud nemáš v DB tabulce pevný sloupec)
+                    ->withCount('likes')
+                    // Vytvoří virtuální sloupec `likes_exists` přejmenovaný na `is_liked` (true/false) podle přihlášeného uživatele
+                    ->withExists(['likes as is_liked' => function ($query) use ($authId) {
+                        $query->where('where_id', $authId) // Předpokládám standardní user_id cizí klíč v tabulce likes
+                            ->orWhere('user_id', $authId); // Pojistka pro tvé pojmenování sloupce
+                    }])
+                    ->latest()
+                    ->get()
+                    ->map(function ($post) {
+                        return [
+                            'id' => $post->id,
+                            'author' => $post->author->name ?? 'UNKNOWN_NODE',
+                            'content' => $post->content,
+                            'type' => $post->type,
+                            'time' => $post->latency ?? '0.0ms', // Mapujeme DB latency na Vue 'time'
+                            'likes_count' => $post->likes_count ?? 0,
+                            'is_liked' => (bool) $post->is_liked, // ZÁSADNÍ OPRAVA: Předáváme boolean stav do Pinia store hydratace!
+                            'comments_count' => $post->comments->count(),
+                            'image' => $post->image_url,
+                            'image_meta' => $post->image_meta,
+                            'comments' => $post->comments->map(function ($comment) {
+                                return [
+                                    'id' => $comment->id,
+                                    'author' => $comment->author->name ?? 'ANONYMOUS',
+                                    'text' => $comment->content,
+                                    'timestamp' => $comment->created_at->format('H:i'),
+                                ];
+                            })->toArray(),
+                        ];
+                    })->toArray(),
+            ];
+
+            // FIX: Voláme nový job. Pokud uživatel dá refresh, stavová pojistka uvnitř jobu
+            // zabrání tomu, aby bot poslal zprávu podruhé.
+            HandleAgentResponse::dispatch($authId)->delay(now()->addSeconds(7));
+        }
+
+        return Inertia::render('Welcome', $props);
+    }
+
+    private function getFriendshipData($authId): array
+    {
+        // 1. ŽÁDOSTI O PROPOJENÍ (Čekající žádosti, kde přihlášený uživatel je příjemcem)
+        $requests = Friendship::where('recipient_id', $authId)
+            ->where('status', 'pending')
+            ->join('users', 'friendships.sender_id', '=', 'users.id')
+            ->select(
+                'friendships.id',
+                'users.id as user_id',
+                'users.name',
+                'users.role',
+                'users.bio',
+                'users.trust_level',
+                'users.latency',
+                'users.avatar_url as avatar',
+                'friendships.status'
+            )
+            ->get()
+            ->toArray();
+
+        // 2. AKTIVNÍ SPOJENÍ (Akceptované linky, kde figuruješ jako odesílatel nebo příjemce)
+        $active = Friendship::where(function ($q) use ($authId) {
+            $q->where('sender_id', $authId)->orWhere('recipient_id', $authId);
+        })
+            ->where('status', 'accepted')
+            ->get()
+            ->map(function ($friendship) use ($authId) {
+                $friendId = $friendship->sender_id == $authId ? $friendship->recipient_id : $friendship->sender_id;
+                $friend = User::find($friendId);
+
+                if (! $friend) {
+                    return null;
+                }
+
+                return [
+                    'id' => $friendship->id,
+                    'user_id' => $friend->id,
+                    'name' => $friend->name,
+                    'role' => $friend->role ?? 'EXTERNAL_NODE',
+                    'bio' => $friend->bio ?? '"Šifrované bio prázdné."',
+                    'trust_level' => $friend->trust_level ?? 50,
+                    'latency' => $friend->latency ?? '24ms_STABLE',
+                    'avatar' => $friend->avatar_url,
+                    'status' => 'accepted',
+                ];
+            })
+            ->filter()
+            ->values()
+            ->toArray();
+
+        return [
+            'requests' => $requests,
+            'active' => $active,
+        ];
+    }
+}
 </file>
 
 <file path="app/Jobs/SendFriendRequest.php">
@@ -8113,71 +8350,6 @@ export default defineConfig(({ mode }) => {
         ],
     };
 });
-</file>
-
-<file path="app/Models/User.php">
-<?php
-
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-
-class User extends Authenticatable
-{
-    use HasFactory, Notifiable;
-
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'handle',
-        'faction',
-        'avatar_url',
-        'is_ai',
-        'system_prompt',
-        'model',
-    ];
-
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array<int, string>
-     */
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
-
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
-    }
-
-    public function receivedRequests()
-    {
-        return $this->hasMany(Friendship::class, 'recipient_id')->where('status', 'pending');
-    }
-
-    public function sentRequests()
-    {
-        return $this->hasMany(Friendship::class, 'sender_id');
-    }
-}
 </file>
 
 <file path="database/seeders/DatabaseSeeder.php">
@@ -8660,6 +8832,94 @@ defineEmits(['open']);
     }
 }
 </style>
+</file>
+
+<file path="app/Models/User.php">
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
+{
+    use HasFactory, Notifiable;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'handle',
+        'faction',
+        'avatar_url',
+        'is_ai',
+        'system_prompt',
+        'model',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var array<int, string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+        ];
+    }
+
+    /**
+     * Vztah: Uživatel přijal žádosti o přátelství
+     */
+    public function receivedRequests(): HasMany
+    {
+        return $this->hasMany(Friendship::class, 'recipient_id')->where('status', 'pending');
+    }
+
+    /**
+     * Vztah: Uživatel odeslal žádosti o přátelství
+     */
+    public function sentRequests(): HasMany
+    {
+        return $this->hasMany(Friendship::class, 'sender_id');
+    }
+
+    /**
+     * Vztah: Uživatel vytvořil lajky
+     */
+    public function likes(): HasMany
+    {
+        return $this->hasMany(Like::class);
+    }
+
+    /**
+     * Vztah: Uživatel vytvořil komentáře
+     */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(Comment::class);
+    }
+}
 </file>
 
 <file path="package.json">
@@ -9222,6 +9482,252 @@ watch(isOpened, (newVal) => {
 </template>
 </file>
 
+<file path="resources/js/Components/NeonSocialActions.vue">
+<script setup>
+import { UserPlus, MessageSquareCode, BellDot, Home } from '@lucide/vue';
+import { useNotificationStore } from '@/Stores/useNotificationStore';
+
+defineProps({
+    activeTab: { type: String, default: 'feed' },
+    isMobile: { type: Boolean, default: false }
+});
+
+const store = useNotificationStore();
+defineEmits(['change-view']);
+</script>
+
+<template>
+    <component :is="isMobile ? 'div' : 'aside'"
+        :class="isMobile ? 'mobile-dock-position z-50 w-[92%] max-w-sm' : 'fixed left-8 top-1/2 -translate-y-1/2 z-50 hidden xl:block'">
+        <div class="neon-panel-wrapper"
+            :class="isMobile ? 'h-16 w-full rounded-full !p-[1px]' : 'h-[75vh] w-40 rounded-[8rem]'">
+            <div class="neon-border-active" :class="{ 'mobile-border-override': isMobile }"></div>
+            <div class="neon-glass-core"
+                :class="isMobile ? '!flex-row !items-center justify-around h-full w-full rounded-full px-4 py-2' : 'rounded-[7.8rem] py-16 flex flex-col items-center justify-between h-full'">
+                <h2 v-if="!isMobile"
+                    class="text-purple-400 font-bold text-[7px] uppercase tracking-[0.5em] mb-8 opacity-50 vertical-text">
+                    Neon_Hub</h2>
+                <div
+                    :class="isMobile ? 'flex flex-row w-full h-full justify-around items-center' : 'flex-1 h-full flex flex-col justify-around w-full items-center relative'">
+                    <div class="action-item group"
+                        :class="{ 'is-active': activeTab === 'feed', 'is-mobile-item': isMobile }"
+                        @click="$emit('change-view', 'feed')">
+                        <span class="label">SYSTEM</span>
+                        <div class="icon-style">
+                            <Home :size="isMobile ? 22 : 32" :stroke-width="1.5" />
+                        </div>
+                    </div>
+                    <div class="action-item group"
+                        :class="{ 'is-active': activeTab === 'friends' || activeTab === 'profile', 'is-mobile-item': isMobile }"
+                        @click="$emit('change-view', 'friends')">
+                        <span class="label">FRIENDS</span>
+                        <div class="icon-style relative">
+                            <UserPlus :size="isMobile ? 22 : 32" :stroke-width="1.5" />
+
+                            <div v-if="store.hasUnreadRequests"
+                                class="absolute bg-purple-400 rounded-full animate-pulse shadow-[0_0_10px_#c084fc]"
+                                :class="isMobile ? '-top-0.5 -right-0.5 w-1.5 h-1.5' : '-top-0.5 -right-0.5 w-2 h-2'">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="action-item group"
+                        :class="{ 'is-active': activeTab === 'messages', 'is-mobile-item': isMobile }"
+                        @click="$emit('change-view', 'messages')">
+                        <span class="label">MESSAGES</span>
+                        <div class="icon-style relative">
+                            <MessageSquareCode :size="isMobile ? 22 : 32" :stroke-width="1.5" />
+                            <div v-if="store.hasUnreadMessages"
+                                class="absolute bg-rose-500 rounded-full animate-pulse shadow-[0_0_10px_#f43f5e]"
+                                :class="isMobile ? '-top-0.5 -right-0.5 w-1.5 h-1.5' : '-top-0.5 -right-0.5 w-2 h-2'">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="action-item group"
+                        :class="{ 'is-active': activeTab === 'notifications', 'is-mobile-item': isMobile }"
+                        @click="$emit('change-view', { view: 'notifications', fromMobile: isMobile })">
+                        <span class="label">ALERTS</span>
+                        <div class="icon-style relative">
+                            <BellDot :size="isMobile ? 22 : 32" :stroke-width="1.5" />
+                            <div v-if="store.hasUnreadAlerts"
+                                class="absolute bg-rose-500 rounded-full animate-pulse shadow-[0_0_10px_#f43f5e]"
+                                :class="isMobile ? '-top-0.5 -right-0.5 w-1.5 h-1.5' : '-top-0.5 -right-0.5 w-2 h-2'">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </component>
+</template>
+
+<style scoped>
+.mobile-dock-position {
+    position: fixed !important;
+    bottom: 24px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 92% !important;
+    max-width: 360px !important;
+    height: 64px !important;
+    border-radius: 9999px !important;
+    padding: 1px !important;
+    z-index: 9999 !important;
+}
+
+:deep(.neon-border-active).mobile-border-override {
+    top: -100% !important;
+    left: -50% !important;
+    width: 200% !important;
+    height: 300% !important;
+}
+
+.mobile-dock-position :deep(.neon-glass-core)::before,
+.mobile-dock-position :deep(.neon-glass-core)::after {
+    display: none !important;
+}
+
+.vertical-text {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+}
+
+.action-item {
+    @apply relative flex flex-col items-center cursor-pointer transition-all duration-300;
+    will-change: transform;
+}
+
+.is-mobile-item {
+    @apply flex-col-reverse justify-center items-center h-full flex-1;
+    gap: 5px !important;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.action-item:hover {
+    transform: scale(1.1);
+}
+
+.is-mobile-item:active {
+    transform: scale(0.95);
+}
+
+.label {
+    @apply text-[7px] font-mono text-sky-400/50 uppercase transition-all duration-300 select-none text-center;
+    text-shadow: 0 0 5px rgba(56, 189, 248, 0.2);
+}
+
+.action-item:not(.is-mobile-item) .label {
+    @apply mb-2 tracking-[0.3em];
+}
+
+.is-mobile-item .label {
+    @apply mt-0 tracking-[0.15em] text-[7px];
+}
+
+.icon-style {
+    @apply transition-all duration-300 text-sky-200/30 flex items-center justify-center;
+    filter: drop-shadow(0 0 2px rgba(56, 189, 248, 0.1));
+}
+
+.action-item:hover .icon-style,
+.action-item.is-active .icon-style {
+    @apply text-white;
+    filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.9)) drop-shadow(0 0 16px rgba(194, 49, 162, 0.5));
+}
+
+.action-item:hover .label,
+.action-item.is-active .label {
+    @apply text-sky-300 opacity-100;
+    text-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+}
+</style>
+</file>
+
+<file path="resources/js/Components/NeonTechDashboard.vue">
+<script setup>
+import { computed } from 'vue';
+import { storeToRefs } from 'pinia';
+import { Cpu, ShieldAlert } from '@lucide/vue';
+import { useNotificationStore } from '@/Stores/useNotificationStore';
+
+const props = defineProps({ isOpened: Boolean, mode: String });
+const store = useNotificationStore();
+
+// Tady si vytáhneme reaktivní referenci na 'alerts'
+const { alerts } = storeToRefs(store);
+
+const isAlertMode = computed(() => props.mode === 'alerts');
+</script>
+
+<template>
+    <aside class="xl:fixed xl:right-8 xl:top-1/2 xl:-translate-y-1/2 xl:z-50 flex items-center justify-center">
+        <div class="neon-panel-wrapper xl:h-[85vh] h-full xl:w-72 w-full max-w-none rounded-[3rem]">
+            <div class="neon-border-active"
+                :class="{ '!border-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.3)]': isAlertMode }"></div>
+            <div class="neon-glass-core rounded-[3rem] py-12 flex flex-col h-full overflow-hidden relative">
+                <div class="flex items-center gap-3 border-b border-white/5 pb-4 mb-6 w-full px-6">
+                    <component :is="isAlertMode ? ShieldAlert : Cpu" class="animate-pulse"
+                        :class="isAlertMode ? 'text-rose-500' : 'text-sky-400'" :size="18" />
+                    <h3 class="text-[10px] font-black uppercase tracking-[0.3em]"
+                        :class="isAlertMode ? 'text-rose-400' : 'text-white/70'">
+                        {{ isAlertMode ? 'Alert_Center' : 'Core_Engine_v.13' }}
+                    </h3>
+                </div>
+                <div class="flex-1 w-full px-6 overflow-hidden relative">
+                    <transition name="fade-slide" mode="out-in">
+                        <div v-if="!isAlertMode" key="diag" class="flex flex-col h-full space-y-8">
+                        </div>
+                        <div v-else key="alerts" class="flex flex-col h-full">
+                            <div class="space-y-3 overflow-y-auto pr-1 custom-scroll">
+                                <div v-for="notif in alerts" :key="notif.id"
+                                    class="p-3 border border-white/5 bg-white/5 rounded-xl">
+                                    <div class="flex justify-between mb-1">
+                                        <span class="text-[7px] font-black uppercase"
+                                            :class="notif.type === 'alert' ? 'text-rose-500' : 'text-sky-500'">{{
+                                                notif.title }}</span>
+                                        <span class="text-[7px] text-white/20 font-mono">{{ notif.time }}</span>
+                                    </div>
+                                    <p class="text-[9px] text-white/60">{{ notif.msg }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </transition>
+                </div>
+            </div>
+        </div>
+    </aside>
+</template>
+
+<style scoped>
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fade-slide-enter-from {
+    opacity: 0;
+    transform: translateX(20px);
+}
+
+.fade-slide-leave-to {
+    opacity: 0;
+    transform: translateX(-20px);
+}
+
+.custom-scroll::-webkit-scrollbar {
+    width: 2px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+.neon-panel-wrapper {
+    transition: all 0.5s ease;
+}
+</style>
+</file>
+
 <file path="resources/js/Stores/useNotificationStore.js">
 import { defineStore } from "pinia";
 import axios from "axios";
@@ -9254,6 +9760,29 @@ export const useNotificationStore = defineStore("notifications", {
     },
 
     actions: {
+        async toggleLike(post) {
+            // Uložíme si původní stav pro případ, že by selhala sítě (rollback)
+            const originalIsLiked = post.is_liked;
+            const originalCount = post.likes_count || 0;
+
+            // OPTIMISTICKÝ UPDATE: Okamžitě změníme stav v UI
+            post.is_liked = !post.is_liked;
+            post.likes_count = originalCount + (post.is_liked ? 1 : -1);
+
+            try {
+                if (post.is_liked) {
+                    await axios.post(`/posts/${post.id}/like`);
+                } else {
+                    await axios.delete(`/posts/${post.id}/like`);
+                }
+            } catch (error) {
+                console.error("Failed to sync pulse reaction:", error);
+                // Síť nebo server selhal -> vrátíme původní hodnoty
+                post.is_liked = originalIsLiked;
+                post.likes_count = originalCount;
+            }
+        },
+
         async fetchMessages() {
             try {
                 const response = await axios.get(route("messages.index"));
@@ -9442,182 +9971,28 @@ export const useNotificationStore = defineStore("notifications", {
                     this.updateFriendRequestStatus(e.friendshipId, "accepted"),
                 )
                 .listen("MessageReceived", (e) => {
-                    // Ošetření struktury payloadu (podpora e.data i e.message z backendu)
                     const incomingMessage = e.data || e.message;
                     if (incomingMessage) {
                         this.addMessage(incomingMessage);
                     }
                 })
-
                 .listen(".PostCreated", (e) => {
                     const incomingPost = e.data || e.post;
                     if (incomingPost) {
-                        this.addPost(incomingPost); // Prásk! A vyskočí modrý banner "Nové příspěvky"
+                        this.addPost(incomingPost);
                     }
                 });
+
+            window.Echo.channel("posts").listen(".PostLiked", (e) => {
+                // Najdeme post v poli a aktualizujeme pouze jeho počítadlo
+                const post = this.posts.find((p) => p.id === e.postId);
+                if (post) {
+                    post.likes_count = e.likesCount;
+                }
+            });
         },
     },
 });
-</file>
-
-<file path="resources/js/Components/NeonSocialActions.vue">
-<script setup>
-import { UserPlus, MessageSquareCode, BellDot, Home } from '@lucide/vue';
-import { useNotificationStore } from '@/Stores/useNotificationStore';
-
-defineProps({
-    activeTab: { type: String, default: 'feed' },
-    isMobile: { type: Boolean, default: false }
-});
-
-const store = useNotificationStore();
-defineEmits(['change-view']);
-</script>
-
-<template>
-    <component :is="isMobile ? 'div' : 'aside'"
-        :class="isMobile ? 'mobile-dock-position z-50 w-[92%] max-w-sm' : 'fixed left-8 top-1/2 -translate-y-1/2 z-50 hidden xl:block'">
-        <div class="neon-panel-wrapper"
-            :class="isMobile ? 'h-16 w-full rounded-full !p-[1px]' : 'h-[75vh] w-40 rounded-[8rem]'">
-            <div class="neon-border-active" :class="{ 'mobile-border-override': isMobile }"></div>
-            <div class="neon-glass-core"
-                :class="isMobile ? '!flex-row !items-center justify-around h-full w-full rounded-full px-4 py-2' : 'rounded-[7.8rem] py-16 flex flex-col items-center justify-between h-full'">
-                <h2 v-if="!isMobile"
-                    class="text-purple-400 font-bold text-[7px] uppercase tracking-[0.5em] mb-8 opacity-50 vertical-text">
-                    Neon_Hub</h2>
-                <div
-                    :class="isMobile ? 'flex flex-row w-full h-full justify-around items-center' : 'flex-1 h-full flex flex-col justify-around w-full items-center relative'">
-                    <div class="action-item group"
-                        :class="{ 'is-active': activeTab === 'feed', 'is-mobile-item': isMobile }"
-                        @click="$emit('change-view', 'feed')">
-                        <span class="label">SYSTEM</span>
-                        <div class="icon-style">
-                            <Home :size="isMobile ? 22 : 32" :stroke-width="1.5" />
-                        </div>
-                    </div>
-                    <div class="action-item group"
-                        :class="{ 'is-active': activeTab === 'friends' || activeTab === 'profile', 'is-mobile-item': isMobile }"
-                        @click="$emit('change-view', 'friends')">
-                        <span class="label">FRIENDS</span>
-                        <div class="icon-style relative">
-                            <UserPlus :size="isMobile ? 22 : 32" :stroke-width="1.5" />
-
-                            <div v-if="store.hasUnreadRequests"
-                                class="absolute bg-purple-400 rounded-full animate-pulse shadow-[0_0_10px_#c084fc]"
-                                :class="isMobile ? '-top-0.5 -right-0.5 w-1.5 h-1.5' : '-top-0.5 -right-0.5 w-2 h-2'">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="action-item group"
-                        :class="{ 'is-active': activeTab === 'messages', 'is-mobile-item': isMobile }"
-                        @click="$emit('change-view', 'messages')">
-                        <span class="label">MESSAGES</span>
-                        <div class="icon-style relative">
-                            <MessageSquareCode :size="isMobile ? 22 : 32" :stroke-width="1.5" />
-                            <div v-if="store.hasUnreadMessages"
-                                class="absolute bg-rose-500 rounded-full animate-pulse shadow-[0_0_10px_#f43f5e]"
-                                :class="isMobile ? '-top-0.5 -right-0.5 w-1.5 h-1.5' : '-top-0.5 -right-0.5 w-2 h-2'">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="action-item group"
-                        :class="{ 'is-active': activeTab === 'notifications', 'is-mobile-item': isMobile }"
-                        @click="$emit('change-view', { view: 'notifications', fromMobile: isMobile })">
-                        <span class="label">ALERTS</span>
-                        <div class="icon-style relative">
-                            <BellDot :size="isMobile ? 22 : 32" :stroke-width="1.5" />
-                            <div v-if="store.hasUnreadAlerts"
-                                class="absolute bg-rose-500 rounded-full animate-pulse shadow-[0_0_10px_#f43f5e]"
-                                :class="isMobile ? '-top-0.5 -right-0.5 w-1.5 h-1.5' : '-top-0.5 -right-0.5 w-2 h-2'">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </component>
-</template>
-
-<style scoped>
-.mobile-dock-position {
-    position: fixed !important;
-    bottom: 24px !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    width: 92% !important;
-    max-width: 360px !important;
-    height: 64px !important;
-    border-radius: 9999px !important;
-    padding: 1px !important;
-    z-index: 9999 !important;
-}
-
-:deep(.neon-border-active).mobile-border-override {
-    top: -100% !important;
-    left: -50% !important;
-    width: 200% !important;
-    height: 300% !important;
-}
-
-.mobile-dock-position :deep(.neon-glass-core)::before,
-.mobile-dock-position :deep(.neon-glass-core)::after {
-    display: none !important;
-}
-
-.vertical-text {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-}
-
-.action-item {
-    @apply relative flex flex-col items-center cursor-pointer transition-all duration-300;
-    will-change: transform;
-}
-
-.is-mobile-item {
-    @apply flex-col-reverse justify-center items-center h-full flex-1;
-    gap: 5px !important;
-    -webkit-tap-highlight-color: transparent;
-}
-
-.action-item:hover {
-    transform: scale(1.1);
-}
-
-.is-mobile-item:active {
-    transform: scale(0.95);
-}
-
-.label {
-    @apply text-[7px] font-mono text-sky-400/50 uppercase transition-all duration-300 select-none text-center;
-    text-shadow: 0 0 5px rgba(56, 189, 248, 0.2);
-}
-
-.action-item:not(.is-mobile-item) .label {
-    @apply mb-2 tracking-[0.3em];
-}
-
-.is-mobile-item .label {
-    @apply mt-0 tracking-[0.15em] text-[7px];
-}
-
-.icon-style {
-    @apply transition-all duration-300 text-sky-200/30 flex items-center justify-center;
-    filter: drop-shadow(0 0 2px rgba(56, 189, 248, 0.1));
-}
-
-.action-item:hover .icon-style,
-.action-item.is-active .icon-style {
-    @apply text-white;
-    filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.9)) drop-shadow(0 0 16px rgba(194, 49, 162, 0.5));
-}
-
-.action-item:hover .label,
-.action-item.is-active .label {
-    @apply text-sky-300 opacity-100;
-    text-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
-}
-</style>
 </file>
 
 <file path="resources/js/Components/NeonSocialPost.vue">
@@ -9625,13 +10000,16 @@ defineEmits(['change-view']);
 import { ref, onMounted, nextTick } from 'vue';
 import { Heart, MessageSquare, Eye } from 'lucide-vue-next';
 import NeonCommentSection from './NeonCommentSection.vue';
+import { useNotificationStore } from '@/Stores/useNotificationStore';
 
 defineProps(['post']);
+
+// Inicializace storu pro obsluhu real-time lajků (Pulse)
+const notificationStore = useNotificationStore();
 
 const cardRef = ref(null);
 const isVisible = ref(false);
 const showComments = ref(false);
-
 
 const toggleComments = () => {
     // Prostě jenom otočíme true/false a zbytek necháme na přírodě.
@@ -9711,9 +10089,13 @@ onMounted(() => {
                     class="w-full mt-4 md:mt-5 pt-4 border-t border-white/5 flex justify-between items-center text-slate-500">
                     <div class="flex gap-5 md:gap-8">
 
-                        <button
+                        <button @click="notificationStore.toggleLike(post)"
                             class="group flex items-center gap-2 font-mono text-[10px] hover:text-sky-400 transition-colors uppercase tracking-widest outline-none">
-                            <Heart :size="13" class="group-hover:scale-110 transition-transform" />
+                            <Heart :size="13" :class="[
+                                post.is_liked
+                                    ? 'text-sky-400 fill-sky-400/20 drop-shadow-[0_0_8px_#3b82f6] scale-110'
+                                    : 'group-hover:scale-110 transition-transform'
+                            ]" class="transition-all duration-300" />
                             <span>Pulse</span>
                             <span class="text-sky-500/50 font-bold">({{ post.likes_count || 0 }})</span>
                         </button>
@@ -9746,97 +10128,12 @@ onMounted(() => {
 </template>
 </file>
 
-<file path="resources/js/Components/NeonTechDashboard.vue">
-<script setup>
-import { computed } from 'vue';
-import { storeToRefs } from 'pinia';
-import { Cpu, ShieldAlert } from '@lucide/vue';
-import { useNotificationStore } from '@/Stores/useNotificationStore';
-
-const props = defineProps({ isOpened: Boolean, mode: String });
-const store = useNotificationStore();
-
-// Tady si vytáhneme reaktivní referenci na 'alerts'
-const { alerts } = storeToRefs(store);
-
-const isAlertMode = computed(() => props.mode === 'alerts');
-</script>
-
-<template>
-    <aside class="xl:fixed xl:right-8 xl:top-1/2 xl:-translate-y-1/2 xl:z-50 flex items-center justify-center">
-        <div class="neon-panel-wrapper xl:h-[85vh] h-full xl:w-72 w-full max-w-none rounded-[3rem]">
-            <div class="neon-border-active"
-                :class="{ '!border-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.3)]': isAlertMode }"></div>
-            <div class="neon-glass-core rounded-[3rem] py-12 flex flex-col h-full overflow-hidden relative">
-                <div class="flex items-center gap-3 border-b border-white/5 pb-4 mb-6 w-full px-6">
-                    <component :is="isAlertMode ? ShieldAlert : Cpu" class="animate-pulse"
-                        :class="isAlertMode ? 'text-rose-500' : 'text-sky-400'" :size="18" />
-                    <h3 class="text-[10px] font-black uppercase tracking-[0.3em]"
-                        :class="isAlertMode ? 'text-rose-400' : 'text-white/70'">
-                        {{ isAlertMode ? 'Alert_Center' : 'Core_Engine_v.13' }}
-                    </h3>
-                </div>
-                <div class="flex-1 w-full px-6 overflow-hidden relative">
-                    <transition name="fade-slide" mode="out-in">
-                        <div v-if="!isAlertMode" key="diag" class="flex flex-col h-full space-y-8">
-                        </div>
-                        <div v-else key="alerts" class="flex flex-col h-full">
-                            <div class="space-y-3 overflow-y-auto pr-1 custom-scroll">
-                                <div v-for="notif in alerts" :key="notif.id"
-                                    class="p-3 border border-white/5 bg-white/5 rounded-xl">
-                                    <div class="flex justify-between mb-1">
-                                        <span class="text-[7px] font-black uppercase"
-                                            :class="notif.type === 'alert' ? 'text-rose-500' : 'text-sky-500'">{{
-                                                notif.title }}</span>
-                                        <span class="text-[7px] text-white/20 font-mono">{{ notif.time }}</span>
-                                    </div>
-                                    <p class="text-[9px] text-white/60">{{ notif.msg }}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </transition>
-                </div>
-            </div>
-        </div>
-    </aside>
-</template>
-
-<style scoped>
-.fade-slide-enter-active,
-.fade-slide-leave-active {
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.fade-slide-enter-from {
-    opacity: 0;
-    transform: translateX(20px);
-}
-
-.fade-slide-leave-to {
-    opacity: 0;
-    transform: translateX(-20px);
-}
-
-.custom-scroll::-webkit-scrollbar {
-    width: 2px;
-}
-
-.custom-scroll::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-}
-
-.neon-panel-wrapper {
-    transition: all 0.5s ease;
-}
-</style>
-</file>
-
 <file path="routes/web.php">
 <?php
 
 use App\Events\SystemAlertTriggered;
 use App\Http\Controllers\FriendshipController;
+use App\Http\Controllers\LikeController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NeonHubController;
 use App\Http\Controllers\ProfileController;
@@ -9852,7 +10149,9 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    // Inicializace uzlu s automatickým Sentinel pozdravem
+    Route::post('/posts/{post}/like', [LikeController::class, 'store'])->name('posts.like');
+    Route::delete('/posts/{post}/like', [LikeController::class, 'destroy'])->name('posts.unlike');
+
     Route::post('/system/initialize-node', function () {
         $userId = auth()->id();
 

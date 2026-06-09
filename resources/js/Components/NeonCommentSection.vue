@@ -1,93 +1,91 @@
 <script setup>
-import { ref } from 'vue';
-import { Send } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
+import { useNotificationStore } from '@/Stores/useNotificationStore';
 
-// Props pro předání komentářů z parent komponenty (postu)
-defineProps({
-    comments: {
-        type: Array,
-        default: () => [
-            { id: 1, author: 'Peggy_Core', text: 'Zase řešíte ty plínky a ptačák reunion? Typický.', timestamp: '02:45' },
-            { id: 2, author: 'Bedrich_420', text: 'tyvole voni tam fakt maj funkcni komentare! funguje to voe', timestamp: '03:12' }
-        ]
+const props = defineProps({
+    postId: {
+        type: [String, Number],
+        required: true
     }
 });
 
-const emit = defineEmits(['send-comment']);
-const newComment = ref('');
+const store = useNotificationStore();
+const commentText = ref('');
 
-const handleSubmit = () => {
-    if (!newComment.value.trim()) return;
-    emit('send-comment', newComment.value);
-    newComment.value = '';
-};
+// Dynamicky taháme konkrétní post přímo ze storu, aby byla zajištěna 100% real-time reaktivita
+const post = computed(() => {
+    return store.posts.find(p => String(p.id) === String(props.postId));
+});
+
+const comments = computed(() => {
+    return post.value?.comments || [];
+});
+
+async function submitComment() {
+    if (!commentText.value.trim()) return;
+
+    const text = commentText.value;
+    commentText.value = ''; // Okamžité pročištění UI (zero latency dojem)
+
+    const success = await store.sendComment(props.postId, text);
+
+    if (!success) {
+        // Pokud požadavek spadl, vrátíme text zpátky do inputu
+        commentText.value = text;
+    }
+}
 </script>
 
 <template>
-    <div class="w-full mt-6 bg-[#03060d]/60 border border-white/5 rounded-[1.5rem] p-6 md:p-8 pb-8 md:pb-8 space-y-6">
-
-        <div class="flex justify-between items-center border-b border-white/5 pb-4">
-            <span class="font-mono text-[10px] text-fuchsia-400 tracking-[0.3em] uppercase font-bold">
-                // COMMS_STREAM_ACTIVE
-            </span>
-            <span class="font-mono text-[9px] text-slate-600">
-                {{ comments.length }} TARGET_RESPONSES
-            </span>
-        </div>
-
-        <div class="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar overscroll-contain">
+    <div class="mt-4 border-t border-cyan-500/10 pt-4 font-mono">
+        <div class="space-y-3 max-h-60 overflow-y-auto pr-1 no-scrollbar mb-4">
             <div v-for="comment in comments" :key="comment.id"
-                class="group/comment flex flex-col gap-2 p-4 bg-[#070c1a]/40 border border-white/[0.02] rounded-[1rem] transition-colors hover:bg-[#070c1a]/80">
-
-                <div class="flex justify-between items-center">
-                    <span class="font-mono text-xs text-sky-400/80 font-bold uppercase tracking-wider">
-                        {{ comment.author }}
-                    </span>
-                    <span class="font-mono text-[9px] text-slate-600 tracking-widest">
-                        T+{{ comment.timestamp }}
-                    </span>
+                class="border-l border-fuchsia-500/30 bg-fuchsia-500/5 p-2 rounded-r-xl transition-all duration-300">
+                <div class="flex justify-between items-center text-[10px]">
+                    <span class="text-fuchsia-400 font-bold">// {{ comment.author }}</span>
+                    <span class="text-white/30 text-[8px]">{{ comment.timestamp }}</span>
                 </div>
-
-                <p
-                    class="text-slate-300 text-sm font-light leading-relaxed text-left pl-2 border-l border-sky-500/20 group-hover/comment:border-fuchsia-500/40 transition-colors">
+                <div class="text-xs text-white/90 mt-1 break-words">
                     {{ comment.text }}
-                </p>
+                </div>
+            </div>
+
+            <div v-if="comments.length === 0" class="text-center text-white/20 text-[10px] py-2">
+                >> NO_COMMENTS_IN_NODE
             </div>
         </div>
 
-        <form @submit.prevent="handleSubmit" class="relative flex items-center mt-4">
-            <input v-model="newComment" type="text" placeholder="Napiš odpověď do sítě..."
-                class="w-full bg-[#050914] border border-white/10 rounded-[1rem] px-6 py-4 pr-16 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-fuchsia-500/50 focus:shadow-[0_0_20px_rgba(217,70,239,0.05)] transition-all font-light" />
-            <button type="submit"
-                class="absolute right-3 p-2.5 text-slate-500 hover:text-fuchsia-400 transition-colors outline-none">
-                <Send :size="16" />
-            </button>
-        </form>
-
+        <div class="border border-cyan-500/20 p-1.5 bg-black/40 rounded-xl">
+            <div class="flex gap-2">
+                <input v-model="commentText" type="text" placeholder="Write a comment..."
+                    class="bg-black border border-cyan-500/10 rounded-lg px-3 py-1.5 text-xs text-white w-full focus:outline-none focus:border-cyan-500 transition-all duration-300"
+                    @keyup.enter="submitComment" />
+                <button @click="submitComment"
+                    class="text-[10px] bg-cyan-500 text-black px-4 py-1.5 rounded-lg font-bold hover:bg-cyan-400 active:scale-95 transition-all shrink-0">
+                    EXECUTE
+                </button>
+            </div>
+        </div>
     </div>
 </template>
 
 <style scoped>
-/* Čistý sci-fi scrollbar */
-.custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
+/* Skrytí scrollbaru při zachování funkčnosti scrollování */
+.no-scrollbar::-webkit-scrollbar {
+    width: 3px;
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
+.no-scrollbar::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(56, 189, 248, 0.1);
-    border-radius: 10px;
+.no-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(6, 182, 212, 0.2);
+    border-radius: 2px;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(217, 70, 239, 0.3);
-}
-
-/* ZMĚNA: Přidán nativní fallback pro starší prohlížeče (i když na 2026 už overscroll-contain funguje všude) */
-.overscroll-contain {
-    overscroll-behavior: contain;
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }
 </style>

@@ -31,33 +31,37 @@ class NeonHubController extends Controller
 
                 // TADY TO PŘIPOJUJEME: Načteme posty, autory, komentáře a zjistíme stav lajků
                 'posts' => Post::with(['author', 'comments.author'])
-                    // Dynamicky spočítá lajky z relace (pokud nemáš v DB tabulce pevný sloupec)
                     ->withCount('likes')
-                    // Vytvoří virtuální sloupec `likes_exists` přejmenovaný na `is_liked` (true/false) podle přihlášeného uživatele
+    // 1. OPRAVA SQL: Správně seskupíme where podmínky do závorek
                     ->withExists(['likes as is_liked' => function ($query) use ($authId) {
-                        $query->where('where_id', $authId) // Předpokládám standardní user_id cizí klíč v tabulce likes
-                            ->orWhere('user_id', $authId); // Pojistka pro tvé pojmenování sloupce
+                        $query->where(function ($q) use ($authId) {
+                            $q->where('where_id', $authId)
+                                ->orWhere('user_id', $authId);
+                        });
                     }])
                     ->latest()
                     ->get()
-                    ->map(function ($post) {
+    // 2. OPRAVA MAPOVÁNÍ: Musíme sem předat use ($authId), jinak is_liked v mapě nefunguje!
+                    ->map(function ($post) use ($authId) {
                         return [
                             'id' => $post->id,
                             'author' => $post->author->name ?? 'UNKNOWN_NODE',
                             'content' => $post->content,
                             'type' => $post->type,
-                            'time' => $post->latency ?? '0.0ms', // Mapujeme DB latency na Vue 'time'
+                            'time' => $post->latency ?? '0.0ms',
                             'likes_count' => $post->likes_count ?? 0,
-                            'is_liked' => (bool) $post->is_liked, // ZÁSADNÍ OPRAVA: Předáváme boolean stav do Pinia store hydratace!
+                            // Teď už bude hodnota odpovídat realitě v DB:
+                            'is_liked' => (bool) $post->is_liked,
                             'comments_count' => $post->comments->count(),
                             'image' => $post->image_url,
                             'image_meta' => $post->image_meta,
-                            'comments' => $post->comments->map(function ($comment) {
+                            'comments' => $post->comments->map(function ($comment) use ($authId) {
                                 return [
                                     'id' => $comment->id,
                                     'author' => $comment->author->name ?? 'ANONYMOUS',
                                     'text' => $comment->content,
                                     'timestamp' => $comment->created_at->format('H:i'),
+                                    'can_edit' => $comment->user_id === $authId,
                                 ];
                             })->toArray(),
                         ];
