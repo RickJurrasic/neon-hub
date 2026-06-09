@@ -15,31 +15,59 @@ class CommentController extends Controller
      */
     public function store(Request $request, Post $post)
     {
+
         $validated = $request->validate([
+
             'content' => 'required|string|max:1000',
+
         ]);
 
         $comment = $post->comments()->create([
+
             'user_id' => auth()->id(),
+
             'content' => $validated['content'],
+
         ]);
 
         $commentData = [
+
             'id' => $comment->id,
+
             'post_id' => $post->id,
+
             'content' => $comment->content,
-            'author' => [
-                'name' => auth()->user()->name,
-            ],
+
+            'author' => auth()->user()->name,
+
+            'timestamp' => $comment->created_at->format('H:i'),
+
             'created_at' => $comment->created_at->toIso8601String(),
+
         ];
 
-        // Odpálíme real-time synchronizaci pro ostatní připojené uzly
-        broadcast(new CommentCreated($post->id, $commentData))->toOthers();
-        event(new NewActivityAlert($post->user_id, 'Někdo komentoval tvůj post.'));
+        // Real-time broadcast pro ostatní uživatele (aktualizace feedu)
 
-        // Vrátíme přímou JSON odpověď odesílateli pro okamžitý zápis do Pinie
+        broadcast(new CommentCreated($post->id, $commentData, $post->user_id))->toOthers();
+
+        // Notifikace autora postu (pokud to není jeho vlastní komentář)
+
+        if ($post->user_id !== auth()->id()) {
+
+            event(new NewActivityAlert(
+
+                $post->user_id,
+
+                auth()->user()->name.' commented on your post.'
+
+            ));
+
+        }
+
+        // Vrátíme data pro okamžité zobrazení odesílateli
+
         return response()->json($commentData);
+
     }
 
     /**
@@ -47,22 +75,34 @@ class CommentController extends Controller
      */
     public function update(Request $request, Comment $comment)
     {
+
         if ($comment->user_id !== auth()->id()) {
+
             return response()->json(['error' => 'ACCESS_DENIED'], 403);
+
         }
 
         $validated = $request->validate([
+
             'content' => 'required|string|max:1000',
+
         ]);
 
         $comment->update([
+
             'content' => $validated['content'],
+
         ]);
 
         return response()->json([
+
             'id' => $comment->id,
+
             'content' => $comment->content,
+
             'status' => 'NODE_UPDATED',
+
         ]);
+
     }
 }
