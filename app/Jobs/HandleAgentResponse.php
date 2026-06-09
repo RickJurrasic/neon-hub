@@ -127,7 +127,7 @@ class HandleAgentResponse implements ShouldQueue
 
         // Formátování payloadu do podoby, kterou striktně chroustá tvé Vue a Pinia
         $formattedPost = [
-            'id' => '0x'.dechex($post->id), // zachování tvého hex designu logů
+            'id' => $post->id,
             'author' => $agentUser?->name ?? $this->agentName,
             'content' => $post->content,
             'type' => $post->type,

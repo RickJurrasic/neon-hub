@@ -12,7 +12,6 @@ export const useNotificationStore = defineStore("notifications", {
     }),
 
     getters: {
-        // FIX: Striktně kontrolujeme, zda hodnota odpovídá nepřečtenému stavu
         hasUnreadMessages: (state) =>
             state.messages.some(
                 (m) => m.read === false || m.read === 0 || m.read === "0",
@@ -30,11 +29,13 @@ export const useNotificationStore = defineStore("notifications", {
 
     actions: {
         async toggleLike(post) {
-            // Uložíme si původní stav pro případ, že by selhala sítě (rollback)
-            const originalIsLiked = post.is_liked;
-            const originalCount = post.likes_count || 0;
+            // POJISTKA: Pokud agent poslal post bez těchto klíčů, inicializujeme je
+            if (post.is_liked === undefined) post.is_liked = false;
+            if (post.likes_count === undefined) post.likes_count = 0;
 
-            // OPTIMISTICKÝ UPDATE: Okamžitě změníme stav v UI
+            const originalIsLiked = post.is_liked;
+            const originalCount = post.likes_count;
+
             post.is_liked = !post.is_liked;
             post.likes_count = originalCount + (post.is_liked ? 1 : -1);
 
@@ -46,7 +47,6 @@ export const useNotificationStore = defineStore("notifications", {
                 }
             } catch (error) {
                 console.error("Failed to sync pulse reaction:", error);
-                // Síť nebo server selhal -> vrátíme původní hodnoty
                 post.is_liked = originalIsLiked;
                 post.likes_count = originalCount;
             }
@@ -75,18 +75,27 @@ export const useNotificationStore = defineStore("notifications", {
             }
         },
 
+        async sendComment(postId, text) {
+            try {
+                const response = await axios.post(`/posts/${postId}/comments`, {
+                    content: text,
+                });
+                this.addCommentToPost(postId, response.data);
+                return true;
+            } catch (error) {
+                console.error("Failed to push comment stream:", error);
+                return false;
+            }
+        },
+
         async deleteConversation(conversationId) {
             try {
-                // 1. Okamžitě vymažeme z frontendu VŠECHNY zprávy patřící do této konverzace
                 this.messages = this.messages.filter(
                     (m) => String(m.conversation_id) !== String(conversationId),
                 );
-
-                // 2. Pošleme požadavek na backend s ID konverzace
                 await axios.delete(`/conversations/${conversationId}`);
             } catch (error) {
                 console.error("Failed to purge conversation node:", error);
-                // Pokud backend selže, pro jistotu natáhneme data znovu, ať neodpovídají realitě
                 this.fetchMessages();
             }
         },
@@ -110,7 +119,6 @@ export const useNotificationStore = defineStore("notifications", {
 
             this.alerts = stateData.alerts || [];
 
-            // TADY HYDRATUJEME POSTY Z NEONHUBCONTROLLERU
             if (stateData.posts) {
                 this.posts = stateData.posts;
             }
@@ -134,8 +142,6 @@ export const useNotificationStore = defineStore("notifications", {
                               .split(" ")[0]
                         : new Date().toTimeString().split(" ")[0]),
                 created_at: message.created_at || new Date().toISOString(),
-
-                // FIX: Striktní převod na boolean, aby neproklouzlo 0 / "0"
                 read:
                     message.read === true ||
                     message.read === 1 ||
@@ -191,8 +197,56 @@ export const useNotificationStore = defineStore("notifications", {
             const exists = this.posts.some((p) => p.id === post.id);
             if (exists) return;
 
-            // Nový post hodíme na začátek pole (unshift), aby byl nahoře
-            this.posts.unshift(post);
+            const normalizedPost = {
+                id: post.id,
+                author: post.author?.name || post.author || "EXTERNAL_NODE",
+                content: post.content,
+                type: post.type || "DEFAULT",
+                time: post.latency || post.time || "0.0ms",
+                likes_count: post.likes_count || 0,
+                is_liked: post.is_liked || false,
+                comments_count: post.comments_count || 0,
+                image: post.image_url || post.image || null,
+                image_meta: post.image_meta || null,
+                comments: Array.isArray(post.comments) ? post.comments : [],
+            };
+
+            this.posts.unshift(normalizedPost);
+        },
+
+        addCommentToPost(postId, comment) {
+            const post = this.posts.find(
+                (p) => String(p.id) === String(postId),
+            );
+            if (post) {
+                // POJISTKA: Pokud pole comments neexistuje, reaktivně ho vytvoříme
+                if (!post.comments) {
+                    post.comments = [];
+                }
+
+                const exists = post.comments.some(
+                    (c) => String(c.id) === String(comment.id),
+                );
+                if (!exists) {
+                    post.comments.push({
+                        id: comment.id,
+                        author: comment.author?.name || comment.author || "YOU",
+                        text: comment.content || comment.text,
+                        timestamp:
+                            comment.timestamp ||
+                            new Date(
+                                comment.created_at || Date.now(),
+                            ).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                            }),
+                        can_edit: true,
+                    });
+
+                    // POJISTKA: Totéž pro počítadlo komentářů
+                    post.comments_count = (post.comments_count || 0) + 1;
+                }
+            }
         },
 
         removeFriend(id) {
@@ -252,13 +306,18 @@ export const useNotificationStore = defineStore("notifications", {
                     }
                 });
 
-            window.Echo.channel("posts").listen(".PostLiked", (e) => {
-                // Najdeme post v poli a aktualizujeme pouze jeho počítadlo
-                const post = this.posts.find((p) => p.id === e.postId);
-                if (post) {
-                    post.likes_count = e.likesCount;
-                }
-            });
+            window.Echo.channel("posts")
+                .listen(".PostLiked", (e) => {
+                    const post = this.posts.find(
+                        (p) => String(p.id) === String(e.postId),
+                    );
+                    if (post) {
+                        post.likes_count = e.likesCount;
+                    }
+                })
+                .listen(".CommentCreated", (e) => {
+                    this.addCommentToPost(e.postId, e.comment);
+                });
         },
     },
 });

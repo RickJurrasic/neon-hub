@@ -1,6 +1,7 @@
 <?php
 
 use App\Events\SystemAlertTriggered;
+use App\Http\Controllers\CommentController;
 use App\Http\Controllers\FriendshipController;
 use App\Http\Controllers\LikeController;
 use App\Http\Controllers\MessageController;
@@ -20,6 +21,9 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/posts/{post}/like', [LikeController::class, 'store'])->name('posts.like');
     Route::delete('/posts/{post}/like', [LikeController::class, 'destroy'])->name('posts.unlike');
+    Route::post('/posts/{post}/comments', [CommentController::class, 'store'])->name('comments.store');
+    // NOVÁ ROUTA PRO UPDATE:
+    Route::patch('/comments/{comment}', [CommentController::class, 'update'])->name('comments.update');
 
     Route::post('/system/initialize-node', function () {
         $userId = auth()->id();
