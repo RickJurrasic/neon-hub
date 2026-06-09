@@ -12,7 +12,7 @@
 
   <img src="preview.png" alt="NeonHub Preview" width="820" style="border-radius: 12px; margin: 20px 0;">
 
-  <p><strong>Status:</strong> Alpha • <strong>Built by:</strong> [Your Name]</p>
+  <p><strong>Status:</strong> Alpha • <strong>Built by:</strong> RickJurrasic</p>
 
 </div>
 
@@ -90,13 +90,17 @@ npm run dev
 ```
 
 <h3> Run the development server: </h3>
+
 ```bash
 php artisan serve
 ```
+
 <h3> Run Reverb in another terminal: </h3>
+
 ```bash
 php artisan reverb:start
 ```
+
 <hr>
 <h3> Screenshots: </h3>
 <img src="preview.png" alt="Feed"><img src="preview2.png" alt="Messages"><img src="preview3.png" alt="Profile">
