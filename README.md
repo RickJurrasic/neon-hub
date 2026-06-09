@@ -1,72 +1,102 @@
 <div align="center">
 
-  <h1>🌌 Neon Social Hub</h1>
-  <h3>Full-Stack Inertia.js SPA - High-Performance Cybernetic Interface</h3>
+  <h1>🌌 NeonHub</h1>
+  <h3>Real-Time Cyberpunk Social Platform • Laravel 13 + Vue 3</h3>
 
   <p>
-    <img src="https://img.shields.io/badge/Status-Alpha-green?style=for-the-badge&logo=laravel" alt="Status">
-    <img src="https://img.shields.io/badge/Stack-Laravel_13_%2B_Vue_3-6366f1?style=for-the-badge&logo=vue.js" alt="Tech Stack">
-    <img src="https://img.shields.io/badge/Testing-PestPHP-00a8e8?style=for-the-badge&logo=php" alt="Testing">
+    <img src="https://img.shields.io/badge/Laravel-13-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel">
+    <img src="https://img.shields.io/badge/Vue.js-3-4FC08D?style=for-the-badge&logo=vue.js&logoColor=white" alt="Vue">
+    <img src="https://img.shields.io/badge/Reverb-Real--time-06B6D4?style=for-the-badge" alt="Reverb">
+    <img src="https://img.shields.io/badge/Inertia.js-5F4B8B?style=for-the-badge&logo=inertia&logoColor=white" alt="Inertia">
   </p>
 
-  <p>
-    <strong>Neon Social Hub</strong> is a high-performance, responsive Single Page Application (SPA) demonstrating a sophisticated cybernetic user interface coupled with a robust, event-driven backend.
-  </p>
+  <img src="preview.png" alt="NeonHub Preview" width="820" style="border-radius: 12px; margin: 20px 0;">
+
+  <p><strong>Status:</strong> Alpha • <strong>Built by:</strong> [Your Name]</p>
 
 </div>
 
+---
+
+## About The Project
+
+**NeonHub** is a fully-featured real-time social network with a strong cyberpunk aesthetic. It showcases modern full-stack development using **Laravel 13** as the backbone and a reactive **Vue 3** frontend.
+
+The platform allows users to post system logs, engage with live content (likes & comments), manage encrypted friendships, and interact with an autonomous AI agent called **SENTINEL_01**.
+
+This project was created while working in **Fintech Tech Support at GoPay** as a way to deepen my skills and demonstrate that I can design, build, and ship production-grade features.
+
+**Goal**: Transition into a Laravel / Full-Stack Developer role.
+
+---
+
+## ✨ Key Features
+
+- Real-time Social Feed with instant likes and comments
+- Autonomous AI Agent (`SENTINEL_01`) using Laravel AI + Gemini/Groq
+- Friendship system with real-time request handling
+- Secure messaging with AI agent
+- Immersive cyberpunk UI (glassmorphism, neon animations, gate entrance)
+- Live activity alerts and notifications
+
+---
+
+## 🛠️ Tech Stack
+
+- **Backend**: Laravel 13, Reverb (WebSockets), Laravel AI, Queues, Events, Actions
+- **Frontend**: Vue 3 (Composition API), Pinia, Tailwind CSS 4, Inertia.js
+- **Database**: SQLite / MySQL
+- **Testing**: PestPHP
+- **Monitoring**: Laravel Pulse (planned)
+
+---
+
+## Roadmap
+
+| Status         | Feature                        | Description                                      |
+| -------------- | ------------------------------ | ------------------------------------------------ |
+| ✅ Done        | Cyberpunk Immersive UI         | Neon effects, animations, responsive mobile dock |
+| ✅ Done        | Real-time Social Feed          | Posts, likes, comments via Reverb                |
+| ✅ Done        | Friendship System              | Pending & accepted connections                   |
+| ✅ Done        | AI Agent (`SENTINEL_01`)       | Auto-greeting, posts, friend requests            |
+| ✅ Done        | Secure Messaging               | Real-time chat with AI                           |
+| ✅ Done        | Event-Driven Architecture      | Events, Jobs, Broadcasting                       |
+| ✅ Done        | Auto Demo Login                | Seamless onboarding                              |
+| 🔄 In Progress | Comment Notifications          | Real-time + in-app notifications                 |
+| 🔄 In Progress | Laravel Pulse Integration      | Into NeonTechDashboard                           |
+| 🔄 In Progress | AI Agents Abstraction          | Support multiple agents                          |
+| 🔄 In Progress | Major Refactor                 | Slim down fat controllers, add Services          |
+| ⬜ Planned     | Authorization Policies & Gates | Full access control                              |
+| ⬜ Planned     | API Documentation              | Laravel Scribe                                   |
+| ⬜ Planned     | Activity Logging               | Spatie package                                   |
+| ⬜ Planned     | Live Public Demo               | Deployment                                       |
+
+---
+
+## 🚀 Quick Start
+
+```bash
+git clone https://github.com/rickjurrasic/neon-hub.git
+cd neon-hub
+
+composer install
+npm install
+
+cp .env.example .env
+php artisan key:generate
+
+php artisan migrate --seed
+npm run dev
+```
+
+<h3> Run the development server: </h3>
+```bash
+php artisan serve
+```
+<h3> Run Reverb in another terminal: </h3>
+```bash
+php artisan reverb:start
+```
 <hr>
-
-<h2>✨ Core Capabilities & Architecture</h2>
-
-<p>The system leverages modern reactive primitives to bridge the gap between heavy-duty server-side logic and client-side fluidity.</p>
-
-<ul>
-  <li><strong>Core Engine:</strong> Laravel 13 (PHP 8.5+) — <em>Event-driven, high-concurrency architecture.</em></li>
-  <li><strong>Real-time Bridge:</strong> <strong>Laravel Reverb</strong> for native WebSockets, enabling instant UI updates without polling.</li>
-  <li><strong>Autonomous Agent:</strong> <code>SENTINEL_01</code> — An internal AI-logic layer handling entity-to-entity friendship pipelines.</li>
-  <li><strong>Testing Suite:</strong> Fully test-driven using <strong>PestPHP</strong>, ensuring architectural stability across all feature modules.</li>
-  <li><strong>Client Interface:</strong> Vue 3 (Composition API) + Tailwind CSS 4 (Hardware-accelerated layouts).</li>
-</ul>
-
-<hr>
-
-<h2>📡 Feature Breakdown</h2>
-
-<h3>1. 🔒 System Entry Portal</h3>
-<p>Dual-wing gateway structure running 1800ms hardware-accelerated transforms. Features a <code>conic-gradient</code> rotating border mechanism with authentication-gate logic.</p>
-
-<h3>2. 🤖 Autonomous Node Initialization (SENTINEL_01)</h3>
-<p>Upon system initialization, the agent triggers an asynchronous friendship request workflow. The process is fully handled via <strong>Laravel Queues</strong> and <strong>Reverb Events</strong>, ensuring the frontend reflects state changes instantly.</p>
-
-<h3>3. 🤝 Network Entities Terminal</h3>
-<p>High-capacity directory utilizing reactive data serialization to ingest live Eloquent database collections, styled for high-density information display.</p>
-
-<hr>
-
-<h2>🛠️ Installation</h2>
-
-<ol>
-  <li><strong>Clone & Install:</strong>
-    <pre><code>git clone https://github.com/RickJurrasic/neon-hub
-composer install && npm install</code></pre>
-  </li>
-  <li><strong>Environment:</strong>
-    <pre><code>cp .env.example .env && php artisan key:generate</code></pre>
-  </li>
-  <li><strong>Boot System:</strong>
-    <pre><code>npm run dev & php artisan serve</code></pre>
-  </li>
-</ol>
-
-<hr>
-
-<h2>🗺️ Project Roadmap</h2>
-
-<ul>
-  <li>✅ <strong>UI/UX:</strong> High-fidelity sci-fi responsive interface complete.</li>
-  <li>✅ <strong>Real-time:</strong> Laravel Reverb integration for bi-directional communication.</li>
-  <li>✅ <strong>Testing:</strong> Full PestPHP feature suite implemented.</li>
-  <li>✅ <strong>AI Logic:</strong> Sentinel agent fully operational in background queues.</li>
-  <li>⬜ <strong>Production:</strong> Final security audit and deployment CI/CD pipeline.</li>
-</ul>
+<h3> Screenshots: </h3>
+<img src="preview.png" alt="Feed"><img src="preview2.png" alt="Messages"><img src="preview3.png" alt="Profile">
