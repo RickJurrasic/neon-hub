@@ -276,24 +276,35 @@ export const useNotificationStore = defineStore("notifications", {
         },
 
         removeFriend(id) {
-            this.friends = this.friends.filter((f) => f.id !== id);
+            // FIX: Defenzivní stringové porovnání pro okamžitý reaktivní update v UI
+            this.friends = this.friends.filter(
+                (f) => String(f.id) !== String(id),
+            );
         },
 
         removeFriendRequest(id) {
+            // FIX: Defenzivní stringové porovnání
             this.friendRequests = this.friendRequests.filter(
-                (r) => r.id !== id,
+                (r) => String(r.id) !== String(id),
             );
         },
 
         updateFriendRequestStatus(id, newStatus) {
-            const req = this.friendRequests.find((r) => r.id === id);
+            // FIX: Vyhledávání pomocí safe string porovnání
+            const req = this.friendRequests.find(
+                (r) => String(r.id) === String(id),
+            );
 
             if (req) {
                 req.status = newStatus;
-
                 req.read = true;
 
-                if (newStatus === "accepted") this.addFriend(req);
+                if (newStatus === "accepted") {
+                    this.addFriend(req);
+                    // BONUS SENIOR FIX: Jakmile žádost přijmeš, rovnou ji smažeme z pole requestů,
+                    // aby ti tam zbytečně nezůstávala viset v paměti storu.
+                    this.removeFriendRequest(id);
+                }
             }
         },
 
