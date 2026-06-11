@@ -20,6 +20,7 @@ declare module 'vue' {
     InputLabel: typeof import('./resources/js/Components/InputLabel.vue')['default']
     Modal: typeof import('./resources/js/Components/Modal.vue')['default']
     NavLink: typeof import('./resources/js/Components/NavLink.vue')['default']
+    NeonAuthorCV: typeof import('./resources/js/Components/NeonAuthorCV.vue')['default']
     NeonComment: typeof import('./resources/js/Components/NeonComment.vue')['default']
     NeonCommentSection: typeof import('./resources/js/Components/NeonCommentSection.vue')['default']
     NeonFriends: typeof import('./resources/js/Components/NeonFriends.vue')['default']
