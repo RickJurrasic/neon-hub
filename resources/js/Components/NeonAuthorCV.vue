@@ -156,13 +156,18 @@ const techStack = [
 
                     <div class="relative pl-3 border-l border-fuchsia-500/50 space-y-1">
                         <div class="text-[11px] font-bold text-white tracking-wide">Neon-Hub (Core Portfolio App)</div>
-                        <div class="text-[9px] text-fuchsia-400 font-bold">Custom PHP MVC / Vue 3 / Reverb WebSockets /
-                            AI Engine</div>
+                        <div class="text-[9px] text-fuchsia-400 font-bold">
+                            Laravel 13 / Vue 3 / Reverb WebSockets / AI Multi-Agent Pipeline
+                        </div>
                         <p class="text-[10px] text-slate-400 font-sans md:font-mono leading-relaxed">
-                            Engineered a custom-built PHP MVC architecture bound to a highly reactive client
-                            infrastructure. Implemented a sophisticated multi-agent AI pipeline utilizing background
-                            queues with fallback management, real-time WebSocket event broadcasting via Laravel Reverb,
-                            and custom telemetry data collection modeled after Laravel Pulse. Backed by Pest PHP TDD.
+                            Architected a high-fidelity reactive ecosystem on Laravel 13 & Vue 3. Engineered an advanced
+                            multi-agent
+                            AI pipeline with automated Gemini/Groq fallback strategies running on asynchronous queue
+                            workers.
+                            Implemented low-latency real-time event broadcasting via Reverb/Echo and built a custom
+                            system
+                            telemetry engine mirroring Laravel Pulse architecture. Fully secured with a robust Pest PHP
+                            TDD suite.
                         </p>
                     </div>
 
