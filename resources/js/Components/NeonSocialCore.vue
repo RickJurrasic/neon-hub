@@ -8,10 +8,11 @@ import NeonSocialFeed from './NeonSocialFeed.vue';
 import NeonMessages from './NeonMessages.vue';
 import NeonFriends from './NeonFriends.vue';
 import NeonUserProfile from './NeonUserProfile.vue';
+import NeonAuthorCV from './NeonAuthorCV.vue';
 
 const props = defineProps({
     isOpened: { type: Boolean, default: false },
-    initialState: { type: Object, default: null } // <--- Zachycení dat z Welcome.vue
+    initialState: { type: Object, default: null }
 });
 
 const store = useNotificationStore();
@@ -53,7 +54,7 @@ const openEntityProfile = (id) => {
     activeTab.value = 'profile';
 };
 
-// --- WATCHER (ŘÍZENÍ BRÁNY A HYDRATACE) ---
+// --- WATCHER (VRÁCENO ZPĚT - ŘÍZENÍ BRÁNY A HYDRATACE) ---
 watch(() => props.isOpened, (newVal) => {
     if (newVal) {
         // Jakmile uživatel projde mechanickou bránou, okamžitě hydratujeme Pinia store z DB dat
@@ -79,7 +80,8 @@ watch(() => props.isOpened, (newVal) => {
 
         <template v-if="stage1">
             <template v-if="stage2">
-                <NeonNav class="animate-in fade-in duration-700" />
+                <NeonNav @open-cv="activeTab = 'cv'" class="animate-in fade-in duration-700" />
+
                 <NeonSocialActions class="hidden xl:block" :active-tab="activeTab" @change-view="handleViewChange" />
                 <NeonSocialActions class="block xl:hidden" :is-mobile="true" :active-tab="activeTab"
                     @change-view="handleViewChange" />
@@ -90,6 +92,7 @@ watch(() => props.isOpened, (newVal) => {
             <div class="h-full w-full flex justify-center items-stretch md:px-0">
                 <template v-if="stage3">
                     <transition name="depth-zoom" mode="out-in">
+
                         <div v-if="activeTab === 'feed' || activeTab === 'notifications'" key="feed"
                             class="w-full flex flex-col items-stretch grow justify-center max-w-4xl mx-auto h-full relative">
 
@@ -123,6 +126,13 @@ watch(() => props.isOpened, (newVal) => {
                             <NeonUserProfile :entityId="selectedEntityId" @back="activeTab = 'friends'"
                                 class="w-full animate-in zoom-in-95 fade-in duration-700" />
                         </div>
+
+                        <div v-else-if="activeTab === 'cv'" key="cv"
+                            class="w-full h-full overflow-y-auto no-scrollbar pt-[12vh] pb-[12vh] px-4 flex justify-center items-center max-w-4xl mx-auto grow">
+                            <NeonAuthorCV @back="activeTab = 'feed'"
+                                class="w-full animate-in zoom-in-95 fade-in duration-700" />
+                        </div>
+
                     </transition>
                 </template>
             </div>
