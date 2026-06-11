@@ -130,6 +130,7 @@ preview.png
 preview2.png
 preview3.png
 public/.htaccess
+public/assets/erik-sternad-cv.pdf
 public/favicon.ico
 public/images/avatars/ghost_user.png
 public/images/avatars/sentinel_01.png
@@ -150,6 +151,7 @@ resources/js/Components/InputError.vue
 resources/js/Components/InputLabel.vue
 resources/js/Components/Modal.vue
 resources/js/Components/NavLink.vue
+resources/js/Components/NeonAuthorCV.vue
 resources/js/Components/NeonComment.vue
 resources/js/Components/NeonCommentSection.vue
 resources/js/Components/NeonFriends.vue
@@ -3965,6 +3967,258 @@ const classes = computed(() =>
         <slot />
     </Link>
 </template>
+</file>
+
+<file path="resources/js/Components/NeonAuthorCV.vue">
+<script setup>
+import { ref } from 'vue';
+import {
+    Briefcase,
+    Code2,
+    Download,
+    Mail,
+    CheckCircle2,
+    Languages,
+    GraduationCap,
+    Github,
+    Linkedin,
+    ExternalLink
+} from 'lucide-vue-next';
+
+defineEmits(['back']);
+
+const copied = ref(false);
+
+const copyEmail = () => {
+    navigator.clipboard.writeText('sternaderik@gmail.com');
+    copied.value = true;
+    setTimeout(() => copied.value = false, 2000);
+};
+
+// Tvůj reálný ověřený technologický stack
+const techStack = [
+    { name: 'PHP (OOP & MVC Architecture)', level: 75 },
+    { name: 'Vue.js 3 (Composition API)', level: 75 },
+    { name: 'TailwindCSS & UI Layouts', level: 85 },
+    { name: 'Laravel Framework & Inertia.js', level: 65 },
+    { name: 'REST APIs & Legacy SOAP', level: 80 },
+    { name: 'Sys Monitoring (Kibana, Grafana)', level: 80 }
+];
+</script>
+
+<template>
+    <div
+        class="w-[92vw] max-w-sm md:w-full md:max-w-3xl bg-[#030712]/90 border border-sky-500/30 p-4 md:p-6 font-mono backdrop-blur-2xl shadow-[0_0_50px_rgba(56,189,248,0.15)] relative overflow-y-auto no-scrollbar max-h-[85vh] md:max-h-[75vh] flex flex-col rounded-3xl shrink-0">
+
+        <div
+            class="absolute inset-0 bg-gradient-to-b from-transparent via-sky-500/5 to-transparent h-[200%] animate-scan-slow pointer-events-none">
+        </div>
+
+        <div class="flex justify-between items-start mb-5 border-b border-sky-500/20 pb-3 relative z-10 shrink-0">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="relative flex h-2 w-2">
+                        <span
+                            class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <h2 class="text-sm md:text-lg font-black text-white tracking-[0.2em] uppercase">Core_Author_Profile
+                    </h2>
+                </div>
+                <p class="text-[8px] md:text-[10px] text-sky-400/70 tracking-widest uppercase mt-0.5">
+                    Security Clearance: LEVEL_5_CREATOR // STATUS: ACTIVE_DEVELOPER
+                </p>
+            </div>
+            <button @click="$emit('back')"
+                class="border border-fuchsia-500/40 px-3 py-1 rounded-full text-[9px] md:text-[10px] text-fuchsia-400 hover:bg-fuchsia-500/20 hover:border-fuchsia-500 transition-all cursor-pointer select-none">
+                CLOSE [X]
+            </button>
+        </div>
+
+        <div class="grow space-y-5 relative z-10 overflow-y-auto no-scrollbar pr-0 md:pr-1">
+
+            <div
+                class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-[#050a15]/70 border border-sky-500/15 p-4 rounded-2xl shadow-[inset_0_0_20px_rgba(56,189,248,0.03)]">
+                <div class="col-span-1 flex md:flex-col items-center justify-center">
+                    <div
+                        class="w-16 h-16 md:w-full md:aspect-square bg-gradient-to-tr from-fuchsia-600/20 to-sky-500/20 border border-sky-500/30 flex items-center justify-center relative rounded-xl overflow-hidden group shadow-[inset_0_0_15px_rgba(56,189,248,0.1)]">
+                        <span
+                            class="text-xl md:text-3xl font-black text-sky-400 group-hover:scale-110 transition-transform select-none">ES</span>
+                    </div>
+                </div>
+
+                <div class="col-span-1 md:col-span-3 space-y-1.5 text-center md:text-left">
+                    <div class="text-white text-base md:text-xl font-bold tracking-wide">Erik Sternad</div>
+                    <div class="flex items-center gap-3 justify-center md:justify-start">
+                        <div class="text-xs font-semibold text-fuchsia-400 uppercase tracking-wider">Technical Support
+                            Specialist & Aspiring Full-Stack Developer</div>
+                        <a href="https://github.com/RickJurrasic" target="_blank"
+                            class="text-slate-400 hover:text-sky-400">
+                            <Github :size="14" />
+                        </a>
+                        <a href="#" target="_blank" class="text-slate-400 hover:text-sky-400">
+                            <Linkedin :size="14" />
+                        </a>
+                    </div>
+                    <p class="text-[11px] text-slate-400 leading-relaxed font-sans md:font-mono pt-1">
+                        Technical support specialist with a strong background in fintech, shifting into professional
+                        full-stack development. Experienced in REST API debugging, deep log analysis, and e-commerce
+                        modules.
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-4 flex flex-col">
+                    <div
+                        class="space-y-3 bg-[#050a15]/70 border border-sky-500/15 p-4 rounded-2xl flex-1 shadow-[inset_0_0_20px_rgba(56,189,248,0.02)]">
+                        <div class="flex items-center gap-2 text-sky-400 border-b border-sky-500/10 pb-1.5">
+                            <Code2 :size="14" />
+                            <span class="text-[10px] uppercase tracking-wider font-bold">Verified_Tech_Stack</span>
+                        </div>
+                        <div class="space-y-2.5">
+                            <div v-for="tech in techStack" :key="tech.name" class="space-y-1">
+                                <div class="flex justify-between text-[10px]">
+                                    <span class="text-slate-300">{{ tech.name }}</span>
+                                    <span class="text-sky-400/80 font-mono">{{ tech.level }}%</span>
+                                </div>
+                                <div class="h-1 bg-[#02040a] rounded-full overflow-hidden border border-white/5">
+                                    <div class="h-full bg-gradient-to-r from-sky-500 to-fuchsia-500 transition-all duration-1000"
+                                        :style="{ width: tech.level + '%' }"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#050a15]/70 border border-sky-500/15 p-4 rounded-2xl shadow-[inset_0_0_20px_rgba(56,189,248,0.02)]">
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-1.5 text-sky-400 border-b border-sky-500/10 pb-1">
+                                <Languages :size="12" />
+                                <span class="text-[9px] uppercase tracking-wider font-bold">Languages</span>
+                            </div>
+                            <div class="space-y-1 text-[10px]">
+                                <div class="flex justify-between"><span class="text-slate-300">Czech:</span> <span
+                                        class="text-slate-500">Native</span></div>
+                                <div class="flex justify-between"><span class="text-slate-300">English:</span> <span
+                                        class="text-emerald-400 font-bold">B2-C1</span></div>
+                                <div class="flex justify-between"><span class="text-slate-300">German:</span> <span
+                                        class="text-emerald-400 font-bold">B2-C1</span></div>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-1.5 text-fuchsia-400 border-b border-fuchsia-500/10 pb-1">
+                                <GraduationCap :size="12" />
+                                <span class="text-[9px] uppercase tracking-wider font-bold">Certificates</span>
+                            </div>
+                            <div class="space-y-0.5 text-[9px] leading-tight">
+                                <div class="font-bold text-slate-300">ITNetwork Retraining</div>
+                                <div class="text-fuchsia-400/80">PHP Web Programmer (2024)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    class="space-y-4 bg-[#050a15]/70 border border-fuchsia-500/15 p-4 rounded-2xl flex flex-col justify-start shadow-[inset_0_0_20px_rgba(217,70,239,0.02)]">
+                    <div class="flex items-center gap-2 text-fuchsia-400 border-b border-fuchsia-500/10 pb-1.5">
+                        <Briefcase :size="14" />
+                        <span class="text-[10px] uppercase tracking-wider font-bold">Deployment_History</span>
+                    </div>
+
+                    <div class="relative pl-3 border-l border-fuchsia-500/50 space-y-1">
+                        <div class="text-[11px] font-bold text-white tracking-wide">Neon-Hub (Core Portfolio App)</div>
+                        <div class="text-[9px] text-fuchsia-400 font-bold">Full-Stack Application Node</div>
+                        <p class="text-[10px] text-slate-400 font-sans md:font-mono leading-relaxed">
+                            Architected a complex client-side dashboard ecosystem. Engineered on top of a custom-built
+                            PHP MVC architecture. Implemented a highly reactive Inertia-like frontend node utilizing
+                            Vue.js 3 and TailwindCSS layouts.
+                        </p>
+                    </div>
+
+                    <div class="relative pl-3 border-l border-sky-500/40 space-y-1">
+                        <div class="text-[11px] font-bold text-white tracking-wide">Technical Support Specialist</div>
+                        <div class="text-[9px] text-sky-400 font-bold">GoPay / Fintech Branch (03/2024 - Present)</div>
+                        <p class="text-[10px] text-slate-400 font-sans md:font-mono leading-relaxed">
+                            Debugging and integration troubleshooting of merchant payment systems using REST APIs and
+                            legacy SOAP. Investigating core application failures and system monitoring via Kibana,
+                            Grafana, and OpenSearch. Contributing to OpenSource module improvements (WooCommerce,
+                            PrestaShop).
+                        </p>
+                    </div>
+
+                    <div class="relative pl-3 border-l border-sky-500/40 space-y-1">
+                        <div class="text-[11px] font-bold text-white tracking-wide flex justify-between">
+                            Auto Saloon
+                            <a href="https://github.com/RickJurrasic/auto-saloon" target="_blank">
+                                <ExternalLink :size="10" class="text-sky-400" />
+                            </a>
+                        </div>
+                        <div class="text-[9px] text-sky-400 font-bold">Laravel 12 / Vue 3 / SSR</div>
+                        <p class="text-[10px] text-slate-400 font-sans md:font-mono leading-relaxed">
+                            High-performance SPA. Implemented SSR for SEO, type-safe routing, and A-grade
+                            maintainability via SonarCloud.
+                        </p>
+                    </div>
+
+                    <div class="relative pl-3 border-l border-sky-500/40 space-y-1">
+                        <div class="text-[11px] font-bold text-white tracking-wide">Freelance: Pension Vyhlídka</div>
+                        <p class="text-[10px] text-slate-400 font-sans md:font-mono leading-relaxed">
+                            Custom CMS in PHP 8.1/MySQL with automated localization.
+                        </p>
+                    </div>
+
+                    <div class="relative pl-3 border-l border-slate-800 space-y-0.5 opacity-60">
+                        <div class="text-[10px] font-bold text-slate-400">Ops & Customer Services Background</div>
+                        <p class="text-[9px] text-slate-400 font-sans leading-tight">
+                            Hotel Receptionist/Night Auditor (2015-2023). Managed high-pressure situations, CRM systems
+                            (Fidelio, HotelTime).
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-sky-500/10 shrink-0">
+                <button @click="copyEmail"
+                    class="w-full bg-sky-500/10 border border-sky-500/40 py-2.5 rounded-xl text-[10px] text-sky-400 uppercase font-bold hover:bg-sky-500/20 hover:border-sky-500 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 select-none">
+                    <CheckCircle2 v-if="copied" :size="12" class="text-emerald-400" />
+                    <Mail v-else :size="12" />
+                    {{ copied ? 'Email Copied!' : 'Copy Contact Email' }}
+                </button>
+                <a href="/assets/erik-sternad-cv.pdf" download="Erik_Sternad_CV.pdf"
+                    class="w-full bg-gradient-to-r from-fuchsia-600/20 to-sky-600/20 border border-fuchsia-500/40 py-2.5 rounded-xl text-[10px] text-white uppercase font-bold hover:from-fuchsia-600/30 hover:to-sky-600/30 hover:border-fuchsia-500 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 text-center select-none">
+                    <Download :size="12" class="text-fuchsia-400" />
+                    Download Official CV (PDF)
+                </a>
+            </div>
+        </div>
+    </div>
+</template>
+
+<style scoped>
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+@keyframes scan-slow {
+    0% {
+        transform: translateY(-50%);
+    }
+
+    100% {
+        transform: translateY(50%);
+    }
+}
+
+.animate-scan-slow {
+    animation: scan-slow 8s linear infinite;
+}
+</style>
 </file>
 
 <file path="resources/js/Components/NeonComment.vue">
@@ -9958,157 +10212,6 @@ class User extends Authenticatable
 }
 </file>
 
-<file path="resources/js/Components/NeonNav.vue">
-<script setup>
-import { Cpu, Activity, Wifi, Zap } from 'lucide-vue-next';
-</script>
-
-<template>
-    <header class="fixed top-0 left-0 w-full z-[60]">
-        <div class="neon-panel-wrapper nav-wrapper h-16 border-b border-white/5">
-
-            <div class="nav-light-scanner"></div>
-
-            <div
-                class="neon-glass-core h-full !flex-row items-center justify-between md:justify-start px-4 md:px-12 bg-[#050914]/95">
-
-                <div class="flex items-center gap-2 md:gap-3 md:w-64">
-                    <div class="relative group cursor-pointer">
-                        <div
-                            class="absolute -inset-2 bg-sky-500/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                        </div>
-                        <Cpu :size="20" class="text-sky-400 relative md:scale-110" />
-                    </div>
-                    <span class="font-black text-lg md:text-xl uppercase tracking-tighter text-white">
-                        Neon<span class="text-sky-400">Hub</span>
-                    </span>
-                </div>
-
-                <div class="hidden md:flex flex-1 justify-around items-center px-10 lg:px-20">
-
-                    <div class="flex flex-col items-center group cursor-default">
-                        <span class="text-[7px] text-slate-500 uppercase font-bold tracking-[0.3em] mb-1">Latency</span>
-                        <div class="flex items-center gap-2">
-                            <Activity :size="12" class="text-sky-500/50 group-hover:text-sky-400" />
-                            <span class="text-xs font-mono text-white tracking-widest">12<span
-                                    class="text-[9px] ml-0.5 opacity-50">ms</span></span>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-col items-center group cursor-default">
-                        <span
-                            class="text-[7px] text-slate-500 uppercase font-bold tracking-[0.3em] mb-1">System_Uptime</span>
-                        <div class="flex items-center gap-2">
-                            <Zap :size="12" class="text-fuchsia-500/50 group-hover:text-fuchsia-400" />
-                            <span class="text-xs font-mono text-white tracking-widest">99.98<span
-                                    class="text-[9px] ml-0.5 opacity-50">%</span></span>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-col items-center group cursor-default">
-                        <span
-                            class="text-[7px] text-slate-500 uppercase font-bold tracking-[0.3em] mb-1">Bandwidth</span>
-                        <div class="flex items-center gap-2">
-                            <Wifi :size="12" class="text-emerald-500/50 group-hover:text-emerald-400" />
-                            <span class="text-xs font-mono text-white tracking-widest">850<span
-                                    class="text-[9px] ml-0.5 opacity-50">mb/s</span></span>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-col items-center group cursor-default">
-                        <span
-                            class="text-[7px] text-slate-500 uppercase font-bold tracking-[0.3em] mb-1">Active_Nodes</span>
-                        <div class="flex items-center gap-2">
-                            <div class="w-1.5 h-1.5 bg-sky-400 rounded-full animate-ping"></div>
-                            <span class="text-xs font-mono text-white tracking-widest">1,204</span>
-                        </div>
-                    </div>
-
-                </div>
-
-                <div
-                    class="flex items-center justify-end gap-3 md:gap-4 md:w-64 max-w-[180px] xs:max-w-[220px] sm:max-w-none">
-
-                    <div class="flex flex-col items-end max-w-[90px] xs:max-w-[140px] sm:max-w-[200px]">
-                        <span
-                            class="text-[9px] font-black text-white/90 tracking-tighter uppercase truncate w-full text-right">
-                            {{ $page.props.auth?.user?.name || 'Admin_Root' }}
-                        </span>
-                        <span
-                            class="text-[7px] font-mono text-sky-500/70 tracking-widest italic truncate w-full text-right">
-                            {{ $page.props.auth?.user?.handle || '0x882_ALPHA' }}
-                        </span>
-                    </div>
-
-                    <div class="relative group">
-                        <div
-                            class="absolute -inset-0.5 bg-gradient-to-tr from-sky-500 to-fuchsia-500 rounded-full blur-xs opacity-40 group-hover:opacity-100 transition-opacity">
-                        </div>
-
-                        <div
-                            class="relative w-8 h-8 md:w-9 md:h-9 rounded-full bg-gradient-to-tr from-fuchsia-600 to-sky-400 p-[1px] shrink-0">
-                            <div class="w-full h-full rounded-full bg-[#050914] flex items-center justify-center">
-                                <span class="text-[9px] md:text-[10px] font-bold text-white tracking-wider">
-                                    {{$page.props.auth?.user?.name ? $page.props.auth.user.name.split(' ').map(n =>
-                                        n[0]).join('').substring(0, 2).toUpperCase() : 'RH'}}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div v-if="$page.props.auth?.user?.faction"
-                            class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-[#050914] bg-amber-400 shadow-[0_0_6px_#f59e0b]">
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    </header>
-</template>
-
-<style scoped>
-.nav-wrapper {
-    padding: 0;
-    position: relative;
-    background: transparent;
-}
-
-.nav-light-scanner {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    height: 1px;
-    transform: translateY(-50%);
-    background: linear-gradient(90deg,
-            rgba(56, 189, 248, 1) 0%,
-            rgba(192, 43, 155, 1) 25%,
-            rgba(56, 189, 248, 1) 50%,
-            rgba(192, 43, 155, 1) 75%,
-            rgba(56, 189, 248, 1) 100%);
-    background-size: 200% 100%;
-    animation: liquid-line 8s linear infinite;
-    pointer-events: none;
-    box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
-    z-index: 70;
-}
-
-@keyframes liquid-line {
-    from {
-        background-position: 0% 0;
-    }
-
-    to {
-        background-position: 200% 0;
-    }
-}
-
-.neon-glass-core {
-    @apply border-b border-white/5;
-}
-</style>
-</file>
-
 <file path="resources/js/Components/NeonFriends.vue">
 <script setup>
 import { ref } from 'vue';
@@ -10240,48 +10343,156 @@ const removeLink = async (id) => {
 </template>
 </file>
 
-<file path="components.d.ts">
-/* eslint-disable */
-// @ts-nocheck
-// biome-ignore lint: disable
-// oxlint-disable
-// ------
-// Generated by unplugin-vue-components
-// Read more: https://github.com/vuejs/core/pull/3399
+<file path="resources/js/Components/NeonNav.vue">
+<script setup>
+import { Cpu, FileUser } from 'lucide-vue-next';
 
-export {}
+defineEmits(['open-cv']);
+</script>
 
-/* prettier-ignore */
-declare module 'vue' {
-  export interface GlobalComponents {
-    ApplicationLogo: typeof import('./resources/js/Components/ApplicationLogo.vue')['default']
-    DangerButton: typeof import('./resources/js/Components/DangerButton.vue')['default']
-    Dropdown: typeof import('./resources/js/Components/Dropdown.vue')['default']
-    DropdownLink: typeof import('./resources/js/Components/DropdownLink.vue')['default']
-    Checkbox: typeof import('./resources/js/Components/Checkbox.vue')['default']
-    InputError: typeof import('./resources/js/Components/InputError.vue')['default']
-    InputLabel: typeof import('./resources/js/Components/InputLabel.vue')['default']
-    Modal: typeof import('./resources/js/Components/Modal.vue')['default']
-    NavLink: typeof import('./resources/js/Components/NavLink.vue')['default']
-    NeonComment: typeof import('./resources/js/Components/NeonComment.vue')['default']
-    NeonCommentSection: typeof import('./resources/js/Components/NeonCommentSection.vue')['default']
-    NeonFriends: typeof import('./resources/js/Components/NeonFriends.vue')['default']
-    NeonGate: typeof import('./resources/js/Components/NeonGate.vue')['default']
-    NeonMessages: typeof import('./resources/js/Components/NeonMessages.vue')['default']
-    NeonNav: typeof import('./resources/js/Components/NeonNav.vue')['default']
-    NeonOverlay: typeof import('./resources/js/Components/NeonOverlay.vue')['default']
-    NeonSocialActions: typeof import('./resources/js/Components/NeonSocialActions.vue')['default']
-    NeonSocialCore: typeof import('./resources/js/Components/NeonSocialCore.vue')['default']
-    NeonSocialFeed: typeof import('./resources/js/Components/NeonSocialFeed.vue')['default']
-    NeonSocialPost: typeof import('./resources/js/Components/NeonSocialPost.vue')['default']
-    NeonTechDashboard: typeof import('./resources/js/Components/NeonTechDashboard.vue')['default']
-    NeonUserProfile: typeof import('./resources/js/Components/NeonUserProfile.vue')['default']
-    PrimaryButton: typeof import('./resources/js/Components/PrimaryButton.vue')['default']
-    ResponsiveNavLink: typeof import('./resources/js/Components/ResponsiveNavLink.vue')['default']
-    SecondaryButton: typeof import('./resources/js/Components/SecondaryButton.vue')['default']
-    TextInput: typeof import('./resources/js/Components/TextInput.vue')['default']
-  }
+<template>
+    <header class="fixed top-0 left-0 w-full z-[60]">
+        <div class="neon-panel-wrapper nav-wrapper h-16 border-b border-white/5">
+
+            <div class="nav-light-scanner"></div>
+
+            <div class="neon-glass-core h-full !flex-row items-center justify-between px-4 md:px-12 bg-[#050914]/95">
+
+                <div class="flex items-center gap-2 md:gap-3 md:w-64 shrink-0">
+                    <div class="relative group cursor-pointer">
+                        <div
+                            class="absolute -inset-2 bg-sky-500/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                        </div>
+                        <Cpu :size="20" class="text-sky-400 relative md:scale-110" />
+                    </div>
+                    <span class="font-black text-lg md:text-xl uppercase tracking-tighter text-white select-none">
+                        Neon<span class="text-sky-400">Hub</span>
+                    </span>
+                </div>
+
+                <div class="flex flex-1 justify-center items-center px-1 md:px-10 lg:px-20 min-w-0">
+
+                    <div class="hidden md:flex items-center gap-3.5 bg-slate-950/80 border border-sky-500/30 px-5 py-1.5 rounded-full shadow-[0_0_15px_rgba(56,189,248,0.12)] hover:border-fuchsia-500/60 hover:shadow-[0_0_25px_rgba(192,43,155,0.3)] transition-all duration-300 cursor-pointer group active:scale-98"
+                        @click="$emit('open-cv')">
+                        <div class="flex items-center gap-2.5">
+                            <span class="relative flex h-1.5 w-1.5 shrink-0">
+                                <span
+                                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                            </span>
+
+                            <span
+                                class="text-[9px] font-mono text-sky-400/60 uppercase tracking-wider group-hover:text-fuchsia-400/70 transition-colors">System
+                                Author:</span>
+                            <span
+                                class="text-xs font-semibold text-sky-100 group-hover:text-white transition-colors tracking-wide">Erik
+                                Sternad</span>
+                        </div>
+
+                        <div class="h-3.5 w-[1px] bg-sky-500/20 group-hover:bg-fuchsia-500/30 transition-colors"></div>
+
+                        <span
+                            class="text-[10px] font-mono font-bold text-sky-400 group-hover:text-fuchsia-400 transition-colors uppercase tracking-wide">
+                            [ View CV ]
+                        </span>
+                    </div>
+
+                    <button
+                        class="flex md:hidden items-center gap-1.5 bg-slate-950/90 border border-sky-500/40 px-2.5 py-1 rounded-full shadow-[0_0_10px_rgba(56,189,248,0.15)] active:scale-95 transition-all cursor-pointer text-white"
+                        @click="$emit('open-cv')">
+                        <FileUser :size="11" class="text-sky-400" />
+                        <span class="text-[9px] font-mono font-bold tracking-wider uppercase">CV</span>
+                        <span class="relative flex h-1.5 w-1.5 ml-0.5">
+                            <span
+                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                        </span>
+                    </button>
+
+                </div>
+
+                <div
+                    class="flex items-center justify-end gap-2 md:gap-4 md:w-64 max-w-[140px] xs:max-w-[180px] sm:max-w-none shrink-0">
+
+                    <div class="flex flex-col items-end min-w-0">
+                        <span
+                            class="text-[9px] font-black text-white/90 tracking-tighter uppercase truncate w-full text-right">
+                            {{ $page.props.auth?.user?.name || 'Admin_Root' }}
+                        </span>
+                        <span
+                            class="text-[7px] font-mono text-sky-500/70 tracking-widest italic truncate w-full text-right">
+                            {{ $page.props.auth?.user?.handle || '0x882_ALPHA' }}
+                        </span>
+                    </div>
+
+                    <div class="relative group shrink-0">
+                        <div
+                            class="absolute -inset-0.5 bg-gradient-to-tr from-sky-500 to-fuchsia-500 rounded-full blur-xs opacity-40 group-hover:opacity-100 transition-opacity">
+                        </div>
+
+                        <div
+                            class="relative w-8 h-8 md:w-9 md:h-9 rounded-full bg-gradient-to-tr from-fuchsia-600 to-sky-400 p-[1px]">
+                            <div class="w-full h-full rounded-full bg-[#050914] flex items-center justify-center">
+                                <span class="text-[9px] md:text-[10px] font-bold text-white tracking-wider">
+                                    {{$page.props.auth?.user?.name ? $page.props.auth.user.name.split(' ').map(n =>
+                                        n[0]).join('').substring(0, 2).toUpperCase() : 'RH'}}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div v-if="$page.props.auth?.user?.faction"
+                            class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-[#050914] bg-amber-400 shadow-[0_0_6px_#f59e0b]">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </header>
+</template>
+
+<style scoped>
+/* Styly zůstávají beze změny */
+.nav-wrapper {
+    padding: 0;
+    position: relative;
+    background: transparent;
 }
+
+.nav-light-scanner {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    transform: translateY(-50%);
+    background: linear-gradient(90deg,
+            rgba(56, 189, 248, 1) 0%,
+            rgba(192, 43, 155, 1) 25%,
+            rgba(56, 189, 248, 1) 50%,
+            rgba(192, 43, 155, 1) 75%,
+            rgba(56, 189, 248, 1) 100%);
+    background-size: 200% 100%;
+    animation: liquid-line 8s linear infinite;
+    pointer-events: none;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+    z-index: 70;
+}
+
+@keyframes liquid-line {
+    from {
+        background-position: 0% 0;
+    }
+
+    to {
+        background-position: 200% 0;
+    }
+}
+
+.neon-glass-core {
+    @apply border-b border-white/5;
+}
+</style>
 </file>
 
 <file path="resources/js/Components/NeonSocialFeed.vue">
@@ -10427,8 +10638,54 @@ watch(isOpened, (newVal) => {
 </template>
 </file>
 
+<file path="components.d.ts">
+/* eslint-disable */
+// @ts-nocheck
+// biome-ignore lint: disable
+// oxlint-disable
+// ------
+// Generated by unplugin-vue-components
+// Read more: https://github.com/vuejs/core/pull/3399
+
+export {}
+
+/* prettier-ignore */
+declare module 'vue' {
+  export interface GlobalComponents {
+    ApplicationLogo: typeof import('./resources/js/Components/ApplicationLogo.vue')['default']
+    DangerButton: typeof import('./resources/js/Components/DangerButton.vue')['default']
+    Dropdown: typeof import('./resources/js/Components/Dropdown.vue')['default']
+    DropdownLink: typeof import('./resources/js/Components/DropdownLink.vue')['default']
+    Checkbox: typeof import('./resources/js/Components/Checkbox.vue')['default']
+    InputError: typeof import('./resources/js/Components/InputError.vue')['default']
+    InputLabel: typeof import('./resources/js/Components/InputLabel.vue')['default']
+    Modal: typeof import('./resources/js/Components/Modal.vue')['default']
+    NavLink: typeof import('./resources/js/Components/NavLink.vue')['default']
+    NeonAuthorCV: typeof import('./resources/js/Components/NeonAuthorCV.vue')['default']
+    NeonComment: typeof import('./resources/js/Components/NeonComment.vue')['default']
+    NeonCommentSection: typeof import('./resources/js/Components/NeonCommentSection.vue')['default']
+    NeonFriends: typeof import('./resources/js/Components/NeonFriends.vue')['default']
+    NeonGate: typeof import('./resources/js/Components/NeonGate.vue')['default']
+    NeonMessages: typeof import('./resources/js/Components/NeonMessages.vue')['default']
+    NeonNav: typeof import('./resources/js/Components/NeonNav.vue')['default']
+    NeonOverlay: typeof import('./resources/js/Components/NeonOverlay.vue')['default']
+    NeonSocialActions: typeof import('./resources/js/Components/NeonSocialActions.vue')['default']
+    NeonSocialCore: typeof import('./resources/js/Components/NeonSocialCore.vue')['default']
+    NeonSocialFeed: typeof import('./resources/js/Components/NeonSocialFeed.vue')['default']
+    NeonSocialPost: typeof import('./resources/js/Components/NeonSocialPost.vue')['default']
+    NeonTechDashboard: typeof import('./resources/js/Components/NeonTechDashboard.vue')['default']
+    NeonUserProfile: typeof import('./resources/js/Components/NeonUserProfile.vue')['default']
+    PrimaryButton: typeof import('./resources/js/Components/PrimaryButton.vue')['default']
+    ResponsiveNavLink: typeof import('./resources/js/Components/ResponsiveNavLink.vue')['default']
+    SecondaryButton: typeof import('./resources/js/Components/SecondaryButton.vue')['default']
+    TextInput: typeof import('./resources/js/Components/TextInput.vue')['default']
+  }
+}
+</file>
+
 <file path="resources/js/Components/NeonSocialActions.vue">
 <script setup>
+import { computed } from 'vue';
 import { UserPlus, MessageSquareCode, BellDot, Home } from '@lucide/vue';
 import { useNotificationStore } from '@/Stores/useNotificationStore';
 
@@ -10439,6 +10696,19 @@ defineProps({
 
 const store = useNotificationStore();
 defineEmits(['change-view']);
+
+// Výpočty počtu nepřečtených položek na základě struktury storu
+const unreadRequestsCount = computed(() =>
+    store.friendRequests?.filter(r => r.read === false || r.read === 0 || r.read === '0').length || 0
+);
+
+const unreadMessagesCount = computed(() =>
+    store.messages?.filter(m => m.read === false || m.read === 0 || m.read === '0').length || 0
+);
+
+const unreadAlertsCount = computed(() =>
+    store.alerts?.filter(a => a.read !== true && a.read !== 1 && a.read !== '1').length || 0
+);
 </script>
 
 <template>
@@ -10454,6 +10724,7 @@ defineEmits(['change-view']);
                     Neon_Hub</h2>
                 <div
                     :class="isMobile ? 'flex flex-row w-full h-full justify-around items-center' : 'flex-1 h-full flex flex-col justify-around w-full items-center relative'">
+
                     <div class="action-item group"
                         :class="{ 'is-active': activeTab === 'feed', 'is-mobile-item': isMobile }"
                         @click="$emit('change-view', 'feed')">
@@ -10462,6 +10733,7 @@ defineEmits(['change-view']);
                             <Home :size="isMobile ? 22 : 32" :stroke-width="1.5" />
                         </div>
                     </div>
+
                     <div class="action-item group"
                         :class="{ 'is-active': activeTab === 'friends' || activeTab === 'profile', 'is-mobile-item': isMobile }"
                         @click="$emit('change-view', 'friends')">
@@ -10469,36 +10741,44 @@ defineEmits(['change-view']);
                         <div class="icon-style relative">
                             <UserPlus :size="isMobile ? 22 : 32" :stroke-width="1.5" />
 
-                            <div v-if="store.hasUnreadRequests"
-                                class="absolute bg-purple-400 rounded-full animate-pulse shadow-[0_0_10px_#c084fc]"
-                                :class="isMobile ? '-top-0.5 -right-0.5 w-1.5 h-1.5' : '-top-0.5 -right-0.5 w-2 h-2'">
+                            <div v-if="unreadRequestsCount > 0"
+                                class="absolute bg-purple-500 text-white rounded-full flex items-center justify-center font-bold font-mono shadow-[0_0_10px_#a855f7] transition-all"
+                                :class="isMobile ? '-top-1.5 -right-1.5 text-[8px] min-w-[14px] h-[14px] px-0.5' : '-top-2 -right-2 text-[10px] min-w-[18px] h-[18px] px-1'">
+                                {{ unreadRequestsCount }}
                             </div>
                         </div>
                     </div>
+
                     <div class="action-item group"
                         :class="{ 'is-active': activeTab === 'messages', 'is-mobile-item': isMobile }"
                         @click="$emit('change-view', 'messages')">
                         <span class="label">MESSAGES</span>
                         <div class="icon-style relative">
                             <MessageSquareCode :size="isMobile ? 22 : 32" :stroke-width="1.5" />
-                            <div v-if="store.hasUnreadMessages"
-                                class="absolute bg-rose-500 rounded-full animate-pulse shadow-[0_0_10px_#f43f5e]"
-                                :class="isMobile ? '-top-0.5 -right-0.5 w-1.5 h-1.5' : '-top-0.5 -right-0.5 w-2 h-2'">
+
+                            <div v-if="unreadMessagesCount > 0"
+                                class="absolute bg-rose-500 text-white rounded-full flex items-center justify-center font-bold font-mono shadow-[0_0_10px_#f43f5e] transition-all"
+                                :class="isMobile ? '-top-1.5 -right-1.5 text-[8px] min-w-[14px] h-[14px] px-0.5' : '-top-2 -right-2 text-[10px] min-w-[18px] h-[18px] px-1'">
+                                {{ unreadMessagesCount }}
                             </div>
                         </div>
                     </div>
+
                     <div class="action-item group"
                         :class="{ 'is-active': activeTab === 'notifications', 'is-mobile-item': isMobile }"
                         @click="$emit('change-view', { view: 'notifications', fromMobile: isMobile })">
                         <span class="label">ALERTS</span>
                         <div class="icon-style relative">
                             <BellDot :size="isMobile ? 22 : 32" :stroke-width="1.5" />
-                            <div v-if="store.hasUnreadAlerts"
-                                class="absolute bg-rose-500 rounded-full animate-pulse shadow-[0_0_10px_#f43f5e]"
-                                :class="isMobile ? '-top-0.5 -right-0.5 w-1.5 h-1.5' : '-top-0.5 -right-0.5 w-2 h-2'">
+
+                            <div v-if="unreadAlertsCount > 0"
+                                class="absolute bg-amber-500 text-white rounded-full flex items-center justify-center font-bold font-mono shadow-[0_0_10px_#f59e0b] transition-all"
+                                :class="isMobile ? '-top-1.5 -right-1.5 text-[8px] min-w-[14px] h-[14px] px-0.5' : '-top-2 -right-2 text-[10px] min-w-[18px] h-[18px] px-1'">
+                                {{ unreadAlertsCount }}
                             </div>
                         </div>
                     </div>
+
                 </div>
             </div>
         </div>
@@ -11012,6 +11292,80 @@ const toggleComments = () => {
 </template>
 </file>
 
+<file path="routes/web.php">
+<?php
+
+use App\Events\SystemAlertTriggered;
+use App\Http\Controllers\CommentController;
+use App\Http\Controllers\CoreEngineController;
+use App\Http\Controllers\FriendshipController;
+use App\Http\Controllers\LikeController;
+use App\Http\Controllers\MessageController;
+use App\Http\Controllers\NeonHubController;
+use App\Http\Controllers\ProfileController;
+use App\Jobs\HandleAgentResponse; // FIX: Nový sjednocený job
+use App\Jobs\SendFriendRequest;
+use App\Jobs\SendMessage;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', [NeonHubController::class, 'index'])->name('neon.hub');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::post('/posts/{post}/like', [LikeController::class, 'store'])->name('posts.like');
+    Route::delete('/posts/{post}/like', [LikeController::class, 'destroy'])->name('posts.unlike');
+    Route::post('/posts/{post}/comments', [CommentController::class, 'store'])->name('comments.store');
+    // NOVÁ ROUTA PRO UPDATE:
+    Route::patch('/comments/{comment}', [CommentController::class, 'update'])->name('comments.update');
+
+    Route::post('/system/initialize-node', function () {
+        $userId = auth()->id();
+
+        // 1. Pošle žádost o přátelství od Sentinela
+        SendFriendRequest::dispatch($userId, 'SENTINEL_01')
+            ->delay(now()->addSeconds(4));
+
+        // 2. FIX: Použití nového sjednoceného jobu pro úvodní pozdrav
+        HandleAgentResponse::dispatch($userId, null, 'SENTINEL_01')
+            ->delay(now()->addSeconds(7));
+
+        return response()->json(['status' => 'NODE_INITIALIZED']);
+    })->name('system.initialize');
+
+    Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
+    Route::post('/messages', [MessageController::class, 'store'])->name('messages.store');
+    Route::delete('/conversations/{id}', [MessageController::class, 'destroy']);
+    Route::get('/api/core-engine/telemetry', [CoreEngineController::class, 'getTelemetry']);
+});
+
+Route::get('/test-signal', function () {
+    event(new SystemAlertTriggered(auth()->id(), 'Krizový stav aktivován!'));
+
+    return 'Signál odpálen!';
+});
+
+Route::get('/test-message', function () {
+    SendMessage::dispatch(auth()->id(), [
+        'sender' => 'CYBER_OPERATOR',
+        'text' => 'Připojení k uzlu navázáno.',
+    ])->delay(now()->addSeconds(1));
+
+    return 'Zpráva naplánována za 1 sekundu.';
+});
+
+Route::get('/dashboard', function () {
+    return inertia('Dashboard');
+})->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::patch('/friendships/{id}', [FriendshipController::class, 'update'])->name('friendships.update');
+Route::delete('/friendships/{id}', [FriendshipController::class, 'destroy']);
+
+require __DIR__.'/auth.php';
+</file>
+
 <file path="resources/js/Stores/useNotificationStore.js">
 import { defineStore } from "pinia";
 
@@ -11291,24 +11645,35 @@ export const useNotificationStore = defineStore("notifications", {
         },
 
         removeFriend(id) {
-            this.friends = this.friends.filter((f) => f.id !== id);
+            // FIX: Defenzivní stringové porovnání pro okamžitý reaktivní update v UI
+            this.friends = this.friends.filter(
+                (f) => String(f.id) !== String(id),
+            );
         },
 
         removeFriendRequest(id) {
+            // FIX: Defenzivní stringové porovnání
             this.friendRequests = this.friendRequests.filter(
-                (r) => r.id !== id,
+                (r) => String(r.id) !== String(id),
             );
         },
 
         updateFriendRequestStatus(id, newStatus) {
-            const req = this.friendRequests.find((r) => r.id === id);
+            // FIX: Vyhledávání pomocí safe string porovnání
+            const req = this.friendRequests.find(
+                (r) => String(r.id) === String(id),
+            );
 
             if (req) {
                 req.status = newStatus;
-
                 req.read = true;
 
-                if (newStatus === "accepted") this.addFriend(req);
+                if (newStatus === "accepted") {
+                    this.addFriend(req);
+                    // BONUS SENIOR FIX: Jakmile žádost přijmeš, rovnou ji smažeme z pole requestů,
+                    // aby ti tam zbytečně nezůstávala viset v paměti storu.
+                    this.removeFriendRequest(id);
+                }
             }
         },
 
@@ -11373,80 +11738,6 @@ export const useNotificationStore = defineStore("notifications", {
 });
 </file>
 
-<file path="routes/web.php">
-<?php
-
-use App\Events\SystemAlertTriggered;
-use App\Http\Controllers\CommentController;
-use App\Http\Controllers\CoreEngineController;
-use App\Http\Controllers\FriendshipController;
-use App\Http\Controllers\LikeController;
-use App\Http\Controllers\MessageController;
-use App\Http\Controllers\NeonHubController;
-use App\Http\Controllers\ProfileController;
-use App\Jobs\HandleAgentResponse; // FIX: Nový sjednocený job
-use App\Jobs\SendFriendRequest;
-use App\Jobs\SendMessage;
-use Illuminate\Support\Facades\Route;
-
-Route::get('/', [NeonHubController::class, 'index'])->name('neon.hub');
-
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-
-    Route::post('/posts/{post}/like', [LikeController::class, 'store'])->name('posts.like');
-    Route::delete('/posts/{post}/like', [LikeController::class, 'destroy'])->name('posts.unlike');
-    Route::post('/posts/{post}/comments', [CommentController::class, 'store'])->name('comments.store');
-    // NOVÁ ROUTA PRO UPDATE:
-    Route::patch('/comments/{comment}', [CommentController::class, 'update'])->name('comments.update');
-
-    Route::post('/system/initialize-node', function () {
-        $userId = auth()->id();
-
-        // 1. Pošle žádost o přátelství od Sentinela
-        SendFriendRequest::dispatch($userId, 'SENTINEL_01')
-            ->delay(now()->addSeconds(4));
-
-        // 2. FIX: Použití nového sjednoceného jobu pro úvodní pozdrav
-        HandleAgentResponse::dispatch($userId, null, 'SENTINEL_01')
-            ->delay(now()->addSeconds(7));
-
-        return response()->json(['status' => 'NODE_INITIALIZED']);
-    })->name('system.initialize');
-
-    Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
-    Route::post('/messages', [MessageController::class, 'store'])->name('messages.store');
-    Route::delete('/conversations/{id}', [MessageController::class, 'destroy']);
-    Route::get('/api/core-engine/telemetry', [CoreEngineController::class, 'getTelemetry']);
-});
-
-Route::get('/test-signal', function () {
-    event(new SystemAlertTriggered(auth()->id(), 'Krizový stav aktivován!'));
-
-    return 'Signál odpálen!';
-});
-
-Route::get('/test-message', function () {
-    SendMessage::dispatch(auth()->id(), [
-        'sender' => 'CYBER_OPERATOR',
-        'text' => 'Připojení k uzlu navázáno.',
-    ])->delay(now()->addSeconds(1));
-
-    return 'Zpráva naplánována za 1 sekundu.';
-});
-
-Route::get('/dashboard', function () {
-    return inertia('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
-
-Route::patch('/friendships/{id}', [FriendshipController::class, 'update'])->name('friendships.update');
-Route::delete('/friendships/{id}', [FriendshipController::class, 'destroy']);
-
-require __DIR__.'/auth.php';
-</file>
-
 <file path="resources/js/Components/NeonSocialCore.vue">
 <script setup>
 import { ref, watch } from 'vue';
@@ -11458,10 +11749,11 @@ import NeonSocialFeed from './NeonSocialFeed.vue';
 import NeonMessages from './NeonMessages.vue';
 import NeonFriends from './NeonFriends.vue';
 import NeonUserProfile from './NeonUserProfile.vue';
+import NeonAuthorCV from './NeonAuthorCV.vue';
 
 const props = defineProps({
     isOpened: { type: Boolean, default: false },
-    initialState: { type: Object, default: null } // <--- Zachycení dat z Welcome.vue
+    initialState: { type: Object, default: null }
 });
 
 const store = useNotificationStore();
@@ -11503,7 +11795,7 @@ const openEntityProfile = (id) => {
     activeTab.value = 'profile';
 };
 
-// --- WATCHER (ŘÍZENÍ BRÁNY A HYDRATACE) ---
+// --- WATCHER (VRÁCENO ZPĚT - ŘÍZENÍ BRÁNY A HYDRATACE) ---
 watch(() => props.isOpened, (newVal) => {
     if (newVal) {
         // Jakmile uživatel projde mechanickou bránou, okamžitě hydratujeme Pinia store z DB dat
@@ -11529,7 +11821,8 @@ watch(() => props.isOpened, (newVal) => {
 
         <template v-if="stage1">
             <template v-if="stage2">
-                <NeonNav class="animate-in fade-in duration-700" />
+                <NeonNav @open-cv="activeTab = 'cv'" class="animate-in fade-in duration-700" />
+
                 <NeonSocialActions class="hidden xl:block" :active-tab="activeTab" @change-view="handleViewChange" />
                 <NeonSocialActions class="block xl:hidden" :is-mobile="true" :active-tab="activeTab"
                     @change-view="handleViewChange" />
@@ -11540,6 +11833,7 @@ watch(() => props.isOpened, (newVal) => {
             <div class="h-full w-full flex justify-center items-stretch md:px-0">
                 <template v-if="stage3">
                     <transition name="depth-zoom" mode="out-in">
+
                         <div v-if="activeTab === 'feed' || activeTab === 'notifications'" key="feed"
                             class="w-full flex flex-col items-stretch grow justify-center max-w-4xl mx-auto h-full relative">
 
@@ -11573,6 +11867,13 @@ watch(() => props.isOpened, (newVal) => {
                             <NeonUserProfile :entityId="selectedEntityId" @back="activeTab = 'friends'"
                                 class="w-full animate-in zoom-in-95 fade-in duration-700" />
                         </div>
+
+                        <div v-else-if="activeTab === 'cv'" key="cv"
+                            class="w-full h-full overflow-y-auto no-scrollbar pt-[12vh] pb-[12vh] px-4 flex justify-center items-center max-w-4xl mx-auto grow">
+                            <NeonAuthorCV @back="activeTab = 'feed'"
+                                class="w-full animate-in zoom-in-95 fade-in duration-700" />
+                        </div>
+
                     </transition>
                 </template>
             </div>

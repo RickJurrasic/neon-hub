@@ -7,7 +7,10 @@ import {
     Mail,
     CheckCircle2,
     Languages,
-    GraduationCap
+    GraduationCap,
+    Github,
+    Linkedin,
+    ExternalLink
 } from 'lucide-vue-next';
 
 defineEmits(['back']);
@@ -20,7 +23,7 @@ const copyEmail = () => {
     setTimeout(() => copied.value = false, 2000);
 };
 
-// Tvůj reálný ověřený technologický stack (upravená procenta pro zdravý balanc)
+// Tvůj reálný ověřený technologický stack
 const techStack = [
     { name: 'PHP (OOP & MVC Architecture)', level: 75 },
     { name: 'Vue.js 3 (Composition API)', level: 75 },
@@ -74,19 +77,26 @@ const techStack = [
 
                 <div class="col-span-1 md:col-span-3 space-y-1.5 text-center md:text-left">
                     <div class="text-white text-base md:text-xl font-bold tracking-wide">Erik Sternad</div>
-                    <div class="text-xs font-semibold text-fuchsia-400 uppercase tracking-wider">Technical Support
-                        Specialist & Aspiring Full-Stack Developer</div>
+                    <div class="flex items-center gap-3 justify-center md:justify-start">
+                        <div class="text-xs font-semibold text-fuchsia-400 uppercase tracking-wider">Technical Support
+                            Specialist & Aspiring Full-Stack Developer</div>
+                        <a href="https://github.com/RickJurrasic" target="_blank"
+                            class="text-slate-400 hover:text-sky-400">
+                            <Github :size="14" />
+                        </a>
+                        <a href="#" target="_blank" class="text-slate-400 hover:text-sky-400">
+                            <Linkedin :size="14" />
+                        </a>
+                    </div>
                     <p class="text-[11px] text-slate-400 leading-relaxed font-sans md:font-mono pt-1">
                         Technical support specialist with a strong background in fintech, shifting into professional
                         full-stack development. Experienced in REST API debugging, deep log analysis, and e-commerce
-                        modules. Passionate about engineering clean MVC/Laravel code and building highly reactive web
-                        architectures.
+                        modules.
                     </p>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
                 <div class="space-y-4 flex flex-col">
                     <div
                         class="space-y-3 bg-[#050a15]/70 border border-sky-500/15 p-4 rounded-2xl flex-1 shadow-[inset_0_0_20px_rgba(56,189,248,0.02)]">
@@ -132,8 +142,6 @@ const techStack = [
                             <div class="space-y-0.5 text-[9px] leading-tight">
                                 <div class="font-bold text-slate-300">ITNetwork Retraining</div>
                                 <div class="text-fuchsia-400/80">PHP Web Programmer (2024)</div>
-                                <div class="text-slate-500 font-sans text-[8px] pt-0.5">HTML, CSS, OOP PHP, MySQL, MVC
-                                    basics.</div>
                             </div>
                         </div>
                     </div>
@@ -144,6 +152,18 @@ const techStack = [
                     <div class="flex items-center gap-2 text-fuchsia-400 border-b border-fuchsia-500/10 pb-1.5">
                         <Briefcase :size="14" />
                         <span class="text-[10px] uppercase tracking-wider font-bold">Deployment_History</span>
+                    </div>
+
+                    <div class="relative pl-3 border-l border-fuchsia-500/50 space-y-1">
+                        <div class="text-[11px] font-bold text-white tracking-wide">Neon-Hub (Core Portfolio App)</div>
+                        <div class="text-[9px] text-fuchsia-400 font-bold">Custom PHP MVC / Vue 3 / Reverb WebSockets /
+                            AI Engine</div>
+                        <p class="text-[10px] text-slate-400 font-sans md:font-mono leading-relaxed">
+                            Engineered a custom-built PHP MVC architecture bound to a highly reactive client
+                            infrastructure. Implemented a sophisticated multi-agent AI pipeline utilizing background
+                            queues with fallback management, real-time WebSocket event broadcasting via Laravel Reverb,
+                            and custom telemetry data collection modeled after Laravel Pulse. Backed by Pest PHP TDD.
+                        </p>
                     </div>
 
                     <div class="relative pl-3 border-l border-sky-500/40 space-y-1">
@@ -157,38 +177,38 @@ const techStack = [
                         </p>
                     </div>
 
-                    <div class="relative pl-3 border-l border-fuchsia-500/40 space-y-1">
-                        <div class="text-[11px] font-bold text-white tracking-wide">Neon-Hub (Core Portfolio App)</div>
-                        <div class="text-[9px] text-fuchsia-400 font-bold">Full-Stack Application Node</div>
+                    <div class="relative pl-3 border-l border-sky-500/40 space-y-1">
+                        <div class="text-[11px] font-bold text-white tracking-wide flex justify-between">
+                            Auto Saloon
+                            <a href="https://github.com/RickJurrasic/auto-saloon" target="_blank">
+                                <ExternalLink :size="10" class="text-sky-400" />
+                            </a>
+                        </div>
+                        <div class="text-[9px] text-sky-400 font-bold">Laravel & Inertia.js / Vue 3 SSR / GoPay Fintech
+                            API</div>
                         <p class="text-[10px] text-slate-400 font-sans md:font-mono leading-relaxed">
-                            Architected a complex client-side dashboard ecosystem. Engineered on top of a custom-built
-                            PHP MVC architecture. Implemented a highly reactive Inertia-like frontend node utilizing
-                            Vue.js 3 and TailwindCSS layouts.
+                            Premium automotive showroom and test-drive booking SPA leveraging Inertia Server-Side
+                            Rendering (SSR). Architected a native GoPay payment workflow managing automated checkout
+                            redirects, transaction states, and asynchronous webhook handling. Developed an
+                            administrative module with automated 2:1 image aspect-ratio cropping via Intervention Image.
                         </p>
                     </div>
 
                     <div class="relative pl-3 border-l border-sky-500/40 space-y-1">
-                        <div class="text-[11px] font-bold text-white tracking-wide">Freelance Developer: Pension
-                            Vyhlídka</div>
-                        <div class="text-[9px] text-sky-400 font-bold">Custom Web System (www.pensionvyhlidka.cz)</div>
+                        <div class="text-[11px] font-bold text-white tracking-wide">Freelance: Pension Vyhlídka</div>
                         <p class="text-[10px] text-slate-400 font-sans md:font-mono leading-relaxed">
-                            Designed and deployed a responsive commercial website. Built a custom lightweight content
-                            management system (CMS) in PHP 8.1 and MySQL. Fully integrated translation APIs for seamless
-                            real-time automated localization.
+                            Custom CMS in PHP 7.4/MySQL with automated localization.
                         </p>
                     </div>
 
                     <div class="relative pl-3 border-l border-slate-800 space-y-0.5 opacity-60">
                         <div class="text-[10px] font-bold text-slate-400">Ops & Customer Services Background</div>
-                        <div class="text-[8px] text-slate-500">Various Industries (2015 - 2023)</div>
                         <p class="text-[9px] text-slate-400 font-sans leading-tight">
-                            Years of operational experience as a Hotel Receptionist / Night Auditor (including winter
-                            seasons in Austria). Proven ability to manage high-pressure situations, master CRM systems
-                            (Fidelio, HotelTime), and communicate seamlessly across international teams.
+                            Hotel Receptionist/Night Auditor (2015-2023). Managed high-pressure situations, CRM systems
+                            (Fidelio, HotelTime).
                         </p>
                     </div>
                 </div>
-
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-sky-500/10 shrink-0">
@@ -198,14 +218,12 @@ const techStack = [
                     <Mail v-else :size="12" />
                     {{ copied ? 'Email Copied!' : 'Copy Contact Email' }}
                 </button>
-
                 <a href="/assets/erik-sternad-cv.pdf" download="Erik_Sternad_CV.pdf"
                     class="w-full bg-gradient-to-r from-fuchsia-600/20 to-sky-600/20 border border-fuchsia-500/40 py-2.5 rounded-xl text-[10px] text-white uppercase font-bold hover:from-fuchsia-600/30 hover:to-sky-600/30 hover:border-fuchsia-500 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 text-center select-none">
                     <Download :size="12" class="text-fuchsia-400" />
                     Download Official CV (PDF)
                 </a>
             </div>
-
         </div>
     </div>
 </template>
