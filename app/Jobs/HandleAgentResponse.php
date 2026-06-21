@@ -140,7 +140,7 @@ class HandleAgentResponse implements ShouldQueue
             'content' => $postContent,
             'type' => $postType,
             'latency' => rand(1, 4).'.'.rand(0, 9).'ms',
-            'likes_count' => rand(10, 95),
+            'likes_count' => 0,
             'image_url' => $imageUrl,
         ]);
 
