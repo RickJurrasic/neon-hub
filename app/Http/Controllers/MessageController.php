@@ -2,42 +2,54 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\SendMessageAction;
 use App\Jobs\HandleAgentResponse;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class MessageController extends Controller
 {
     /**
      * Načte historii zpráv z AI konverzací pro přihlášeného uživatele.
+     * Využívá JOIN na tabulku uživatelů, aby získal reálná data o botech (jméno, avatar).
      */
     public function index()
     {
-        $userId = auth()->id();
+        $userId = auth()->id(); // ID 1 (Recruiter)
 
-        $messages = DB::table('agent_conversation_messages')
-            ->where('user_id', $userId)
-            ->orderBy('created_at', 'desc')
-            // FIX: Vybíráme čistý 'created_at' místo 'created_at as time'
-            ->select('id', 'conversation_id', 'agent', 'content as text', 'created_at', 'role')
+        $messages = DB::table('agent_conversation_messages as m')
+            ->join('agent_conversations as c', 'm.conversation_id', '=', 'c.id')
+            ->join('users as u', 'c.user_id', '=', 'u.id') // c.user_id drží ID bota
+            ->where('m.user_id', $userId) // Zprávy doručené/přístupné pro recruitera
+            ->orderBy('m.created_at', 'desc')
+            ->select([
+                'm.id',
+                'm.conversation_id',
+                'm.agent',
+                'm.content as text',
+                'm.created_at',
+                'm.role',
+                'u.name as bot_real_name', // Získáme jméno přímo z DB seederu bota!
+            ])
             ->get()
             ->map(function ($msg) {
-                // Vypreparujeme čisté jméno agenta (např. SentinelAgent)
-                $agentName = str_replace('App\\Ai\\Agents\\', '', $msg->agent);
-                $msg->agent_name = $agentName;
+                // Vyčištění názvu třídy agenta (např. App\Ai\Agents\SentinelAgent -> SentinelAgent)
+                $msg->agent_name = $msg->agent ? str_replace('App\\Ai\\Agents\\', '', $msg->agent) : null;
 
                 if ($msg->role === 'user') {
                     $msg->sender = 'YOU';
                 } else {
-                    $msg->sender = $agentName;
+                    // Žádné nebezpečné hledání textu – prostě dosadíme reálné jméno bota z DB (VECTRA_CORE, SENTINEL_01...)
+                    $msg->sender = $msg->bot_real_name ?? 'SYSTEM_BOT';
                 }
 
-                // FIX: 'time' bude sloužit pro UI výpis, 'created_at' pro přesný sort ve Vue
                 $msg->time = Carbon::parse($msg->created_at)->toTimeString();
                 $msg->created_at = Carbon::parse($msg->created_at)->toIso8601String();
                 $msg->read = true;
+
+                // Odstraníme pomocný sloupec, ať neposíláme zbytečná data do frontendu
+                unset($msg->bot_real_name);
 
                 return $msg;
             });
@@ -46,9 +58,9 @@ class MessageController extends Controller
     }
 
     /**
-     * Uloží odpověď uživatele do databáze k dané konverzaci.
+     * Uloží odpověď uživatele do databáze pomocí centralizované SendMessageAction.
      */
-    public function store(Request $request)
+    public function store(Request $request, SendMessageAction $sendMessageAction)
     {
         $request->validate([
             'message_id' => 'required|string',
@@ -57,6 +69,7 @@ class MessageController extends Controller
 
         $userId = auth()->id();
 
+        // 1. Najdeme původní zprávu, na kterou uživatel odpovídá
         $originalMessage = DB::table('agent_conversation_messages')
             ->where('id', $request->message_id)
             ->where('user_id', $userId)
@@ -66,31 +79,40 @@ class MessageController extends Controller
             return response()->json(['error' => 'ORIGINAL_NODE_NOT_FOUND'], 404);
         }
 
-        $newMessageId = (string) Str::uuid();
+        // 2. Vytáhneme konverzaci, abychom zjistili, kterému botovi (recipient_id) odepisujeme
+        $conversation = DB::table('agent_conversations')
+            ->where('id', $originalMessage->conversation_id)
+            ->first();
+
+        if (! $conversation) {
+            return response()->json(['error' => 'CONVERSATION_GRID_NOT_FOUND'], 404);
+        }
+
+        $botId = (int) $conversation->user_id; // ID bota (např. ID pro VECTRA_CORE)
+
+        // 3. Použijeme injektovanou instanci akce ze service containeru
+        // FIX: Místo null předáváme $originalMessage->agent, abychom splnili NOT NULL podmínku v SQLite
+        $newMessageId = $sendMessageAction->execute(
+            $userId,
+            $botId,
+            $request->text,
+            $originalMessage->agent,
+            'user'
+        );
+
         $now = now();
 
-        DB::table('agent_conversation_messages')->insert([
-            'id' => $newMessageId,
-            'conversation_id' => $originalMessage->conversation_id,
-            'user_id' => $userId,
-            'agent' => $originalMessage->agent,
-            'role' => 'user',
-            'content' => $request->text,
-            'attachments' => '[]', 'tool_calls' => '[]', 'tool_results' => '[]', 'usage' => '[]', 'meta' => '[]',
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        // 4. Spustíme na pozadí Job, který nechá AI bota zareagovat
+        HandleAgentResponse::dispatch($userId, $conversation->id);
 
-        // FIX: Použití správných proměnných, které v této metodě reálně existují
-        HandleAgentResponse::dispatch($userId, $originalMessage->conversation_id);
-
+        // 5. Vrátíme čistou odpověď pro Piniu
         return response()->json([
             'id' => $newMessageId,
-            'conversation_id' => $originalMessage->conversation_id,
+            'conversation_id' => $conversation->id,
             'agent' => $originalMessage->agent,
-            'agent_name' => str_replace('App\\Ai\\Agents\\', '', $originalMessage->agent),
+            'agent_name' => $originalMessage->agent ? str_replace('App\\Ai\\Agents\\', '', $originalMessage->agent) : null,
             'sender' => 'YOU',
-            'text' => $request->text, // FIX: Musíme poslat text i zpátky frontendu, aby ho Pinia mohla vykreslit!
+            'text' => $request->text,
             'time' => $now->toTimeString(),
             'created_at' => $now->toIso8601String(),
             'read' => true,
@@ -99,33 +121,27 @@ class MessageController extends Controller
     }
 
     /**
-     * Odstraní zprávu z databáze.
+     * Odstraní zprávu a celé vlákno z databáze.
      */
     public function destroy($conversationId)
     {
-        $userId = auth()->id();
-
-        // 1. Bezpečnostní pojistka: Ověříme, že konverzace vůbec existuje a patří přihlášenému uživateli
-        // Předpokládám, že tabulka se jmenuje 'agent_conversations' podle tvých schémat
+        // Bezpečnostní ověření existence konverzace
         $conversationExists = DB::table('agent_conversations')
             ->where('id', $conversationId)
-            ->where('user_id', $userId)
             ->exists();
 
         if (! $conversationExists) {
             return response()->json(['error' => 'NODE_NOT_FOUND'], 404);
         }
 
-        // 2. Smažeme všechny zprávy propojené s touto konverzací
+        // 1. Smažeme všechny zprávy propojené s touto konverzací
         DB::table('agent_conversation_messages')
             ->where('conversation_id', $conversationId)
-            ->where('user_id', $userId) // Pojistka
             ->delete();
 
-        // 3. Smažeme samotnou konverzaci z hlavní tabulky konverzací
+        // 2. Smažeme samotnou konverzaci z hlavní tabulky konverzací
         DB::table('agent_conversations')
             ->where('id', $conversationId)
-            ->where('user_id', $userId)
             ->delete();
 
         return response()->json(['status' => 'NODE_PURGED']);

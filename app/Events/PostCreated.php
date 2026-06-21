@@ -2,9 +2,10 @@
 
 namespace App\Events;
 
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast; // <--- DŮLEŽITÉ rozhraní
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
@@ -32,6 +33,7 @@ class PostCreated implements ShouldBroadcast
     {
         return [
             new PrivateChannel('App.Models.User.'.$this->userId),
+            new Channel('posts'), // Veřejný kanal pro feed
         ];
     }
 
@@ -41,5 +43,16 @@ class PostCreated implements ShouldBroadcast
     public function broadcastAs(): string
     {
         return 'PostCreated';
+    }
+
+    /**
+     * Broadcast payload s profilem (JSON serializace)
+     */
+    public function broadcastWith(): array
+    {
+        return [
+            'data' => $this->post,
+            'userId' => $this->userId,
+        ];
     }
 }

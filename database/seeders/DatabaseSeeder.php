@@ -16,17 +16,17 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 🌌 Vytvoříme hlavního Demo rekrutera
+        // 🌌 Vytvoříme hlavního Demo rekrutera (ID 1)
         User::updateOrCreate(
             [
                 'name' => 'Recruiter Phantom',
                 'email' => 'demo@neonhub.io',
                 'handle' => '@recruiter_alpha',
-                'role' => 'CORPO_ELITE', //
+                'role' => 'CORPO_ELITE',
                 'bio' => 'Hlavní rekruter pro korporátní elitu. Vyhledává subjekty s vysokou latencí a čistým zdrojovým kódem.',
                 'trust_level' => 75,
                 'latency' => '18ms_STABLE',
-                'password' => Hash::make('password'), // Nebo tvoje heslo
+                'password' => Hash::make('password'),
             ]
         );
 
@@ -35,5 +35,8 @@ class DatabaseSeeder extends Seeder
             BotSeeder::class,
             PostSeeder::class,
         ]);
+
+        // 💬 Friendships se vytvářejí automaticky přes scheduler
+        // Boti nejdříš pošlou žádost o přátelství a až poté mohou posílat zprávy
     }
 }

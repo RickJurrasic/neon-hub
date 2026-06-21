@@ -2,15 +2,13 @@
 
 namespace Tests\Feature\Jobs;
 
-use App\Ai\Agents\SentinelAgent;
+use App\Ai\Agents\AIAgent;
 use App\Events\MessageReceived;
 use App\Jobs\RespondToUserMessage;
-use App\Models\User; // Tuto třídu importuj
+use App\Models\User;
 use Illuminate\Support\Facades\Event;
 use Laravel\Ai\Responses\AgentResponse;
 use Mockery;
-
-// Importuj správně takto
 
 it('responds to user message, persists to database and dispatches event', function () {
     Event::fake([MessageReceived::class]);
@@ -25,15 +23,16 @@ it('responds to user message, persists to database and dispatches event', functi
     // Předpokládám, že tvůj kód přistupuje k výsledku přes $response->text
     $responseMock->text = $aiMockResponse;
 
-    // 3. Vytvoříme mock SentinelAgenta
-    $agentMock = Mockery::mock(SentinelAgent::class);
+    // 3. Vytvoříme mock AIAgenta
+    $agentMock = Mockery::mock(AIAgent::class);
+    $agentMock->shouldReceive('setPersona')->andReturnSelf();
     $agentMock->shouldReceive('loadConversation')->andReturnSelf();
 
     // 4. Řekneme agentovi, aby vracel náš responseMock
     $agentMock->shouldReceive('prompt')->andReturn($responseMock);
 
     // 5. Vložíme mock do containeru
-    $this->instance(SentinelAgent::class, $agentMock);
+    $this->instance(AIAgent::class, $agentMock);
 
     // Act: Spustíme job
     $job = new RespondToUserMessage($user->id, $conversationId);

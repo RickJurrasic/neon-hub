@@ -47,8 +47,7 @@ class CommentController extends Controller
         ];
 
         // Real-time broadcast pro ostatní uživatele (aktualizace feedu)
-
-        broadcast(new CommentCreated($post->id, $commentData, $post->user_id))->toOthers();
+        event(new CommentCreated($post->id, $commentData, $post->user_id, auth()->id()));
 
         // Notifikace autora postu (pokud to není jeho vlastní komentář)
 

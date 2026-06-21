@@ -4,11 +4,24 @@ import { useNotificationStore } from '@/Stores/useNotificationStore';
 import { ArrowUp } from 'lucide-vue-next';
 import NeonSocialPost from './NeonSocialPost.vue';
 
+// Auto-scroll na začátek stránky
+const autoScrollToTop = () => {
+    if (mainContainer.value) {
+        mainContainer.value.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    }
+};
+
 const store = useNotificationStore();
 const mainContainer = ref(null);
 
 // Interní stav pro ID postů – budeme zde držet VŽDY čistá čísla (Numbers)
 const currentVisibleIds = ref([]);
+
+// Track the last seen post ID for auto-scroll detection
+const lastSeenMaxId = ref(0);
 
 // HLAVNÍ FIX: Watcher inteligentně spravuje ID a normalizuje typy
 watch(() => store.posts, (newPosts) => {
@@ -17,6 +30,11 @@ watch(() => store.posts, (newPosts) => {
     // 1. Pokud je feed prázdný (první načtení), vezmeme všechno a přetypujeme na čísla
     if (currentVisibleIds.value.length === 0) {
         currentVisibleIds.value = newPosts.map(p => Number(p.id));
+        const maxId = Math.max(...currentVisibleIds.value);
+        if (maxId > lastSeenMaxId.value) {
+            lastSeenMaxId.value = maxId;
+            autoScrollToTop();
+        }
         return;
     }
 
@@ -30,6 +48,13 @@ watch(() => store.posts, (newPosts) => {
             currentVisibleIds.value.push(postId);
         }
     });
+
+    // 3. Auto-scroll na nové příspěvky (větší ID než poslední viděný)
+    const newMaxId = Math.max(...newPosts.map(p => Number(p.id)));
+    if (newMaxId > lastSeenMaxId.value) {
+        lastSeenMaxId.value = newMaxId;
+        autoScrollToTop();
+    }
 }, { deep: true, immediate: true });
 
 // Spočítáme nové příspěvky (porovnáváme čistá čísla)
@@ -44,6 +69,8 @@ const visiblePosts = computed(() => {
     return store.posts.filter(p => currentVisibleIds.value.includes(Number(p.id)));
 });
 
+
+
 // Akce při kliknutí na "Nové příspěvky"
 const loadIncomingPosts = () => {
     // Všechna ID natlačíme jako striktní čísla
@@ -56,6 +83,27 @@ const loadIncomingPosts = () => {
         });
     }
 };
+
+// Scroll na konkrétní post po kliknutí na notifikaci
+const scrollToPost = (postId) => {
+    const element = document.getElementById(`post-${postId}`);
+    if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Přidáme animaci zvýraznění
+        element.classList.add('highlight-flash');
+        setTimeout(() => {
+            element.classList.remove('highlight-flash');
+        }, 2000);
+    } else {
+        // Fallback: načíst feed a zkusit znovu
+        loadIncomingPosts();
+    }
+};
+
+// Exponujeme funkci pro použití z jiných komponent
+defineExpose({
+    scrollToPost,
+});
 </script>
 
 <template>
@@ -84,7 +132,8 @@ const loadIncomingPosts = () => {
                 >> NO_ACTIVE_LOGS_IN_FEED
             </div>
 
-            <NeonSocialPost v-for="post in visiblePosts" :key="post.id" :post="post" class="w-full" />
+            <NeonSocialPost v-for="post in visiblePosts" :key="post.id" :id="'post-' + post.id" :post="post"
+                class="w-full" />
 
         </div>
     </main>
@@ -98,5 +147,23 @@ const loadIncomingPosts = () => {
 .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+}
+
+.highlight-flash {
+    animation: highlight 2s ease-in-out;
+}
+
+@keyframes highlight {
+    0% {
+        box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7);
+    }
+
+    50% {
+        box-shadow: 0 0 0 10px rgba(56, 189, 248, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(56, 189, 248, 0);
+    }
 }
 </style>

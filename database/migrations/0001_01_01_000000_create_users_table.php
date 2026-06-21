@@ -17,12 +17,13 @@ return new class extends Migration
             $table->string('email')->unique();
 
             // 🌌 RECRUITER CYBERPUNK EXTENSIONS
-            $table->string('handle')->unique()->nullable();    // Např. @recruiter_alpha
-            $table->string('role')->default('EXTERNAL_NODE'); // Místo faction, přímo pro Vue networkRole
-            $table->text('bio')->nullable();                  // Pro tvůj ENCRYPTED_BIO
-            $table->integer('trust_level')->default(50);      // Pro TRUST_LEVEL bar (0-100)
-            $table->string('latency')->default('24ms_STABLE'); // Pro LAST_SEEN_LATENCY
-            $table->string('avatar_url')->nullable();         // Cesta k profilovce rekrutera
+            $table->string('handle')->unique()->nullable();     // Např. @recruiter_alpha
+            $table->string('role')->default('EXTERNAL_NODE');   // Místo faction, přímo pro Vue networkRole
+            $table->text('bio')->nullable();                    // Pro tvůj ENCRYPTED_BIO
+            $table->integer('trust_level')->default(50);        // Pro TRUST_LEVEL bar (0-100)
+            $table->string('latency')->default('24ms_STABLE');  // Pro LAST_SEEN_LATENCY
+            $table->string('avatar_url')->nullable();           // Cesta k profilovce rekrutera
+            $table->boolean('is_ai')->default(false);          // 🤖 PŘIDÁNO: Identifikace pro scheduler
 
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
