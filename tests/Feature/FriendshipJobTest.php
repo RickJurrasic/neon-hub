@@ -1,37 +1,41 @@
 <?php
 
-use App\Jobs\SendFriendRequest;
+use App\Actions\SendFriendRequestAction;
+use App\Events\FriendRequestReceived;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Event;
 
 uses(RefreshDatabase::class);
 
-// 1. UNIT TEST: Ověříme, že job v sobě drží správná data
+// 1. UNIT TEST: Ověříme, že action v sobě drží správná data
 it('holds the correct user and bot data', function () {
     $user = User::factory()->create();
-    $botName = 'SENTINEL_01';
+    $botId = User::factory()->create(['name' => 'SENTINEL_01'])->id;
 
-    $job = new SendFriendRequest($user->id, $botName);
+    $action = new SendFriendRequestAction;
 
-    expect($job->userId)->toBe($user->id)
-        ->and($job->botName)->toBe($botName);
+    // Execute the action
+    $result = $action->execute($user->id, $botId);
+
+    // Verify friendship was created
+    expect($result)->not->toBeNull()
+        ->and($result->sender_id)->toBe($user->id)
+        ->and($result->recipient_id)->toBe($botId);
 });
 
-// 2. FEATURE TEST: Ověříme, že celý řetězec z frontendu funguje (spouští job)
-it('dispatches the SendFriendRequest job when system is initialized via route', function () {
-    Queue::fake();
+// 2. FEATURE TEST: Ověříme, že celý řetězec z frontendu funguje
+it('dispatches the friend request action when system is initialized via route', function () {
+    Event::fake();
 
     $user = User::factory()->create();
-    // Vytvoříme bota, aby job neměl problém v 'handle' (i když Queue::fake() kód v handle nespouští, je dobré mít data)
-    User::factory()->create(['name' => 'SENTINEL_01']);
+    // Vytvoříme bota
+    $bot = User::factory()->create(['name' => 'SENTINEL_01']);
 
     $this->actingAs($user)
         ->post(route('system.initialize'))
         ->assertStatus(200);
 
-    // Ověříme, že job byl poslán do fronty
-    Queue::assertPushed(SendFriendRequest::class, function ($job) use ($user) {
-        return $job->userId === $user->id && $job->botName === 'SENTINEL_01';
-    });
+    // Ověříme, že byl vyvolán event
+    Event::assertDispatched(FriendRequestReceived::class);
 });

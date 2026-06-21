@@ -240,23 +240,26 @@ async function purgeConversation(conversationId) {
 
             <!-- Kontejner se zprávami -->
             <div ref="scrollContainer" class="space-y-4 overflow-y-auto grow mb-4 flex flex-col p-1">
-                <div v-for="cMsg in activeChatMessages" :key="cMsg.id"
-                    class="border-l-2 pl-3 py-1.5 rounded-r-lg max-w-[90%] transition-all duration-200" :class="cMsg.sender === 'YOU'
-                        ? 'border-cyan-500 bg-cyan-500/5 self-end text-right'
-                        : 'border-fuchsia-600 bg-fuchsia-600/5 self-start'">
-                    <div class="text-[8px] uppercase text-fuchsia-500">
-                        {{ cMsg.sender }}
-                    </div>
+    <div v-for="cMsg in activeChatMessages" :key="cMsg.id"
+        class="border-l-2 pl-3 py-1.5 rounded-r-lg max-w-[90%] transition-all duration-200"
+        :class="(cMsg.sender === 'YOU' || cMsg.role === 'user')
+            ? 'border-cyan-500 bg-cyan-500/5 self-end text-right'
+            : 'border-fuchsia-600 bg-fuchsia-600/5 self-start'">
 
-                    <div class="text-xs text-white mt-1 break-words">
-                        "{{ cMsg.text }}"
-                    </div>
+        <div class="text-[8px] uppercase"
+             :class="(cMsg.sender === 'YOU' || cMsg.role === 'user') ? 'text-cyan-500' : 'text-fuchsia-500'">
+            {{ (cMsg.sender === 'YOU' || cMsg.role === 'user') ? 'YOU' : cMsg.sender }}
+        </div>
 
-                    <div class="text-[7px] text-white/30 mt-1">
-                        {{ cMsg.time }}
-                    </div>
-                </div>
-            </div>
+        <div class="text-xs text-white mt-1 break-words">
+            "{{ cMsg.text }}"
+        </div>
+
+        <div class="text-[7px] text-white/30 mt-1">
+            {{ cMsg.time }}
+        </div>
+    </div>
+</div>
 
             <div class="border border-cyan-500/30 p-2 bg-black/90 rounded-xl shrink-0">
                 <div class="flex gap-2">

@@ -13,8 +13,8 @@ class LikeController extends Controller
         $post->likes()->firstOrCreate(['user_id' => auth()->id()]);
         $likesCount = $post->likes()->count();
 
-        // Vyvoláme real-time broadcast pro ostatní uživatele
-        event(new PostLiked($post->id, $likesCount));
+        // Vyvoláme event s userem (pro notifikace i pro self)
+        event(new PostLiked($post, $likesCount, auth()->user(), true));
 
         return response()->json([
             'likes_count' => $likesCount,
@@ -27,8 +27,8 @@ class LikeController extends Controller
         $post->likes()->where('user_id', auth()->id())->delete();
         $likesCount = $post->likes()->count();
 
-        // Vyvoláme real-time broadcast pro ostatní uživatele
-        event(new PostLiked($post->id, $likesCount));
+        // Vyvoláme event s userem (pro notifikace i pro self)
+        event(new PostLiked($post, $likesCount, auth()->user(), false));
 
         return response()->json([
             'likes_count' => $likesCount,

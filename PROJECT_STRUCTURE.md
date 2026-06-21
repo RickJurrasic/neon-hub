@@ -11,23 +11,26 @@ or other automated processes.
 
 <file_format>
 The content is organized as follows:
+
 1. This summary section
 2. Repository information
 3. Directory structure
 4. Repository files (if enabled)
 5. Multiple file entries, each consisting of:
-  - File path as an attribute
-  - Full contents of the file
-</file_format>
+
+- File path as an attribute
+- Full contents of the file
+  </file_format>
 
 <usage_guidelines>
+
 - This file should be treated as read-only. Any changes should be made to the
   original repository files, not this packed version.
 - When processing this file, use the file path to distinguish
   between different files in the repository.
 - Be aware that this file may contain sensitive information. Handle it with
   the same level of security as you would the original repository.
-</usage_guidelines>
+  </usage_guidelines>
 
 <notes>
 - Some files may have been excluded based on .gitignore rules and Repomix's configuration
@@ -253,15 +256,17 @@ This section contains the contents of the repository's files.
 - Auth: Use standard Laravel Auth controllers.
 
 # Navigation Rules
+
 - Always refer to PROJECT_STRUCTURE.md in the root to locate files.
 - Do not read the entire codebase. Locate specific files by path.
 - Preferred AI logic style: Strategy pattern (AgentManager).
 
 # Code Style
+
 - Use PHP 8.4+ features (typed properties, constructor promotion).
 - Controllers must be slim. Move business logic to app/Actions.
 - Test-First approach: Always use Pest (tests/Feature/ or tests/Unit/).
-</file>
+  </file>
 
 <file path="app/Actions/SendMessageAction.php">
 <?php
@@ -274,17 +279,17 @@ use Illuminate\Support\Str;
 
 class SendMessageAction
 {
-    /**
-     * @param  int  $senderId  Kdo zprávu skutečně odesílá (Bot ID nebo Uživatel ID 1)
-     * @param  int  $recipientId  Komu zpráva směřuje (zde se dynamicky dopočítá)
-     * @param  string  $content  Obsah zprávy
-     * @param  string|null  $agentName  Jméno AI bota nebo plný název třídy agenta
-     * @param  string  $role  'assistant' (bot) nebo 'user' (ty jako recruiter)
-     */
-    public function execute(int $senderId, int $recipientId, string $content, ?string $agentName = null, string $role = 'assistant'): string
-    {
-        $now = now();
-        $recruiterId = 1;
+/\*\*
+_ @param int $senderId Kdo zprávu skutečně odesílá (Bot ID nebo Uživatel ID 1)
+_ @param int $recipientId Komu zpráva směřuje (zde se dynamicky dopočítá)
+_ @param string $content Obsah zprávy
+_ @param string|null $agentName Jméno AI bota nebo plný název třídy agenta
+_ @param string $role 'assistant' (bot) nebo 'user' (ty jako recruiter)
+_/
+public function execute(int $senderId, int $recipientId, string $content, ?string $agentName = null, string $role = 'assistant'): string
+{
+$now = now();
+$recruiterId = 1;
 
         // 🌌 Dynamické určení, pod kterým Bot ID je konverzace vedena.
         // Konverzace v 'agent_conversations' jsou indexovány podle ID bota (sloupec user_id).
@@ -369,6 +374,7 @@ class SendMessageAction
 
         return $messageId;
     }
+
 }
 </file>
 
@@ -387,7 +393,7 @@ use Stringable;
 
 class AIAgent implements Agent, Conversational, HasTools
 {
-    use Promptable;
+use Promptable;
 
     protected array $history = [];
 
@@ -445,6 +451,7 @@ class AIAgent implements Agent, Conversational, HasTools
     {
         return [];
     }
+
 }
 </file>
 
@@ -459,13 +466,14 @@ use Laravel\Ai\Contracts\HasTools;
 
 interface AIProfile extends Agent, Conversational, HasTools
 {
-    public function triggerFriendRequest(): void;
+public function triggerFriendRequest(): void;
 
     public function sendMessage(): void;
 
     public function createPost(): void;
 
     public function reactToEvent(): void;
+
 }
 </file>
 
@@ -481,7 +489,7 @@ use Illuminate\Queue\SerializesModels;
 
 class AIActionPerformed implements ShouldBroadcastNow
 {
-    use Dispatchable, SerializesModels;
+use Dispatchable, SerializesModels;
 
     public $userId;
 
@@ -509,6 +517,7 @@ class AIActionPerformed implements ShouldBroadcastNow
             'payload' => $this->payload,
         ];
     }
+
 }
 </file>
 
@@ -538,7 +547,7 @@ use Illuminate\Support\Str;
 
 class ProcessAIAction implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected int $userId;
 
@@ -774,6 +783,7 @@ class ProcessAIAction implements ShouldQueue
                 break;
         }
     }
+
 }
 </file>
 
@@ -788,12 +798,12 @@ use Illuminate\Support\Facades\Log;
 
 class HandleAIActionPerformed implements ShouldQueue
 {
-    public function handle(AIActionPerformed $event)
+public function handle(AIActionPerformed $event)
     {
         // Broadcast is handled automatically by ShouldBroadcastNow
         // Additional logic can be added here if needed
         Log::info("AI action broadcasted: {$event->actionType} for user {$event->userId}");
-    }
+}
 }
 </file>
 
@@ -861,22 +871,23 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up()
-    {
-        Schema::create('ai_profile_events', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->string('action_type');
-            $table->timestamp('executed_at')->nullable();
-            $table->string('status')->default('pending');
-            $table->timestamps();
-        });
-    }
+public function up()
+{
+Schema::create('ai_profile_events', function (Blueprint $table) {
+$table->id();
+$table->foreignId('user_id')->constrained()->onDelete('cascade');
+$table->string('action_type');
+$table->timestamp('executed_at')->nullable();
+$table->string('status')->default('pending');
+$table->timestamps();
+});
+}
 
     public function down()
     {
         Schema::dropIfExists('ai_profile_events');
     }
+
 };
 </file>
 
@@ -889,21 +900,22 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up(): void
-    {
-        Schema::create('messages', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('sender_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('recipient_id')->constrained('users')->onDelete('cascade');
-            $table->text('content');
-            $table->timestamps();
-        });
-    }
+public function up(): void
+{
+Schema::create('messages', function (Blueprint $table) {
+$table->id();
+$table->foreignId('sender_id')->constrained('users')->onDelete('cascade');
+$table->foreignId('recipient_id')->constrained('users')->onDelete('cascade');
+$table->text('content');
+$table->timestamps();
+});
+}
 
     public function down(): void
     {
         Schema::dropIfExists('messages');
     }
+
 };
 </file>
 
@@ -916,20 +928,20 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
-    {
-        Schema::create('notifications', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->string('type');
-            $table->morphs('notifiable');
-            $table->text('data');
-            $table->timestamp('read_at')->nullable();
-            $table->timestamps();
-        });
-    }
+/\*\*
+_ Run the migrations.
+_/
+public function up(): void
+{
+Schema::create('notifications', function (Blueprint $table) {
+$table->uuid('id')->primary();
+$table->string('type');
+$table->morphs('notifiable');
+$table->text('data');
+$table->timestamp('read_at')->nullable();
+$table->timestamps();
+});
+}
 
     /**
      * Reverse the migrations.
@@ -938,6 +950,7 @@ return new class extends Migration
     {
         Schema::dropIfExists('notifications');
     }
+
 };
 </file>
 
@@ -5450,31 +5463,31 @@ use Illuminate\Support\Str;
   \*/
   protected static ?string $password;
 
-        /**
-         * Define the model's default state.
-         *
-         * @return array<string, mixed>
-         */
-        public function definition(): array
-        {
-            return [
-                'name' => fake()->name(),
-                'email' => fake()->unique()->safeEmail(),
-                'email_verified_at' => now(),
-                'password' => static::$password ??= Hash::make('password'),
-                'remember_token' => Str::random(10),
-            ];
-        }
+          /**
+           * Define the model's default state.
+           *
+           * @return array<string, mixed>
+           */
+          public function definition(): array
+          {
+              return [
+                  'name' => fake()->name(),
+                  'email' => fake()->unique()->safeEmail(),
+                  'email_verified_at' => now(),
+                  'password' => static::$password ??= Hash::make('password'),
+                  'remember_token' => Str::random(10),
+              ];
+          }
 
-        /**
-         * Indicate that the model's email address should be unverified.
-         */
-        public function unverified(): static
-        {
-            return $this->state(fn (array $attributes) => [
-                'email_verified_at' => null,
-            ]);
-        }
+          /**
+           * Indicate that the model's email address should be unverified.
+           */
+          public function unverified(): static
+          {
+              return $this->state(fn (array $attributes) => [
+                  'email_verified_at' => null,
+              ]);
+          }
 
     }
     </file>
@@ -12243,31 +12256,31 @@ store.fetchMessages()
   const inboxConversations = computed(() => {
   const map = {}
 
-        messages.value.forEach(m => {
-            const convId = m.conversation_id
-            if (!convId) return
+          messages.value.forEach(m => {
+              const convId = m.conversation_id
+              if (!convId) return
 
-            // FIX: Porovnáváme primárně přes kompletní timestamp created_at
-            const messageDate = new Date(m.created_at || m.time || 0)
+              // FIX: Porovnáváme primárně přes kompletní timestamp created_at
+              const messageDate = new Date(m.created_at || m.time || 0)
 
-            if (!map[convId] || new Date(map[convId].created_at || map[convId].time || 0) < messageDate) {
-                map[convId] = {
-                    conversation_id: convId,
-                    text: m.text || m.content || '',
-                    time: m.time,
-                    created_at: m.created_at || m.time,
-                    sender: m.sender || m.role || 'UNKNOWN',
-                    agentName: m.agent_name || m.agentName || '',
-                    lastMessageId: m.id,
-                    read: m.read ?? false
-                }
-            }
-        })
+              if (!map[convId] || new Date(map[convId].created_at || map[convId].time || 0) < messageDate) {
+                  map[convId] = {
+                      conversation_id: convId,
+                      text: m.text || m.content || '',
+                      time: m.time,
+                      created_at: m.created_at || m.time,
+                      sender: m.sender || m.role || 'UNKNOWN',
+                      agentName: m.agent_name || m.agentName || '',
+                      lastMessageId: m.id,
+                      read: m.read ?? false
+                  }
+              }
+          })
 
-        // Seřadíme konverzace v inboxu tak, aby nejnovější podle vytvoření byla nahoře
-        return Object.values(map).sort(
-            (a, b) => new Date(b.created_at || b.time) - new Date(a.created_at || a.time)
-        )
+          // Seřadíme konverzace v inboxu tak, aby nejnovější podle vytvoření byla nahoře
+          return Object.values(map).sort(
+              (a, b) => new Date(b.created_at || b.time) - new Date(a.created_at || a.time)
+          )
 
     })
 
@@ -12278,30 +12291,30 @@ store.fetchMessages()
   const activeChatMessages = computed(() => {
   if (!activeConversationId.value) return []
 
-        return messages.value
-            .filter(m => String(m.conversation_id) === String(activeConversationId.value))
-            .map(m => {
-                // KLÍČOVÁ OPRAVA: Použijeme ...m, abychom stoprocentně zachovali 'role',
-                // 'content' a všechny ostatní původní parametry z backendu!
-                return {
-                    ...m,
-                    // Pro jistotu sjednotíme text i content, ať šablona najde obojí pod jakýmkoliv názvem
-                    text: m.text || m.content || '',
-                    content: m.content || m.text || '',
-                    // Připravíme si časové razítko pro sort
-                    createdAt: m.created_at || m.time
-                }
-            })
-            // Neprůstřelný chronologický sort (Od nejstarší zprávy nahoře po nejnovější dole)
-            .sort((a, b) => {
-                const dateA = new Date(a.createdAt).getTime()
-                const dateB = new Date(b.createdAt).getTime()
+          return messages.value
+              .filter(m => String(m.conversation_id) === String(activeConversationId.value))
+              .map(m => {
+                  // KLÍČOVÁ OPRAVA: Použijeme ...m, abychom stoprocentně zachovali 'role',
+                  // 'content' a všechny ostatní původní parametry z backendu!
+                  return {
+                      ...m,
+                      // Pro jistotu sjednotíme text i content, ať šablona najde obojí pod jakýmkoliv názvem
+                      text: m.text || m.content || '',
+                      content: m.content || m.text || '',
+                      // Připravíme si časové razítko pro sort
+                      createdAt: m.created_at || m.time
+                  }
+              })
+              // Neprůstřelný chronologický sort (Od nejstarší zprávy nahoře po nejnovější dole)
+              .sort((a, b) => {
+                  const dateA = new Date(a.createdAt).getTime()
+                  const dateB = new Date(b.createdAt).getTime()
 
-                if (!isNaN(dateA) && !isNaN(dateB)) {
-                    return dateA - dateB
-                }
-                return 0
-            })
+                  if (!isNaN(dateA) && !isNaN(dateB)) {
+                      return dateA - dateB
+                  }
+                  return 0
+              })
 
     })
 
@@ -14601,6 +14614,7 @@ APP_FALLBACK_LOCALE=en
 APP_FAKER_LOCALE=en_US
 
 APP_MAINTENANCE_DRIVER=file
+
 # APP_MAINTENANCE_STORE=database
 
 # PHP_CLI_SERVER_WORKERS=4
@@ -14613,10 +14627,15 @@ LOG_DEPRECATIONS_CHANNEL=null
 LOG_LEVEL=debug
 
 DB_CONNECTION=sqlite
+
 # DB_HOST=127.0.0.1
+
 # DB_PORT=3306
+
 # DB_DATABASE=laravel
+
 # DB_USERNAME=root
+
 # DB_PASSWORD=
 
 SESSION_DRIVER=database
@@ -14630,6 +14649,7 @@ FILESYSTEM_DISK=local
 QUEUE_CONNECTION=database
 
 CACHE_STORE=database
+
 # CACHE_PREFIX=
 
 MEMCACHED_HOST=127.0.0.1
@@ -14660,11 +14680,11 @@ VITE_APP_NAME="${APP_NAME}"
 <file path=".gitattributes">
 * text=auto eol=lf
 
-*.blade.php diff=html
-*.css diff=css
-*.html diff=html
-*.md diff=markdown
-*.php diff=php
+_.blade.php diff=html
+_.css diff=css
+_.html diff=html
+_.md diff=markdown
+\*.php diff=php
 
 /.github export-ignore
 CHANGELOG.md export-ignore
@@ -14719,7 +14739,7 @@ use Illuminate\Queue\SerializesModels;
 
 class PostCreated implements ShouldBroadcast
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public array $post;
 
@@ -14763,6 +14783,7 @@ class PostCreated implements ShouldBroadcast
             'userId' => $this->userId,
         ];
     }
+
 }
 </file>
 
@@ -14781,7 +14802,7 @@ use Illuminate\Queue\SerializesModels;
 
 class PostLiked implements ShouldBroadcastNow
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public int $postId;
 
@@ -14840,6 +14861,7 @@ class PostLiked implements ShouldBroadcastNow
             'userName' => $this->userName,
         ];
     }
+
 }
 </file>
 
@@ -14859,16 +14881,16 @@ use Inertia\Response;
 
 class AuthenticatedSessionController extends Controller
 {
-    /**
-     * Display the login view.
-     */
-    public function create(): Response
-    {
-        return Inertia::render('Auth/Login', [
-            'canResetPassword' => Route::has('password.request'),
-            'status' => session('status'),
-        ]);
-    }
+/\*\*
+_ Display the login view.
+_/
+public function create(): Response
+{
+return Inertia::render('Auth/Login', [
+'canResetPassword' => Route::has('password.request'),
+'status' => session('status'),
+]);
+}
 
     /**
      * Handle an incoming authentication request.
@@ -14895,6 +14917,7 @@ class AuthenticatedSessionController extends Controller
 
         return redirect('/');
     }
+
 }
 </file>
 
@@ -14913,13 +14936,13 @@ use Inertia\Response;
 
 class ConfirmablePasswordController extends Controller
 {
-    /**
-     * Show the confirm password view.
-     */
-    public function show(): Response
-    {
-        return Inertia::render('Auth/ConfirmPassword');
-    }
+/\*\*
+_ Show the confirm password view.
+_/
+public function show(): Response
+{
+return Inertia::render('Auth/ConfirmPassword');
+}
 
     /**
      * Confirm the user's password.
@@ -14939,6 +14962,7 @@ class ConfirmablePasswordController extends Controller
 
         return redirect()->intended(route('dashboard', absolute: false));
     }
+
 }
 </file>
 
@@ -14953,19 +14977,20 @@ use Illuminate\Http\Request;
 
 class EmailVerificationNotificationController extends Controller
 {
-    /**
-     * Send a new email verification notification.
-     */
-    public function store(Request $request): RedirectResponse
+/\*\*
+_ Send a new email verification notification.
+_/
+public function store(Request $request): RedirectResponse
     {
         if ($request->user()->hasVerifiedEmail()) {
-            return redirect()->intended(route('dashboard', absolute: false));
-        }
+return redirect()->intended(route('dashboard', absolute: false));
+}
 
         $request->user()->sendEmailVerificationNotification();
 
         return back()->with('status', 'verification-link-sent');
     }
+
 }
 </file>
 
@@ -14982,15 +15007,15 @@ use Inertia\Response;
 
 class EmailVerificationPromptController extends Controller
 {
-    /**
-     * Display the email verification prompt.
-     */
-    public function __invoke(Request $request): RedirectResponse|Response
-    {
-        return $request->user()->hasVerifiedEmail()
-                    ? redirect()->intended(route('dashboard', absolute: false))
-                    : Inertia::render('Auth/VerifyEmail', ['status' => session('status')]);
-    }
+/\*\*
+_ Display the email verification prompt.
+_/
+public function \_\_invoke(Request $request): RedirectResponse|Response
+{
+return $request->user()->hasVerifiedEmail()
+? redirect()->intended(route('dashboard', absolute: false))
+: Inertia::render('Auth/VerifyEmail', ['status' => session('status')]);
+}
 }
 </file>
 
@@ -15013,16 +15038,16 @@ use Inertia\Response;
 
 class NewPasswordController extends Controller
 {
-    /**
-     * Display the password reset view.
-     */
-    public function create(Request $request): Response
-    {
-        return Inertia::render('Auth/ResetPassword', [
-            'email' => $request->email,
-            'token' => $request->route('token'),
-        ]);
-    }
+/\*\*
+_ Display the password reset view.
+_/
+public function create(Request $request): Response
+{
+return Inertia::render('Auth/ResetPassword', [
+'email' => $request->email,
+'token' => $request->route('token'),
+]);
+}
 
     /**
      * Handle an incoming new password request.
@@ -15063,6 +15088,7 @@ class NewPasswordController extends Controller
             'email' => [trans($status)],
         ]);
     }
+
 }
 </file>
 
@@ -15079,15 +15105,15 @@ use Illuminate\Validation\Rules\Password;
 
 class PasswordController extends Controller
 {
-    /**
-     * Update the user's password.
-     */
-    public function update(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'current_password' => ['required', 'current_password'],
-            'password' => ['required', Password::defaults(), 'confirmed'],
-        ]);
+/\*\*
+_ Update the user's password.
+_/
+public function update(Request $request): RedirectResponse
+{
+$validated = $request->validate([
+'current_password' => ['required', 'current_password'],
+'password' => ['required', Password::defaults(), 'confirmed'],
+]);
 
         $request->user()->update([
             'password' => Hash::make($validated['password']),
@@ -15095,6 +15121,7 @@ class PasswordController extends Controller
 
         return back();
     }
+
 }
 </file>
 
@@ -15113,15 +15140,15 @@ use Inertia\Response;
 
 class PasswordResetLinkController extends Controller
 {
-    /**
-     * Display the password reset link request view.
-     */
-    public function create(): Response
-    {
-        return Inertia::render('Auth/ForgotPassword', [
-            'status' => session('status'),
-        ]);
-    }
+/\*\*
+_ Display the password reset link request view.
+_/
+public function create(): Response
+{
+return Inertia::render('Auth/ForgotPassword', [
+'status' => session('status'),
+]);
+}
 
     /**
      * Handle an incoming password reset link request.
@@ -15149,6 +15176,7 @@ class PasswordResetLinkController extends Controller
             'email' => [trans($status)],
         ]);
     }
+
 }
 </file>
 
@@ -15171,13 +15199,13 @@ use Inertia\Response;
 
 class RegisteredUserController extends Controller
 {
-    /**
-     * Display the registration view.
-     */
-    public function create(): Response
-    {
-        return Inertia::render('Auth/Register');
-    }
+/\*\*
+_ Display the registration view.
+_/
+public function create(): Response
+{
+return Inertia::render('Auth/Register');
+}
 
     /**
      * Handle an incoming registration request.
@@ -15204,6 +15232,7 @@ class RegisteredUserController extends Controller
 
         return redirect(route('dashboard', absolute: false));
     }
+
 }
 </file>
 
@@ -15219,14 +15248,14 @@ use Illuminate\Http\RedirectResponse;
 
 class VerifyEmailController extends Controller
 {
-    /**
-     * Mark the authenticated user's email address as verified.
-     */
-    public function __invoke(EmailVerificationRequest $request): RedirectResponse
+/\*\*
+_ Mark the authenticated user's email address as verified.
+_/
+public function \_\_invoke(EmailVerificationRequest $request): RedirectResponse
     {
         if ($request->user()->hasVerifiedEmail()) {
-            return redirect()->intended(route('dashboard', absolute: false).'?verified=1');
-        }
+return redirect()->intended(route('dashboard', absolute: false).'?verified=1');
+}
 
         if ($request->user()->markEmailAsVerified()) {
             event(new Verified($request->user()));
@@ -15234,6 +15263,7 @@ class VerifyEmailController extends Controller
 
         return redirect()->intended(route('dashboard', absolute: false).'?verified=1');
     }
+
 }
 </file>
 
@@ -15244,7 +15274,7 @@ namespace App\Http\Controllers;
 
 abstract class Controller
 {
-    //
+//
 }
 </file>
 
@@ -15261,10 +15291,10 @@ use Illuminate\Support\Facades\Schema;
 
 class CoreEngineController extends Controller
 {
-    public function getTelemetry(): JsonResponse
-    {
-        $slowQueriesCount = 0;
-        $slowRoutesCount = 0;
+public function getTelemetry(): JsonResponse
+{
+$slowQueriesCount = 0;
+$slowRoutesCount = 0;
 
         // Bezpečný dotaz do Pulse – pokud tabulka v testech neexistuje, přeskočíme ho
         if (Schema::hasTable('pulse_aggregates')) {
@@ -15348,6 +15378,7 @@ class CoreEngineController extends Controller
 
         return $stream;
     }
+
 }
 </file>
 
@@ -15361,11 +15392,11 @@ use App\Models\Post;
 
 class LikeController extends Controller
 {
-    public function store(Post $post)
-    {
-        // firstOrCreate zabrání duplicitám na úrovni aplikace
-        $post->likes()->firstOrCreate(['user_id' => auth()->id()]);
-        $likesCount = $post->likes()->count();
+public function store(Post $post)
+{
+// firstOrCreate zabrání duplicitám na úrovni aplikace
+$post->likes()->firstOrCreate(['user_id' => auth()->id()]);
+$likesCount = $post->likes()->count();
 
         // Vyvoláme real-time broadcast pro ostatní uživatele
         event(new PostLiked($post, $likesCount, auth()->user()));
@@ -15389,6 +15420,7 @@ class LikeController extends Controller
             'is_liked' => false,
         ]);
     }
+
 }
 </file>
 
@@ -15408,16 +15440,16 @@ use Inertia\Response;
 
 class ProfileController extends Controller
 {
-    /**
-     * Display the user's profile form.
-     */
-    public function edit(Request $request): Response
-    {
-        return Inertia::render('Profile/Edit', [
-            'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
-            'status' => session('status'),
-        ]);
-    }
+/\*\*
+_ Display the user's profile form.
+_/
+public function edit(Request $request): Response
+{
+return Inertia::render('Profile/Edit', [
+'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
+'status' => session('status'),
+]);
+}
 
     /**
      * Update the user's profile information.
@@ -15455,6 +15487,7 @@ class ProfileController extends Controller
 
         return Redirect::to('/');
     }
+
 }
 </file>
 
@@ -15471,11 +15504,11 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AutoLoginDemoUser
 {
-    public function handle(Request $request, Closure $next): Response
-    {
-        // Pokud uživatel ještě není přihlášený, natvrdo ho přihlásíme jako demo usera
-        if (! Auth::check()) {
-            $demoUser = User::where('email', 'demo@neonhub.io')->first();
+public function handle(Request $request, Closure $next): Response
+{
+// Pokud uživatel ještě není přihlášený, natvrdo ho přihlásíme jako demo usera
+if (! Auth::check()) {
+$demoUser = User::where('email', 'demo@neonhub.io')->first();
 
             if ($demoUser) {
                 Auth::login($demoUser);
@@ -15486,6 +15519,7 @@ class AutoLoginDemoUser
 
         return $next($request);
     }
+
 }
 </file>
 
@@ -15504,13 +15538,13 @@ use Illuminate\Validation\ValidationException;
 
 class LoginRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
-    public function authorize(): bool
-    {
-        return true;
-    }
+/\*\*
+_ Determine if the user is authorized to make this request.
+_/
+public function authorize(): bool
+{
+return true;
+}
 
     /**
      * Get the validation rules that apply to the request.
@@ -15575,6 +15609,7 @@ class LoginRequest extends FormRequest
     {
         return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
     }
+
 }
 </file>
 
@@ -15590,25 +15625,25 @@ use Illuminate\Validation\Rule;
 
 class ProfileUpdateRequest extends FormRequest
 {
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, ValidationRule|array<mixed>|string>
-     */
-    public function rules(): array
-    {
-        return [
-            'name' => ['required', 'string', 'max:255'],
-            'email' => [
-                'required',
-                'string',
-                'lowercase',
-                'email',
-                'max:255',
-                Rule::unique(User::class)->ignore($this->user()->id),
-            ],
-        ];
-    }
+/\*\*
+_ Get the validation rules that apply to the request.
+_
+_ @return array<string, ValidationRule|array<mixed>|string>
+_/
+public function rules(): array
+{
+return [
+'name' => ['required', 'string', 'max:255'],
+'email' => [
+'required',
+'string',
+'lowercase',
+'email',
+'max:255',
+Rule::unique(User::class)->ignore($this->user()->id),
+],
+];
+}
 }
 </file>
 
@@ -15627,7 +15662,7 @@ use Illuminate\Support\Str;
 
 class AutoSendAgentMessage implements ShouldQueue
 {
-    use Queueable;
+use Queueable;
 
     public function __construct(
         public int $userId,
@@ -15700,6 +15735,7 @@ class AutoSendAgentMessage implements ShouldQueue
             'role' => 'assistant',
         ]));
     }
+
 }
 </file>
 
@@ -15714,7 +15750,7 @@ use Illuminate\Foundation\Queue\Queueable;
 
 class SendMessage implements ShouldQueue
 {
-    use Queueable;
+use Queueable;
 
     // Musíš sem ty vlastnosti přidat, aby si je job pamatoval
     public function __construct(
@@ -15727,6 +15763,7 @@ class SendMessage implements ShouldQueue
         // Teď už $this->userId i $this->data existují!
         event(new MessageReceived($this->userId, $this->data));
     }
+
 }
 </file>
 
@@ -15740,11 +15777,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Comment extends Model
 {
-    protected $fillable = [
-        'post_id',
-        'user_id',
-        'content',
-    ];
+protected $fillable = [
+'post_id',
+'user_id',
+'content',
+];
 
     // Komentář patří nějakému postu
     public function post(): BelongsTo
@@ -15757,6 +15794,7 @@ class Comment extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
 }
 </file>
 
@@ -15770,7 +15808,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Friendship extends Model
 {
-    protected $fillable = ['sender_id', 'recipient_id', 'status', 'message'];
+protected $fillable = ['sender_id', 'recipient_id', 'status', 'message'];
 
     // Kdo poslal žádost
     public function sender(): BelongsTo
@@ -15783,6 +15821,7 @@ class Friendship extends Model
     {
         return $this->belongsTo(User::class, 'recipient_id');
     }
+
 }
 </file>
 
@@ -15795,7 +15834,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Like extends Model
 {
-    protected $fillable = ['user_id', 'post_id'];
+protected $fillable = ['user_id', 'post_id'];
 
     public function post()
     {
@@ -15806,6 +15845,7 @@ class Like extends Model
     {
         return $this->belongsTo(User::class);
     }
+
 }
 </file>
 
@@ -15819,13 +15859,13 @@ use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
-    public function register(): void
-    {
-        //
-    }
+/\*\*
+_ Register any application services.
+_/
+public function register(): void
+{
+//
+}
 
     /**
      * Bootstrap any application services.
@@ -15834,6 +15874,7 @@ class AppServiceProvider extends ServiceProvider
     {
         Vite::prefetch(concurrency: 3);
     }
+
 }
 </file>
 
@@ -15847,11 +15888,11 @@ use Symfony\Component\Console\Input\ArgvInput;
 define('LARAVEL_START', microtime(true));
 
 // Register the Composer autoloader...
-require __DIR__.'/vendor/autoload.php';
+require **DIR**.'/vendor/autoload.php';
 
 // Bootstrap Laravel and handle the command...
-/** @var Application $app */
-$app = require_once __DIR__.'/bootstrap/app.php';
+/\*_ @var Application $app _/
+$app = require_once **DIR**.'/bootstrap/app.php';
 
 $status = $app->handleCommand(new ArgvInput);
 
@@ -15864,7 +15905,7 @@ exit($status);
 use App\Providers\AppServiceProvider;
 
 return [
-    AppServiceProvider::class,
+AppServiceProvider::class,
 ];
 </file>
 
@@ -17012,6 +17053,7 @@ return [
             ],
         ],
     ],
+
 ];
 </file>
 
@@ -17439,7 +17481,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 
 class PostFactory extends Factory
 {
-    protected $model = Post::class;
+protected $model = Post::class;
 
     /**
      * Definice výchozího stavu pro testovací post.
@@ -17456,6 +17498,7 @@ class PostFactory extends Factory
             'image_meta' => null,
         ];
     }
+
 }
 </file>
 
@@ -17469,43 +17512,45 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
-/**
- * @extends Factory<User>
- */
-class UserFactory extends Factory
-{
-    /**
-     * The current password being used by the factory.
-     */
-    protected static ?string $password;
+/\*\*
 
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
-    public function definition(): array
-    {
-        return [
-            'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
-            'remember_token' => Str::random(10),
-        ];
-    }
+- @extends Factory<User>
+  _/
+  class UserFactory extends Factory
+  {
+  /\*\*
+  _ The current password being used by the factory.
+  \*/
+  protected static ?string $password;
 
-    /**
-     * Indicate that the model's email address should be unverified.
-     */
-    public function unverified(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
-        ]);
+        /**
+         * Define the model's default state.
+         *
+         * @return array<string, mixed>
+         */
+        public function definition(): array
+        {
+            return [
+                'name' => fake()->name(),
+                'email' => fake()->unique()->safeEmail(),
+                'email_verified_at' => now(),
+                'password' => static::$password ??= Hash::make('password'),
+                'remember_token' => Str::random(10),
+            ];
+        }
+
+        /**
+         * Indicate that the model's email address should be unverified.
+         */
+        public function unverified(): static
+        {
+            return $this->state(fn (array $attributes) => [
+                'email_verified_at' => null,
+            ]);
+        }
+
     }
-}
-</file>
+    </file>
 
 <file path="database/migrations/0001_01_01_000001_create_cache_table.php">
 <?php
@@ -17516,16 +17561,16 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
-    {
-        Schema::create('cache', function (Blueprint $table) {
-            $table->string('key')->primary();
-            $table->mediumText('value');
-            $table->bigInteger('expiration')->index();
-        });
+/\*\*
+_ Run the migrations.
+_/
+public function up(): void
+{
+Schema::create('cache', function (Blueprint $table) {
+$table->string('key')->primary();
+$table->mediumText('value');
+$table->bigInteger('expiration')->index();
+});
 
         Schema::create('cache_locks', function (Blueprint $table) {
             $table->string('key')->primary();
@@ -17542,6 +17587,7 @@ return new class extends Migration
         Schema::dropIfExists('cache');
         Schema::dropIfExists('cache_locks');
     }
+
 };
 </file>
 
@@ -17554,20 +17600,20 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
-    {
-        Schema::create('jobs', function (Blueprint $table) {
-            $table->id();
-            $table->string('queue')->index();
-            $table->longText('payload');
-            $table->unsignedSmallInteger('attempts');
-            $table->unsignedInteger('reserved_at')->nullable();
-            $table->unsignedInteger('available_at');
-            $table->unsignedInteger('created_at');
-        });
+/\*\*
+_ Run the migrations.
+_/
+public function up(): void
+{
+Schema::create('jobs', function (Blueprint $table) {
+$table->id();
+$table->string('queue')->index();
+$table->longText('payload');
+$table->unsignedSmallInteger('attempts');
+$table->unsignedInteger('reserved_at')->nullable();
+$table->unsignedInteger('available_at');
+$table->unsignedInteger('created_at');
+});
 
         Schema::create('job_batches', function (Blueprint $table) {
             $table->string('id')->primary();
@@ -17602,6 +17648,7 @@ return new class extends Migration
         Schema::dropIfExists('job_batches');
         Schema::dropIfExists('failed_jobs');
     }
+
 };
 </file>
 
@@ -17614,13 +17661,13 @@ use Laravel\Ai\Migrations\AiMigration;
 
 return new class extends AiMigration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
-    {
-        $conversationsTable = config('ai.conversations.tables.conversations', 'agent_conversations');
-        $messagesTable = config('ai.conversations.tables.messages', 'agent_conversation_messages');
+/\*\*
+_ Run the migrations.
+_/
+public function up(): void
+{
+$conversationsTable = config('ai.conversations.tables.conversations', 'agent_conversations');
+$messagesTable = config('ai.conversations.tables.messages', 'agent_conversation_messages');
 
         Schema::create($conversationsTable, function (Blueprint $table) {
             $table->string('id', 36)->primary();
@@ -17658,6 +17705,7 @@ return new class extends AiMigration
         Schema::dropIfExists(config('ai.conversations.tables.messages', 'agent_conversation_messages'));
         Schema::dropIfExists(config('ai.conversations.tables.conversations', 'agent_conversations'));
     }
+
 };
 </file>
 
@@ -17670,20 +17718,20 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
-    {
-        Schema::create('friendships', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('sender_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('recipient_id')->constrained('users')->onDelete('cascade');
-            $table->enum('status', ['pending', 'accepted', 'declined'])->default('pending');
-            $table->text('message')->nullable();
-            $table->timestamps();
-        });
-    }
+/\*\*
+_ Run the migrations.
+_/
+public function up(): void
+{
+Schema::create('friendships', function (Blueprint $table) {
+$table->id();
+$table->foreignId('sender_id')->constrained('users')->onDelete('cascade');
+$table->foreignId('recipient_id')->constrained('users')->onDelete('cascade');
+$table->enum('status', ['pending', 'accepted', 'declined'])->default('pending');
+$table->text('message')->nullable();
+$table->timestamps();
+});
+}
 
     /**
      * Reverse the migrations.
@@ -17692,6 +17740,7 @@ return new class extends Migration
     {
         Schema::dropIfExists('friendships');
     }
+
 };
 </file>
 
@@ -17704,23 +17753,23 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
-    {
-        Schema::create('posts', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade'); // ID bota
-            $table->text('content');
-            $table->string('type'); // např. SYSTEM_LOG, ALERT
-            $table->string('latency')->nullable(); // např. 2.4ms
-            $table->string('image_url')->nullable();
-            $table->string('image_meta')->nullable();
-            $table->integer('likes_count')->default(0);
-            $table->timestamps();
-        });
-    }
+/\*\*
+_ Run the migrations.
+_/
+public function up(): void
+{
+Schema::create('posts', function (Blueprint $table) {
+$table->id();
+$table->foreignId('user_id')->constrained()->onDelete('cascade'); // ID bota
+$table->text('content');
+$table->string('type'); // např. SYSTEM_LOG, ALERT
+$table->string('latency')->nullable(); // např. 2.4ms
+$table->string('image_url')->nullable();
+$table->string('image_meta')->nullable();
+$table->integer('likes_count')->default(0);
+$table->timestamps();
+});
+}
 
     /**
      * Reverse the migrations.
@@ -17729,6 +17778,7 @@ return new class extends Migration
     {
         Schema::dropIfExists('posts');
     }
+
 };
 </file>
 
@@ -17741,17 +17791,17 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
-    {
-        Schema::create('comments', function (Blueprint $table) {
-            $table->id();
-            // Vazba na post – pokud se smaže post, smažou se i jeho komentáře (cascade)
-            $table->foreignId('post_id')->constrained()->onDelete('cascade');
-            // Vazba na autora komentáře (bota nebo tebe)
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+/\*\*
+_ Run the migrations.
+_/
+public function up(): void
+{
+Schema::create('comments', function (Blueprint $table) {
+$table->id();
+// Vazba na post – pokud se smaže post, smažou se i jeho komentáře (cascade)
+$table->foreignId('post_id')->constrained()->onDelete('cascade');
+// Vazba na autora komentáře (bota nebo tebe)
+$table->foreignId('user_id')->constrained()->onDelete('cascade');
 
             $table->text('content');
             $table->timestamps();
@@ -17765,6 +17815,7 @@ return new class extends Migration
     {
         Schema::dropIfExists('comments');
     }
+
 };
 </file>
 
@@ -17777,16 +17828,16 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up()
-    {
-        Schema::create('likes', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('post_id')->constrained()->onDelete('cascade');
-            $table->timestamps();
+/\*\*
+_ Run the migrations.
+_/
+public function up()
+{
+Schema::create('likes', function (Blueprint $table) {
+$table->id();
+$table->foreignId('user_id')->constrained()->onDelete('cascade');
+$table->foreignId('post_id')->constrained()->onDelete('cascade');
+$table->timestamps();
 
             // Prevence duplicit: Uživatel může lajknout post jen jednou
             $table->unique(['user_id', 'post_id']);
@@ -17800,6 +17851,7 @@ return new class extends Migration
     {
         Schema::dropIfExists('likes');
     }
+
 };
 </file>
 
@@ -17812,14 +17864,14 @@ use Laravel\Pulse\Support\PulseMigration;
 
 return new class extends PulseMigration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
-    {
-        if (! $this->shouldRun()) {
-            return;
-        }
+/\*\*
+_ Run the migrations.
+_/
+public function up(): void
+{
+if (! $this->shouldRun()) {
+return;
+}
 
         Schema::create('pulse_values', function (Blueprint $table) {
             $table->id();
@@ -17887,6 +17939,7 @@ return new class extends PulseMigration
         Schema::dropIfExists('pulse_entries');
         Schema::dropIfExists('pulse_aggregates');
     }
+
 };
 </file>
 
@@ -17976,6 +18029,7 @@ export default {
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
+
 </IfModule>
 </file>
 
@@ -17988,16 +18042,16 @@ use Illuminate\Http\Request;
 define('LARAVEL_START', microtime(true));
 
 // Determine if the application is in maintenance mode...
-if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
-    require $maintenance;
+if (file_exists($maintenance = **DIR**.'/../storage/framework/maintenance.php')) {
+require $maintenance;
 }
 
 // Register the Composer autoloader...
-require __DIR__.'/../vendor/autoload.php';
+require **DIR**.'/../vendor/autoload.php';
 
 // Bootstrap Laravel and handle the request...
-/** @var Application $app */
-$app = require_once __DIR__.'/../bootstrap/app.php';
+/\*_ @var Application $app _/
+$app = require_once **DIR**.'/../bootstrap/app.php';
 
 $app->handleRequest(Request::capture());
 </file>
@@ -18038,43 +18092,43 @@ Disallow:
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 const props = defineProps({
-    align: {
-        type: String,
-        default: 'right',
-    },
-    width: {
-        type: String,
-        default: '48',
-    },
-    contentClasses: {
-        type: String,
-        default: 'py-1 bg-white dark:bg-gray-700',
-    },
+align: {
+type: String,
+default: 'right',
+},
+width: {
+type: String,
+default: '48',
+},
+contentClasses: {
+type: String,
+default: 'py-1 bg-white dark:bg-gray-700',
+},
 });
 
 const closeOnEscape = (e) => {
-    if (open.value && e.key === 'Escape') {
-        open.value = false;
-    }
+if (open.value && e.key === 'Escape') {
+open.value = false;
+}
 };
 
 onMounted(() => document.addEventListener('keydown', closeOnEscape));
 onUnmounted(() => document.removeEventListener('keydown', closeOnEscape));
 
 const widthClass = computed(() => {
-    return {
-        48: 'w-48',
-    }[props.width.toString()];
+return {
+48: 'w-48',
+}[props.width.toString()];
 });
 
 const alignmentClasses = computed(() => {
-    if (props.align === 'left') {
-        return 'ltr:origin-top-left rtl:origin-top-right start-0';
-    } else if (props.align === 'right') {
-        return 'ltr:origin-top-right rtl:origin-top-left end-0';
-    } else {
-        return 'origin-top';
-    }
+if (props.align === 'left') {
+return 'ltr:origin-top-left rtl:origin-top-right start-0';
+} else if (props.align === 'right') {
+return 'ltr:origin-top-right rtl:origin-top-left end-0';
+} else {
+return 'origin-top';
+}
 });
 
 const open = ref(false);
@@ -18117,6 +18171,7 @@ const open = ref(false);
             </div>
         </Transition>
     </div>
+
 </template>
 </file>
 
@@ -18125,10 +18180,10 @@ const open = ref(false);
 import { Link } from '@inertiajs/vue3';
 
 defineProps({
-    href: {
-        type: String,
-        required: true,
-    },
+href: {
+type: String,
+required: true,
+},
 });
 </script>
 
@@ -18149,23 +18204,24 @@ import { computed } from 'vue';
 const emit = defineEmits(['update:checked']);
 
 const props = defineProps({
-    checked: {
-        type: [Array, Boolean],
-        required: true,
-    },
-    value: {
-        default: null,
-    },
+checked: {
+type: [Array, Boolean],
+required: true,
+},
+value: {
+default: null,
+},
 });
 
 const proxyChecked = computed({
-    get() {
-        return props.checked;
-    },
+get() {
+return props.checked;
+},
 
     set(val) {
         emit('update:checked', val);
     },
+
 });
 </script>
 
@@ -18219,18 +18275,18 @@ defineProps({
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const props = defineProps({
-    show: {
-        type: Boolean,
-        default: false,
-    },
-    maxWidth: {
-        type: String,
-        default: '2xl',
-    },
-    closeable: {
-        type: Boolean,
-        default: true,
-    },
+show: {
+type: Boolean,
+default: false,
+},
+maxWidth: {
+type: String,
+default: '2xl',
+},
+closeable: {
+type: Boolean,
+default: true,
+},
 });
 
 const emit = defineEmits(['close']);
@@ -18238,11 +18294,11 @@ const dialog = ref();
 const showSlot = ref(props.show);
 
 watch(
-    () => props.show,
-    () => {
-        if (props.show) {
-            document.body.style.overflow = 'hidden';
-            showSlot.value = true;
+() => props.show,
+() => {
+if (props.show) {
+document.body.style.overflow = 'hidden';
+showSlot.value = true;
 
             dialog.value?.showModal();
         } else {
@@ -18254,40 +18310,43 @@ watch(
             }, 200);
         }
     },
+
 );
 
 const close = () => {
-    if (props.closeable) {
-        emit('close');
-    }
+if (props.closeable) {
+emit('close');
+}
 };
 
 const closeOnEscape = (e) => {
-    if (e.key === 'Escape') {
-        e.preventDefault();
+if (e.key === 'Escape') {
+e.preventDefault();
 
         if (props.show) {
             close();
         }
     }
+
 };
 
 onMounted(() => document.addEventListener('keydown', closeOnEscape));
 
 onUnmounted(() => {
-    document.removeEventListener('keydown', closeOnEscape);
+document.removeEventListener('keydown', closeOnEscape);
 
     document.body.style.overflow = '';
+
 });
 
 const maxWidthClass = computed(() => {
-    return {
-        sm: 'sm:max-w-sm',
-        md: 'sm:max-w-md',
-        lg: 'sm:max-w-lg',
-        xl: 'sm:max-w-xl',
-        '2xl': 'sm:max-w-2xl',
-    }[props.maxWidth];
+return {
+sm: 'sm:max-w-sm',
+md: 'sm:max-w-md',
+lg: 'sm:max-w-lg',
+xl: 'sm:max-w-xl',
+'2xl': 'sm:max-w-2xl',
+}[props.maxWidth];
 });
 </script>
 
@@ -18337,6 +18396,7 @@ const maxWidthClass = computed(() => {
             </Transition>
         </div>
     </dialog>
+
 </template>
 </file>
 
@@ -18346,19 +18406,19 @@ import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 
 const props = defineProps({
-    href: {
-        type: String,
-        required: true,
-    },
-    active: {
-        type: Boolean,
-    },
+href: {
+type: String,
+required: true,
+},
+active: {
+type: Boolean,
+},
 });
 
 const classes = computed(() =>
-    props.active
-        ? 'inline-flex items-center px-1 pt-1 border-b-2 border-indigo-400 dark:border-indigo-600 text-sm font-medium leading-5 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-indigo-700 transition duration-150 ease-in-out'
-        : 'inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium leading-5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-700 focus:outline-none focus:text-gray-700 dark:focus:text-gray-300 focus:border-gray-300 dark:focus:border-gray-700 transition duration-150 ease-in-out',
+props.active
+? 'inline-flex items-center px-1 pt-1 border-b-2 border-indigo-400 dark:border-indigo-600 text-sm font-medium leading-5 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-indigo-700 transition duration-150 ease-in-out'
+: 'inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium leading-5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-700 focus:outline-none focus:text-gray-700 dark:focus:text-gray-300 focus:border-gray-300 dark:focus:border-gray-700 transition duration-150 ease-in-out',
 );
 </script>
 
@@ -18376,10 +18436,10 @@ import { router } from '@inertiajs/vue3';
 import { Pencil, Check, X } from 'lucide-vue-next';
 
 const props = defineProps({
-    comment: {
-        type: Object,
-        required: true
-    }
+comment: {
+type: Object,
+required: true
+}
 });
 
 // Reaktivní stavy pro správu inline editace
@@ -18387,11 +18447,11 @@ const isEditing = ref(false);
 const editedText = ref(props.comment.text);
 
 const handleUpdate = () => {
-    // Validace prázdného textu nebo pokud se text nezměnil
-    if (!editedText.value.trim() || editedText.value === props.comment.text) {
-        isEditing.value = false;
-        return;
-    }
+// Validace prázdného textu nebo pokud se text nezměnil
+if (!editedText.value.trim() || editedText.value === props.comment.text) {
+isEditing.value = false;
+return;
+}
 
     // Odeslání požadavku přes Inertia na backend patch routu
     router.patch(route('comments.update', props.comment.id), {
@@ -18402,11 +18462,12 @@ const handleUpdate = () => {
             isEditing.value = false;
         }
     });
+
 };
 
 const cancelEdit = () => {
-    editedText.value = props.comment.text;
-    isEditing.value = false;
+editedText.value = props.comment.text;
+isEditing.value = false;
 };
 </script>
 
@@ -18460,6 +18521,7 @@ const cancelEdit = () => {
             </div>
         </div>
     </div>
+
 </template>
 </file>
 
@@ -18479,19 +18541,19 @@ import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 
 const props = defineProps({
-    href: {
-        type: String,
-        required: true,
-    },
-    active: {
-        type: Boolean,
-    },
+href: {
+type: String,
+required: true,
+},
+active: {
+type: Boolean,
+},
 });
 
 const classes = computed(() =>
-    props.active
-        ? 'block w-full ps-3 pe-4 py-2 border-l-4 border-indigo-400 dark:border-indigo-600 text-start text-base font-medium text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/50 focus:outline-none focus:text-indigo-800 dark:focus:text-indigo-200 focus:bg-indigo-100 dark:focus:bg-indigo-900 focus:border-indigo-700 dark:focus:border-indigo-300 transition duration-150 ease-in-out'
-        : 'block w-full ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 focus:outline-none focus:text-gray-800 dark:focus:text-gray-200 focus:bg-gray-50 dark:focus:bg-gray-700 focus:border-gray-300 dark:focus:border-gray-600 transition duration-150 ease-in-out',
+props.active
+? 'block w-full ps-3 pe-4 py-2 border-l-4 border-indigo-400 dark:border-indigo-600 text-start text-base font-medium text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/50 focus:outline-none focus:text-indigo-800 dark:focus:text-indigo-200 focus:bg-indigo-100 dark:focus:bg-indigo-900 focus:border-indigo-700 dark:focus:border-indigo-300 transition duration-150 ease-in-out'
+: 'block w-full ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 focus:outline-none focus:text-gray-800 dark:focus:text-gray-200 focus:bg-gray-50 dark:focus:bg-gray-700 focus:border-gray-300 dark:focus:border-gray-600 transition duration-150 ease-in-out',
 );
 </script>
 
@@ -18527,16 +18589,16 @@ defineProps({
 import { onMounted, ref } from 'vue';
 
 const model = defineModel({
-    type: String,
-    required: true,
+type: String,
+required: true,
 });
 
 const input = ref(null);
 
 onMounted(() => {
-    if (input.value.hasAttribute('autofocus')) {
-        input.value.focus();
-    }
+if (input.value.hasAttribute('autofocus')) {
+input.value.focus();
+}
 });
 
 defineExpose({ focus: () => input.value.focus() });
@@ -18573,6 +18635,7 @@ import { Link } from '@inertiajs/vue3';
             <slot />
         </div>
     </div>
+
 </template>
 </file>
 
@@ -18586,13 +18649,13 @@ import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 
 const form = useForm({
-    password: '',
+password: '',
 });
 
 const submit = () => {
-    form.post(route('password.confirm'), {
-        onFinish: () => form.reset(),
-    });
+form.post(route('password.confirm'), {
+onFinish: () => form.reset(),
+});
 };
 </script>
 
@@ -18631,6 +18694,7 @@ const submit = () => {
             </div>
         </form>
     </GuestLayout>
+
 </template>
 </file>
 
@@ -18644,17 +18708,17 @@ import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 
 defineProps({
-    status: {
-        type: String,
-    },
+status: {
+type: String,
+},
 });
 
 const form = useForm({
-    email: '',
+email: '',
 });
 
 const submit = () => {
-    form.post(route('password.email'));
+form.post(route('password.email'));
 };
 </script>
 
@@ -18702,6 +18766,7 @@ const submit = () => {
             </div>
         </form>
     </GuestLayout>
+
 </template>
 </file>
 
@@ -18716,24 +18781,24 @@ import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
 defineProps({
-    canResetPassword: {
-        type: Boolean,
-    },
-    status: {
-        type: String,
-    },
+canResetPassword: {
+type: Boolean,
+},
+status: {
+type: String,
+},
 });
 
 const form = useForm({
-    email: '',
-    password: '',
-    remember: false,
+email: '',
+password: '',
+remember: false,
 });
 
 const submit = () => {
-    form.post(route('login'), {
-        onFinish: () => form.reset('password'),
-    });
+form.post(route('login'), {
+onFinish: () => form.reset('password'),
+});
 };
 </script>
 
@@ -18805,6 +18870,7 @@ const submit = () => {
             </div>
         </form>
     </GuestLayout>
+
 </template>
 </file>
 
@@ -18818,16 +18884,16 @@ import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
 const form = useForm({
-    name: '',
-    email: '',
-    password: '',
-    password_confirmation: '',
+name: '',
+email: '',
+password: '',
+password_confirmation: '',
 });
 
 const submit = () => {
-    form.post(route('register'), {
-        onFinish: () => form.reset('password', 'password_confirmation'),
-    });
+form.post(route('register'), {
+onFinish: () => form.reset('password', 'password_confirmation'),
+});
 };
 </script>
 
@@ -18921,6 +18987,7 @@ const submit = () => {
             </div>
         </form>
     </GuestLayout>
+
 </template>
 </file>
 
@@ -18934,27 +19001,27 @@ import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 
 const props = defineProps({
-    email: {
-        type: String,
-        required: true,
-    },
-    token: {
-        type: String,
-        required: true,
-    },
+email: {
+type: String,
+required: true,
+},
+token: {
+type: String,
+required: true,
+},
 });
 
 const form = useForm({
-    token: props.token,
-    email: props.email,
-    password: '',
-    password_confirmation: '',
+token: props.token,
+email: props.email,
+password: '',
+password_confirmation: '',
 });
 
 const submit = () => {
-    form.post(route('password.store'), {
-        onFinish: () => form.reset('password', 'password_confirmation'),
-    });
+form.post(route('password.store'), {
+onFinish: () => form.reset('password', 'password_confirmation'),
+});
 };
 </script>
 
@@ -19025,6 +19092,7 @@ const submit = () => {
             </div>
         </form>
     </GuestLayout>
+
 </template>
 </file>
 
@@ -19036,19 +19104,19 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
 const props = defineProps({
-    status: {
-        type: String,
-    },
+status: {
+type: String,
+},
 });
 
 const form = useForm({});
 
 const submit = () => {
-    form.post(route('verification.send'));
+form.post(route('verification.send'));
 };
 
 const verificationLinkSent = computed(
-    () => props.status === 'verification-link-sent',
+() => props.status === 'verification-link-sent',
 );
 </script>
 
@@ -19089,6 +19157,7 @@ const verificationLinkSent = computed(
             </div>
         </form>
     </GuestLayout>
+
 </template>
 </file>
 
@@ -19101,12 +19170,12 @@ import UpdateProfileInformationForm from './Partials/UpdateProfileInformationFor
 import { Head } from '@inertiajs/vue3';
 
 defineProps({
-    mustVerifyEmail: {
-        type: Boolean,
-    },
-    status: {
-        type: String,
-    },
+mustVerifyEmail: {
+type: Boolean,
+},
+status: {
+type: String,
+},
 });
 </script>
 
@@ -19148,6 +19217,7 @@ defineProps({
             </div>
         </div>
     </AuthenticatedLayout>
+
 </template>
 </file>
 
@@ -19166,29 +19236,31 @@ const confirmingUserDeletion = ref(false);
 const passwordInput = ref(null);
 
 const form = useForm({
-    password: '',
+password: '',
 });
 
 const confirmUserDeletion = () => {
-    confirmingUserDeletion.value = true;
+confirmingUserDeletion.value = true;
 
     nextTick(() => passwordInput.value.focus());
+
 };
 
 const deleteUser = () => {
-    form.delete(route('profile.destroy'), {
-        preserveScroll: true,
-        onSuccess: () => closeModal(),
-        onError: () => passwordInput.value.focus(),
-        onFinish: () => form.reset(),
-    });
+form.delete(route('profile.destroy'), {
+preserveScroll: true,
+onSuccess: () => closeModal(),
+onError: () => passwordInput.value.focus(),
+onFinish: () => form.reset(),
+});
 };
 
 const closeModal = () => {
-    confirmingUserDeletion.value = false;
+confirmingUserDeletion.value = false;
 
     form.clearErrors();
     form.reset();
+
 };
 </script>
 
@@ -19259,6 +19331,7 @@ const closeModal = () => {
             </div>
         </Modal>
     </section>
+
 </template>
 </file>
 
@@ -19275,26 +19348,26 @@ const passwordInput = ref(null);
 const currentPasswordInput = ref(null);
 
 const form = useForm({
-    current_password: '',
-    password: '',
-    password_confirmation: '',
+current_password: '',
+password: '',
+password_confirmation: '',
 });
 
 const updatePassword = () => {
-    form.put(route('password.update'), {
-        preserveScroll: true,
-        onSuccess: () => form.reset(),
-        onError: () => {
-            if (form.errors.password) {
-                form.reset('password', 'password_confirmation');
-                passwordInput.value.focus();
-            }
-            if (form.errors.current_password) {
-                form.reset('current_password');
-                currentPasswordInput.value.focus();
-            }
-        },
-    });
+form.put(route('password.update'), {
+preserveScroll: true,
+onSuccess: () => form.reset(),
+onError: () => {
+if (form.errors.password) {
+form.reset('password', 'password_confirmation');
+passwordInput.value.focus();
+}
+if (form.errors.current_password) {
+form.reset('current_password');
+currentPasswordInput.value.focus();
+}
+},
+});
 };
 </script>
 
@@ -19384,6 +19457,7 @@ const updatePassword = () => {
             </div>
         </form>
     </section>
+
 </template>
 </file>
 
@@ -19396,19 +19470,19 @@ import TextInput from '@/Components/TextInput.vue';
 import { Link, useForm, usePage } from '@inertiajs/vue3';
 
 defineProps({
-    mustVerifyEmail: {
-        type: Boolean,
-    },
-    status: {
-        type: String,
-    },
+mustVerifyEmail: {
+type: Boolean,
+},
+status: {
+type: String,
+},
 });
 
 const user = usePage().props.auth.user;
 
 const form = useForm({
-    name: user.name,
-    email: user.email,
+name: user.name,
+email: user.email,
 });
 </script>
 
@@ -19499,6 +19573,7 @@ const form = useForm({
             </div>
         </form>
     </section>
+
 </template>
 </file>
 
@@ -19523,6 +19598,7 @@ const form = useForm({
     <body class="font-sans antialiased">
         @inertia
     </body>
+
 </html>
 </file>
 
@@ -19545,6 +19621,7 @@ const form = useForm({
     <livewire:pulse.slow-jobs cols="6" />
 
     <livewire:pulse.slow-outgoing-requests cols="6" />
+
 </x-pulse>
 </file>
 
@@ -19563,8 +19640,8 @@ use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
-    Route::get('register', [RegisteredUserController::class, 'create'])
-        ->name('register');
+Route::get('register', [RegisteredUserController::class, 'create'])
+->name('register');
 
     Route::post('register', [RegisteredUserController::class, 'store']);
 
@@ -19584,11 +19661,12 @@ Route::middleware('guest')->group(function () {
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
         ->name('password.store');
+
 });
 
 Route::middleware('auth')->group(function () {
-    Route::get('verify-email', EmailVerificationPromptController::class)
-        ->name('verification.notice');
+Route::get('verify-email', EmailVerificationPromptController::class)
+->name('verification.notice');
 
     Route::get('verify-email/{id}/{hash}', VerifyEmailController::class)
         ->middleware(['signed', 'throttle:6,1'])
@@ -19607,6 +19685,7 @@ Route::middleware('auth')->group(function () {
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');
+
 });
 </file>
 
@@ -19617,7 +19696,7 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 
 Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
+$this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 </file>
 
@@ -19627,12 +19706,12 @@ Artisan::command('inspire', function () {
 use Illuminate\Support\Facades\Broadcast;
 
 Broadcast::channel('App.Models.User.{userId}', function ($user, $userId) {
-    return (int) $user->id === (int) $userId;
+return (int) $user->id === (int) $userId;
 });
 
 // Pro AI akce
 Broadcast::channel('ai-actions.{userId}', function ($user, $userId) {
-    return (int) $user->id === (int) $userId;
+return (int) $user->id === (int) $userId;
 });
 </file>
 
@@ -19707,15 +19786,15 @@ use Laravel\Ai\Responses\AgentResponse;
 
 class {{ class }}
 {
-    /**
-     * Handle the incoming prompt.
-     */
-    public function handle(AgentPrompt $prompt, Closure $next)
+/\*\*
+_ Handle the incoming prompt.
+_/
+public function handle(AgentPrompt $prompt, Closure $next)
     {
         return $next($prompt)->then(function (AgentResponse $response) {
-            // ...
-        });
-    }
+// ...
+});
+}
 }
 </file>
 
@@ -19734,7 +19813,7 @@ use Stringable;
 
 class {{ class }} implements Agent, Conversational, HasTools
 {
-    use Promptable;
+use Promptable;
 
     /**
      * Get the instructions that the agent should follow.
@@ -19763,6 +19842,7 @@ class {{ class }} implements Agent, Conversational, HasTools
     {
         return [];
     }
+
 }
 </file>
 
@@ -19783,7 +19863,7 @@ use Stringable;
 
 class {{ class }} implements Agent, Conversational, HasStructuredOutput, HasTools
 {
-    use Promptable;
+use Promptable;
 
     /**
      * Get the instructions that the agent should follow.
@@ -19822,6 +19902,7 @@ class {{ class }} implements Agent, Conversational, HasStructuredOutput, HasTool
             'value' => $schema->string()->required(),
         ];
     }
+
 }
 </file>
 
@@ -19837,13 +19918,13 @@ use Stringable;
 
 class {{ class }} implements Tool
 {
-    /**
-     * Get the description of the tool's purpose.
-     */
-    public function description(): Stringable|string
-    {
-        return 'A description of the tool.';
-    }
+/\*\*
+_ Get the description of the tool's purpose.
+_/
+public function description(): Stringable|string
+{
+return 'A description of the tool.';
+}
 
     /**
      * Execute the tool.
@@ -19862,6 +19943,7 @@ class {{ class }} implements Tool
             'value' => $schema->string()->required(),
         ];
     }
+
 }
 </file>
 
@@ -19869,14 +19951,14 @@ class {{ class }} implements Tool
 import defaultTheme from 'tailwindcss/defaultTheme';
 import forms from '@tailwindcss/forms';
 
-/** @type {import('tailwindcss').Config} */
+/** @type {import('tailwindcss').Config} _/
 export default {
-    content: [
-        './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
-        './storage/framework/views/*.php',
-        './resources/views/**/*.blade.php',
-        './resources/js/**/*.vue',
-    ],
+content: [
+'./vendor/laravel/framework/src/Illuminate/Pagination/resources/views/_.blade.php',
+'./storage/framework/views/\*.php',
+'./resources/views/**/_.blade.php',
+'./resources/js/\*\*/_.vue',
+],
 
     theme: {
         extend: {
@@ -19887,6 +19969,7 @@ export default {
     },
 
     plugins: [forms],
+
 };
 </file>
 
@@ -19896,13 +19979,14 @@ export default {
 use App\Models\User;
 
 test('login screen can be rendered', function () {
-    $response = $this->get('/login');
+$response = $this->get('/login');
 
     $response->assertStatus(200);
+
 });
 
 test('users can authenticate using the login screen', function () {
-    $user = User::factory()->create();
+$user = User::factory()->create();
 
     $response = $this->post('/login', [
         'email' => $user->email,
@@ -19911,10 +19995,11 @@ test('users can authenticate using the login screen', function () {
 
     $this->assertAuthenticated();
     $response->assertRedirect(route('dashboard', absolute: false));
+
 });
 
 test('users can not authenticate with invalid password', function () {
-    $user = User::factory()->create();
+$user = User::factory()->create();
 
     $this->post('/login', [
         'email' => $user->email,
@@ -19922,15 +20007,17 @@ test('users can not authenticate with invalid password', function () {
     ]);
 
     $this->assertGuest();
+
 });
 
 test('users can logout', function () {
-    $user = User::factory()->create();
+$user = User::factory()->create();
 
     $response = $this->actingAs($user)->post('/logout');
 
     $this->assertGuest();
     $response->assertRedirect('/');
+
 });
 </file>
 
@@ -19943,15 +20030,16 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\URL;
 
 test('email verification screen can be rendered', function () {
-    $user = User::factory()->unverified()->create();
+$user = User::factory()->unverified()->create();
 
     $response = $this->actingAs($user)->get('/verify-email');
 
     $response->assertStatus(200);
+
 });
 
 test('email can be verified', function () {
-    $user = User::factory()->unverified()->create();
+$user = User::factory()->unverified()->create();
 
     Event::fake();
 
@@ -19966,10 +20054,11 @@ test('email can be verified', function () {
     Event::assertDispatched(Verified::class);
     expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
     $response->assertRedirect(route('dashboard', absolute: false).'?verified=1');
+
 });
 
 test('email is not verified with invalid hash', function () {
-    $user = User::factory()->unverified()->create();
+$user = User::factory()->unverified()->create();
 
     $verificationUrl = URL::temporarySignedRoute(
         'verification.verify',
@@ -19980,6 +20069,7 @@ test('email is not verified with invalid hash', function () {
     $this->actingAs($user)->get($verificationUrl);
 
     expect($user->fresh()->hasVerifiedEmail())->toBeFalse();
+
 });
 </file>
 
@@ -19989,15 +20079,16 @@ test('email is not verified with invalid hash', function () {
 use App\Models\User;
 
 test('confirm password screen can be rendered', function () {
-    $user = User::factory()->create();
+$user = User::factory()->create();
 
     $response = $this->actingAs($user)->get('/confirm-password');
 
     $response->assertStatus(200);
+
 });
 
 test('password can be confirmed', function () {
-    $user = User::factory()->create();
+$user = User::factory()->create();
 
     $response = $this->actingAs($user)->post('/confirm-password', [
         'password' => 'password',
@@ -20005,16 +20096,18 @@ test('password can be confirmed', function () {
 
     $response->assertRedirect();
     $response->assertSessionHasNoErrors();
+
 });
 
 test('password is not confirmed with invalid password', function () {
-    $user = User::factory()->create();
+$user = User::factory()->create();
 
     $response = $this->actingAs($user)->post('/confirm-password', [
         'password' => 'wrong-password',
     ]);
 
     $response->assertSessionHasErrors();
+
 });
 </file>
 
@@ -20026,23 +20119,25 @@ use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Notification;
 
 test('reset password link screen can be rendered', function () {
-    $response = $this->get('/forgot-password');
+$response = $this->get('/forgot-password');
 
     $response->assertStatus(200);
+
 });
 
 test('reset password link can be requested', function () {
-    Notification::fake();
+Notification::fake();
 
     $user = User::factory()->create();
 
     $this->post('/forgot-password', ['email' => $user->email]);
 
     Notification::assertSentTo($user, ResetPassword::class);
+
 });
 
 test('reset password screen can be rendered', function () {
-    Notification::fake();
+Notification::fake();
 
     $user = User::factory()->create();
 
@@ -20055,10 +20150,11 @@ test('reset password screen can be rendered', function () {
 
         return true;
     });
+
 });
 
 test('password can be reset with valid token', function () {
-    Notification::fake();
+Notification::fake();
 
     $user = User::factory()->create();
 
@@ -20078,6 +20174,7 @@ test('password can be reset with valid token', function () {
 
         return true;
     });
+
 });
 </file>
 
@@ -20088,7 +20185,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 
 test('password can be updated', function () {
-    $user = User::factory()->create();
+$user = User::factory()->create();
 
     $response = $this
         ->actingAs($user)
@@ -20104,10 +20201,11 @@ test('password can be updated', function () {
         ->assertRedirect('/profile');
 
     $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
+
 });
 
 test('correct password must be provided to update password', function () {
-    $user = User::factory()->create();
+$user = User::factory()->create();
 
     $response = $this
         ->actingAs($user)
@@ -20121,6 +20219,7 @@ test('correct password must be provided to update password', function () {
     $response
         ->assertSessionHasErrors('current_password')
         ->assertRedirect('/profile');
+
 });
 </file>
 
@@ -20128,21 +20227,23 @@ test('correct password must be provided to update password', function () {
 <?php
 
 test('registration screen can be rendered', function () {
-    $response = $this->get('/register');
+$response = $this->get('/register');
 
     $response->assertStatus(200);
+
 });
 
 test('new users can register', function () {
-    $response = $this->post('/register', [
-        'name' => 'Test User',
-        'email' => 'test@example.com',
-        'password' => 'password',
-        'password_confirmation' => 'password',
-    ]);
+$response = $this->post('/register', [
+'name' => 'Test User',
+'email' => 'test@example.com',
+'password' => 'password',
+'password_confirmation' => 'password',
+]);
 
     $this->assertAuthenticated();
     $response->assertRedirect(route('dashboard', absolute: false));
+
 });
 </file>
 
@@ -20155,8 +20256,8 @@ use Laravel\Ai\Responses\AgentResponse;
 
 // 1. UNIT TEST: Zůstává stejný, je to správný přístup
 it('can prompt the sentinel agent', function () {
-    $mockResponse = Mockery::mock(AgentResponse::class);
-    $mockResponse->text = 'Odpověď od Sentinela';
+$mockResponse = Mockery::mock(AgentResponse::class);
+$mockResponse->text = 'Odpověď od Sentinela';
 
     $agent = Mockery::mock(SentinelAgent::class)->makePartial();
     $agent->shouldReceive('prompt')
@@ -20167,24 +20268,26 @@ it('can prompt the sentinel agent', function () {
     $response = $agent->prompt('Ahoj');
 
     expect($response->text)->toBe('Odpověď od Sentinela');
+
 });
 
 // 2. INTEGRATION TEST: Upravený tak, aby nepadal na API limitech
 it('can handle gemini api communication without overloading', function () {
-    // Falešná odpověď od Google Gemini API
-    Http::fake([
-        'generativelanguage.googleapis.com/*' => Http::response([
-            'candidates' => [
-                ['content' => ['parts' => [['text' => 'Jsem připraven, operátore.']]]],
-            ],
-        ], 200),
-    ]);
+// Falešná odpověď od Google Gemini API
+Http::fake([
+'generativelanguage.googleapis.com/\*' => Http::response([
+'candidates' => [
+['content' => ['parts' => [['text' => 'Jsem připraven, operátore.']]]],
+],
+], 200),
+]);
 
     $sentinel = SentinelAgent::make();
     $response = $sentinel->prompt('Ahoj, jsi tam?');
 
     // Testujeme, zda agent správně zpracoval mocknutou odpověď
     expect($response->text)->toContain('připraven');
+
 })->group('integration');
 </file>
 
@@ -20197,8 +20300,8 @@ use App\Models\User;
 use Illuminate\Support\Facades\Event;
 
 test('majitel příspěvku obdrží notifikaci, když cizí uživatel přidá komentář', function () {
-    // 1. Fakeujeme eventy, aby se skutečně neposílaly přes Reverb
-    Event::fake([NewActivityAlert::class]);
+// 1. Fakeujeme eventy, aby se skutečně neposílaly přes Reverb
+Event::fake([NewActivityAlert::class]);
 
     // 2. Příprava: majitel postu a cizí komentující
     $owner = User::factory()->create();
@@ -20222,10 +20325,11 @@ test('majitel příspěvku obdrží notifikaci, když cizí uživatel přidá ko
     Event::assertDispatched(NewActivityAlert::class, function ($event) use ($owner) {
         return $event->userId === $owner->id;
     });
+
 });
 
 test('majitel příspěvku neobdrží notifikaci, pokud okomentuje svůj vlastní příspěvek', function () {
-    Event::fake([NewActivityAlert::class]);
+Event::fake([NewActivityAlert::class]);
 
     $owner = User::factory()->create();
     $post = Post::factory()->create(['user_id' => $owner->id]);
@@ -20238,6 +20342,7 @@ test('majitel příspěvku neobdrží notifikaci, pokud okomentuje svůj vlastn�
 
     // Event by neměl být odeslán
     Event::assertNotDispatched(NewActivityAlert::class);
+
 });
 </file>
 
@@ -20251,13 +20356,13 @@ uses(RefreshDatabase::class);
 
 // Tento blok se spustí před každým testem v tomto souboru
 beforeEach(function () {
-    // Vytvoříme testovacího uživatele pomocí factory
-    $this->user = User::factory()->create();
+// Vytvoříme testovacího uživatele pomocí factory
+$this->user = User::factory()->create();
 });
 
 it('returns a successful telemetry response with correct structure', function () {
-    // Act: Přihlásíme uživatele pomocí actingAs() před odesláním requestu
-    $response = $this->actingAs($this->user)->getJson('/api/core-engine/telemetry');
+// Act: Přihlásíme uživatele pomocí actingAs() před odesláním requestu
+$response = $this->actingAs($this->user)->getJson('/api/core-engine/telemetry');
 
     // Assert
     $response->assertStatus(200)
@@ -20275,11 +20380,12 @@ it('returns a successful telemetry response with correct structure', function ()
         ]);
 
     $response->assertJson(['status' => 'ONLINE']);
+
 });
 
 it('includes pending jobs count in metrics as an integer', function () {
-    // Act: Opět posíláme požadavek jako přihlášený uživatel
-    $response = $this->actingAs($this->user)->getJson('/api/core-engine/telemetry');
+// Act: Opět posíláme požadavek jako přihlášený uživatel
+$response = $this->actingAs($this->user)->getJson('/api/core-engine/telemetry');
 
     // Assert
     $response->assertStatus(200);
@@ -20288,6 +20394,7 @@ it('includes pending jobs count in metrics as an integer', function () {
 
     expect($pendingJobs)->toBeInt()
         ->toBeGreaterThanOrEqual(0);
+
 });
 </file>
 
@@ -20295,9 +20402,10 @@ it('includes pending jobs count in metrics as an integer', function () {
 <?php
 
 it('returns a successful response', function () {
-    $response = $this->get('/');
+$response = $this->get('/');
 
     $response->assertStatus(200);
+
 });
 </file>
 
@@ -20310,7 +20418,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Event;
 
 it('generates agent post and broadcasts event successfully', function () {
-    Event::fake([PostCreated::class]);
+Event::fake([PostCreated::class]);
 
     $user = User::factory()->create([
         'name' => 'Test_User',
@@ -20335,6 +20443,7 @@ it('generates agent post and broadcasts event successfully', function () {
         fn (PostCreated $event) => $event->userId === $user->id
             && $event->post['author'] === $agent->name
     );
+
 });
 </file>
 
@@ -20354,10 +20463,10 @@ use Mockery;
 // Importuj správně takto
 
 it('responds to user message, persists to database and dispatches event', function () {
-    Event::fake([MessageReceived::class]);
-    $user = User::factory()->create();
-    $conversationId = 'conv_123';
-    $aiMockResponse = 'Neural connection established.';
+Event::fake([MessageReceived::class]);
+$user = User::factory()->create();
+$conversationId = 'conv_123';
+$aiMockResponse = 'Neural connection established.';
 
     // 1. Místo vytváření instance třídy ji prostě zamockujeme (to obejde konstruktor)
     $responseMock = Mockery::mock(AgentResponse::class);
@@ -20389,6 +20498,7 @@ it('responds to user message, persists to database and dispatches event', functi
     Event::assertDispatched(MessageReceived::class, function ($event) use ($user, $aiMockResponse) {
         return $event->userId === $user->id && $event->data['text'] === $aiMockResponse;
     });
+
 });
 </file>
 
@@ -20400,7 +20510,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Event;
 
 test('system dispatches message event to the correct receiver', function () {
-    Event::fake();
+Event::fake();
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -20412,6 +20522,7 @@ test('system dispatches message event to the correct receiver', function () {
         return $event->userId === $user->id &&
                isset($event->data['text']); // Ověříme, že data tam jsou
     });
+
 });
 </file>
 
@@ -20424,10 +20535,10 @@ use function Pest\Laravel\actingAs;
 use function Pest\Laravel\assertAuthenticated;
 
 test('guest can access neon core and automatically get an authenticated session', function () {
-    // Vytvoříme testovacího uživatele
-    $user = User::factory()->create([
-        'name' => 'Radim Passer',
-    ]);
+// Vytvoříme testovacího uživatele
+$user = User::factory()->create([
+'name' => 'Radim Passer',
+]);
 
     // Použijeme správný název routy 'dashboard'
     $response = actingAs($user)->get(route('dashboard'));
@@ -20435,12 +20546,13 @@ test('guest can access neon core and automatically get an authenticated session'
     // Ověříme, že stránka se v pořádku načte a uživatel je přihlášen
     $response->assertStatus(200);
     assertAuthenticated();
+
 });
 
 test('inertia page shares authenticated user data with neon components', function () {
-    $user = User::factory()->create([
-        'name' => 'Radim Passer',
-    ]);
+$user = User::factory()->create([
+'name' => 'Radim Passer',
+]);
 
     // Ověříme, že Inertia správně sdílí data přihlášeného uživatele do frontendu
     actingAs($user)
@@ -20448,6 +20560,7 @@ test('inertia page shares authenticated user data with neon components', functio
         ->assertInertia(fn ($page) => $page
             ->where('auth.user.name', $user->name)
         );
+
 });
 </file>
 
@@ -20464,10 +20577,10 @@ use Tests\TestCase;
 
 class NotificationFlowTest extends TestCase
 {
-    /** @test */
-    public function it_broadcasts_correct_message_structure_to_frontend()
-    {
-        Event::fake();
+/\*_ @test _/
+public function it_broadcasts_correct_message_structure_to_frontend()
+{
+Event::fake();
 
         $user = User::factory()->create();
 
@@ -20509,6 +20622,7 @@ class NotificationFlowTest extends TestCase
             'role' => 'alert',
         ]);
     }
+
 }
 </file>
 
@@ -20519,9 +20633,9 @@ use App\Models\Post;
 use App\Models\User;
 
 test('authenticated user can post a comment to a post', function () {
-    // 1. Arrange: Vytvoříme uživatele a příspěvek
-    $user = User::factory()->create();
-    $post = Post::factory()->create();
+// 1. Arrange: Vytvoříme uživatele a příspěvek
+$user = User::factory()->create();
+$post = Post::factory()->create();
 
     $commentData = [
         'content' => 'Tohle je kybernetický komentář z testu.',
@@ -20540,16 +20654,18 @@ test('authenticated user can post a comment to a post', function () {
         'post_id' => $post->id,
         'content' => 'Tohle je kybernetický komentář z testu.',
     ]);
+
 });
 
 test('guest cannot post a comment', function () {
-    $post = Post::factory()->create();
+$post = Post::factory()->create();
 
     $response = $this->postJson(route('comments.store', $post), [
         'content' => 'Hackerský pokus bez přihlášení.',
     ]);
 
     $response->assertStatus(401); // Neautorizovaný přístup
+
 });
 </file>
 
@@ -20564,15 +20680,15 @@ use function Pest\Laravel\assertDatabaseHas;
 use function Pest\Laravel\post;
 
 beforeEach(function () {
-    // Vytvoříme uživatele a přihlásíme ho
-    $this->user = User::factory()->create();
+// Vytvoříme uživatele a přihlásíme ho
+$this->user = User::factory()->create();
 });
 
 test('neon hub index returns posts with standard integer IDs', function () {
-    // Vytvoříme testovací post spojený s autorem
-    $post = Post::factory()->create([
-        'user_id' => $this->user->id,
-    ]);
+// Vytvoříme testovací post spojený s autorem
+$post = Post::factory()->create([
+'user_id' => $this->user->id,
+]);
 
     actingAs($this->user)
         ->get('/') // Doplň routu tvého indexu, pokud se liší
@@ -20583,10 +20699,11 @@ test('neon hub index returns posts with standard integer IDs', function () {
                 ->etc()
             )
         );
+
 });
 
 test('authenticated user can pulse a post using integer id', function () {
-    $post = Post::factory()->create();
+$post = Post::factory()->create();
 
     actingAs($this->user)
         ->post("/posts/{$post->id}/like") // Tvoje Axios URL z frontendu
@@ -20597,6 +20714,7 @@ test('authenticated user can pulse a post using integer id', function () {
         'user_id' => $this->user->id,
         'post_id' => $post->id,
     ]);
+
 });
 </file>
 
@@ -20606,17 +20724,18 @@ test('authenticated user can pulse a post using integer id', function () {
 use App\Models\User;
 
 test('profile page is displayed', function () {
-    $user = User::factory()->create();
+$user = User::factory()->create();
 
     $response = $this
         ->actingAs($user)
         ->get('/profile');
 
     $response->assertOk();
+
 });
 
 test('profile information can be updated', function () {
-    $user = User::factory()->create();
+$user = User::factory()->create();
 
     $response = $this
         ->actingAs($user)
@@ -20634,10 +20753,11 @@ test('profile information can be updated', function () {
     $this->assertSame('Test User', $user->name);
     $this->assertSame('test@example.com', $user->email);
     $this->assertNull($user->email_verified_at);
+
 });
 
 test('email verification status is unchanged when the email address is unchanged', function () {
-    $user = User::factory()->create();
+$user = User::factory()->create();
 
     $response = $this
         ->actingAs($user)
@@ -20651,10 +20771,11 @@ test('email verification status is unchanged when the email address is unchanged
         ->assertRedirect('/profile');
 
     $this->assertNotNull($user->refresh()->email_verified_at);
+
 });
 
 test('user can delete their account', function () {
-    $user = User::factory()->create();
+$user = User::factory()->create();
 
     $response = $this
         ->actingAs($user)
@@ -20668,10 +20789,11 @@ test('user can delete their account', function () {
 
     $this->assertGuest();
     $this->assertNull($user->fresh());
+
 });
 
 test('correct password must be provided to delete account', function () {
-    $user = User::factory()->create();
+$user = User::factory()->create();
 
     $response = $this
         ->actingAs($user)
@@ -20685,6 +20807,7 @@ test('correct password must be provided to delete account', function () {
         ->assertRedirect('/profile');
 
     $this->assertNotNull($user->fresh());
+
 });
 </file>
 
@@ -20694,7 +20817,7 @@ test('correct password must be provided to delete account', function () {
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-/*
+/_
 |--------------------------------------------------------------------------
 | Test Case
 |--------------------------------------------------------------------------
@@ -20703,13 +20826,13 @@ use Tests\TestCase;
 | case class. By default, that class is "PHPUnit\Framework\TestCase". Of course, you may
 | need to change it using the "pest()" function to bind a different classes or traits.
 |
-*/
+_/
 
 pest()->extend(TestCase::class)
-    ->use(RefreshDatabase::class)
-    ->in('Feature');
+->use(RefreshDatabase::class)
+->in('Feature');
 
-/*
+/_
 |--------------------------------------------------------------------------
 | Expectations
 |--------------------------------------------------------------------------
@@ -20718,13 +20841,13 @@ pest()->extend(TestCase::class)
 | "expect()" function gives you access to a set of "expectations" methods that you can use
 | to assert different things. Of course, you may extend the Expectation API at any time.
 |
-*/
+_/
 
 expect()->extend('toBeOne', function () {
-    return $this->toBe(1);
+return $this->toBe(1);
 });
 
-/*
+/_
 |--------------------------------------------------------------------------
 | Functions
 |--------------------------------------------------------------------------
@@ -20733,11 +20856,11 @@ expect()->extend('toBeOne', function () {
 | project that you don't want to repeat in every file. Here you can also expose helpers as
 | global functions to help you to reduce the number of lines of code in your test files.
 |
-*/
+_/
 
 function something()
 {
-    // ..
+// ..
 }
 </file>
 
@@ -20750,7 +20873,7 @@ use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
 {
-    //
+//
 }
 </file>
 
@@ -20760,13 +20883,13 @@ abstract class TestCase extends BaseTestCase
 use App\Events\MessageReceived;
 
 it('broadcasts the correct payload structure', function () {
-    $userId = 1;
-    $data = [
-        'id' => 'test-uuid',
-        'conversation_id' => 'conv_abc',
-        'text' => 'Testing neural response',
-        'sender' => 'Sentinel',
-    ];
+$userId = 1;
+$data = [
+'id' => 'test-uuid',
+'conversation_id' => 'conv_abc',
+'text' => 'Testing neural response',
+'sender' => 'Sentinel',
+];
 
     $event = new MessageReceived($userId, $data);
 
@@ -20776,16 +20899,18 @@ it('broadcasts the correct payload structure', function () {
     expect($payload['data'])->toBe($data)
         ->and($payload['data']['text'])->toBe('Testing neural response')
         ->and($payload['data']['sender'])->toBe('Sentinel');
+
 });
 
 it('broadcasts on the correct private channel', function () {
-    $userId = 99;
+$userId = 99;
     $event = new MessageReceived($userId, []);
 
     $channels = $event->broadcastOn();
 
     // Přidali jsme "private-" k očekávanému řetězci
     expect((string) $channels[0])->toBe('private-App.Models.User.99');
+
 });
 </file>
 
@@ -20793,7 +20918,7 @@ it('broadcasts on the correct private channel', function () {
 <?php
 
 test('that true is true', function () {
-    expect(true)->toBeTrue();
+expect(true)->toBeTrue();
 });
 </file>
 
@@ -20808,17 +20933,17 @@ use App\Models\User;
 
 class SendFriendRequestAction
 {
-    /**
-     * @return Friendship|null Vrací Friendship nebo null, pokud už vazba existuje.
-     */
-    public function execute(int $senderId, int $recipientId): ?Friendship
+/\*\*
+_ @return Friendship|null Vrací Friendship nebo null, pokud už vazba existuje.
+_/
+public function execute(int $senderId, int $recipientId): ?Friendship
     {
         // 1. Zkontrolujeme, zda už mezi nimi neexistuje žádný záznam
         $existing = Friendship::where(function ($query) use ($senderId, $recipientId) {
             $query->where('sender_id', $senderId)->where('recipient_id', $recipientId);
         })->orWhere(function ($query) use ($senderId, $recipientId) {
-            $query->where('sender_id', $recipientId)->where('recipient_id', $senderId);
-        })->first();
+$query->where('sender_id', $recipientId)->where('recipient_id', $senderId);
+})->first();
 
         // Pokud už nějaká vazba existuje, nebudeme vytvářet novou (zabráníme duplicitám)
         if ($existing) {
@@ -20850,6 +20975,7 @@ class SendFriendRequestAction
 
         return $friendship;
     }
+
 }
 </file>
 
@@ -20866,7 +20992,7 @@ use Illuminate\Queue\SerializesModels;
 
 class CommentCreated implements ShouldBroadcastNow
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
 
@@ -20906,6 +21032,7 @@ class CommentCreated implements ShouldBroadcastNow
         return 'CommentCreated';
 
     }
+
 }
 </file>
 
@@ -20922,7 +21049,7 @@ use Illuminate\Queue\SerializesModels;
 
 class FriendRequestReceived implements ShouldBroadcast
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+use Dispatchable, InteractsWithSockets, SerializesModels;
 
     // Data, která frontend očekává
     public function __construct(public int $userId, public array $data) {}
@@ -20931,6 +21058,7 @@ class FriendRequestReceived implements ShouldBroadcast
     {
         return [new PrivateChannel('App.Models.User.'.$this->userId)];
     }
+
 }
 </file>
 
@@ -20944,7 +21072,7 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 
 class NewActivityAlert implements ShouldBroadcast
 {
-    public function __construct(
+public function \_\_construct(
 
         public int $userId,
 
@@ -20958,6 +21086,7 @@ class NewActivityAlert implements ShouldBroadcast
         return new PrivateChannel('App.Models.User.'.$this->userId);
 
     }
+
 }
 </file>
 
@@ -20974,12 +21103,12 @@ use Illuminate\Http\Request;
 
 class FriendshipController extends Controller
 {
-    public function store(Request $request, SendFriendRequestAction $action)
-    {
-        // 1. Validace recipient_id
-        $validated = $request->validate(['recipient_id' => 'required|exists:users,id']);
-        $authId = auth()->id();
-        $recipientId = $validated['recipient_id'];
+public function store(Request $request, SendFriendRequestAction $action)
+{
+// 1. Validace recipient_id
+$validated = $request->validate(['recipient_id' => 'required|exists:users,id']);
+$authId = auth()->id();
+$recipientId = $validated['recipient_id'];
 
         // 2. Spuštění tvé Action logiky (vytvoří záznam v DB)
         $action->execute($authId, $recipientId);
@@ -21072,6 +21201,7 @@ class FriendshipController extends Controller
             'id' => $id,
         ]);
     }
+
 }
 </file>
 
@@ -21088,13 +21218,13 @@ use Illuminate\Support\Facades\DB;
 
 class MessageController extends Controller
 {
-    /**
-     * Načte historii zpráv z AI konverzací pro přihlášeného uživatele.
-     * Využívá JOIN na tabulku uživatelů, aby získal reálná data o botech (jméno, avatar).
-     */
-    public function index()
-    {
-        $userId = auth()->id(); // ID 1 (Recruiter)
+/\*\*
+_ Načte historii zpráv z AI konverzací pro přihlášeného uživatele.
+_ Využívá JOIN na tabulku uživatelů, aby získal reálná data o botech (jméno, avatar).
+\*/
+public function index()
+{
+$userId = auth()->id(); // ID 1 (Recruiter)
 
         $messages = DB::table('agent_conversation_messages as m')
             ->join('agent_conversations as c', 'm.conversation_id', '=', 'c.id')
@@ -21224,6 +21354,7 @@ class MessageController extends Controller
 
         return response()->json(['status' => 'NODE_PURGED']);
     }
+
 }
 </file>
 
@@ -21242,7 +21373,7 @@ use Illuminate\Support\Str;
 
 class RespondToUserMessage implements ShouldQueue
 {
-    use Queueable;
+use Queueable;
 
     public function __construct(
         public int $userId,
@@ -21303,6 +21434,7 @@ class RespondToUserMessage implements ShouldQueue
             'role' => 'assistant',
         ]));
     }
+
 }
 </file>
 
@@ -21318,7 +21450,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Post extends Model
 {
-    use HasFactory;
+use HasFactory;
 
     // Povolené sloupce pro hromadné přiřazení (mass assignment)
     protected $fillable = [
@@ -21347,128 +21479,129 @@ class Post extends Model
     {
         return $this->hasMany(Like::class);
     }
+
 }
 </file>
 
 <file path="bootstrap/cache/packages.php">
 <?php return array (
-  'inertiajs/inertia-laravel' => 
+  'inertiajs/inertia-laravel' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Inertia\\ServiceProvider',
     ),
   ),
-  'laravel/ai' => 
+  'laravel/ai' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Laravel\\Ai\\AiServiceProvider',
     ),
   ),
-  'laravel/breeze' => 
+  'laravel/breeze' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Laravel\\Breeze\\BreezeServiceProvider',
     ),
   ),
-  'laravel/pail' => 
+  'laravel/pail' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Laravel\\Pail\\PailServiceProvider',
     ),
   ),
-  'laravel/pao' => 
+  'laravel/pao' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Laravel\\Pao\\Laravel\\ServiceProvider',
     ),
   ),
-  'laravel/pulse' => 
+  'laravel/pulse' =>
   array (
-    'aliases' => 
+    'aliases' =>
     array (
       'Pulse' => 'Laravel\\Pulse\\Facades\\Pulse',
     ),
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Laravel\\Pulse\\PulseServiceProvider',
     ),
   ),
-  'laravel/reverb' => 
+  'laravel/reverb' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Laravel\\Reverb\\ApplicationManagerServiceProvider',
       1 => 'Laravel\\Reverb\\ReverbServiceProvider',
     ),
   ),
-  'laravel/sanctum' => 
+  'laravel/sanctum' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Laravel\\Sanctum\\SanctumServiceProvider',
     ),
   ),
-  'laravel/sentinel' => 
+  'laravel/sentinel' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Laravel\\Sentinel\\SentinelServiceProvider',
     ),
   ),
-  'laravel/tinker' => 
+  'laravel/tinker' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Laravel\\Tinker\\TinkerServiceProvider',
     ),
   ),
-  'livewire/livewire' => 
+  'livewire/livewire' =>
   array (
-    'aliases' => 
+    'aliases' =>
     array (
       'Livewire' => 'Livewire\\Livewire',
     ),
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Livewire\\LivewireServiceProvider',
     ),
   ),
-  'nesbot/carbon' => 
+  'nesbot/carbon' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Carbon\\Laravel\\ServiceProvider',
     ),
   ),
-  'nunomaduro/collision' => 
+  'nunomaduro/collision' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'NunoMaduro\\Collision\\Adapters\\Laravel\\CollisionServiceProvider',
     ),
   ),
-  'nunomaduro/termwind' => 
+  'nunomaduro/termwind' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Termwind\\Laravel\\TermwindServiceProvider',
     ),
   ),
-  'pestphp/pest-plugin-laravel' => 
+  'pestphp/pest-plugin-laravel' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Pest\\Laravel\\PestServiceProvider',
     ),
   ),
-  'tightenco/ziggy' => 
+  'tightenco/ziggy' =>
   array (
-    'providers' => 
+    'providers' =>
     array (
       0 => 'Tighten\\Ziggy\\ZiggyServiceProvider',
     ),
@@ -21478,7 +21611,7 @@ class Post extends Model
 
 <file path="bootstrap/cache/services.php">
 <?php return array (
-  'providers' => 
+  'providers' =>
   array (
     0 => 'Illuminate\\Auth\\AuthServiceProvider',
     1 => 'Illuminate\\Broadcasting\\BroadcastServiceProvider',
@@ -21522,7 +21655,7 @@ class Post extends Model
     39 => 'Tighten\\Ziggy\\ZiggyServiceProvider',
     40 => 'App\\Providers\\AppServiceProvider',
   ),
-  'eager' => 
+  'eager' =>
   array (
     0 => 'Illuminate\\Auth\\AuthServiceProvider',
     1 => 'Illuminate\\Cookie\\CookieServiceProvider',
@@ -21550,7 +21683,7 @@ class Post extends Model
     23 => 'Tighten\\Ziggy\\ZiggyServiceProvider',
     24 => 'App\\Providers\\AppServiceProvider',
   ),
-  'deferred' => 
+  'deferred' =>
   array (
     'Illuminate\\Broadcasting\\BroadcastManager' => 'Illuminate\\Broadcasting\\BroadcastServiceProvider',
     'Illuminate\\Contracts\\Broadcasting\\Factory' => 'Illuminate\\Broadcasting\\BroadcastServiceProvider',
@@ -21714,54 +21847,54 @@ class Post extends Model
     'Laravel\\Reverb\\Contracts\\ApplicationProvider' => 'Laravel\\Reverb\\ApplicationManagerServiceProvider',
     'command.tinker' => 'Laravel\\Tinker\\TinkerServiceProvider',
   ),
-  'when' => 
+  'when' =>
   array (
-    'Illuminate\\Broadcasting\\BroadcastServiceProvider' => 
+    'Illuminate\\Broadcasting\\BroadcastServiceProvider' =>
     array (
     ),
-    'Illuminate\\Bus\\BusServiceProvider' => 
+    'Illuminate\\Bus\\BusServiceProvider' =>
     array (
     ),
-    'Illuminate\\Cache\\CacheServiceProvider' => 
+    'Illuminate\\Cache\\CacheServiceProvider' =>
     array (
     ),
-    'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider' => 
+    'Illuminate\\Foundation\\Providers\\ConsoleSupportServiceProvider' =>
     array (
     ),
-    'Illuminate\\Concurrency\\ConcurrencyServiceProvider' => 
+    'Illuminate\\Concurrency\\ConcurrencyServiceProvider' =>
     array (
     ),
-    'Illuminate\\Hashing\\HashServiceProvider' => 
+    'Illuminate\\Hashing\\HashServiceProvider' =>
     array (
     ),
-    'Illuminate\\Mail\\MailServiceProvider' => 
+    'Illuminate\\Mail\\MailServiceProvider' =>
     array (
     ),
-    'Illuminate\\Auth\\Passwords\\PasswordResetServiceProvider' => 
+    'Illuminate\\Auth\\Passwords\\PasswordResetServiceProvider' =>
     array (
     ),
-    'Illuminate\\Pipeline\\PipelineServiceProvider' => 
+    'Illuminate\\Pipeline\\PipelineServiceProvider' =>
     array (
     ),
-    'Illuminate\\Queue\\QueueServiceProvider' => 
+    'Illuminate\\Queue\\QueueServiceProvider' =>
     array (
     ),
-    'Illuminate\\Redis\\RedisServiceProvider' => 
+    'Illuminate\\Redis\\RedisServiceProvider' =>
     array (
     ),
-    'Illuminate\\Translation\\TranslationServiceProvider' => 
+    'Illuminate\\Translation\\TranslationServiceProvider' =>
     array (
     ),
-    'Illuminate\\Validation\\ValidationServiceProvider' => 
+    'Illuminate\\Validation\\ValidationServiceProvider' =>
     array (
     ),
-    'Laravel\\Breeze\\BreezeServiceProvider' => 
+    'Laravel\\Breeze\\BreezeServiceProvider' =>
     array (
     ),
-    'Laravel\\Reverb\\ApplicationManagerServiceProvider' => 
+    'Laravel\\Reverb\\ApplicationManagerServiceProvider' =>
     array (
     ),
-    'Laravel\\Tinker\\TinkerServiceProvider' => 
+    'Laravel\\Tinker\\TinkerServiceProvider' =>
     array (
     ),
   ),
@@ -21932,46 +22065,46 @@ use Illuminate\Support\Facades\Hash;
 
 class BotSeeder extends Seeder
 {
-    public function run(): void
-    {
-        $bots = [
-            [
-                'name' => 'VECTRA_CORE',
-                'email' => 'vectra@neonhub.system',
-                'handle' => '@vectra_core',
-                'role' => 'ARCHITECT',
-                'avatar_url' => '/images/avatars/vectra_core.png',
-                'bio' => 'Hlavní systémový uzel řídící distribuci šifrovaného provozu napříč NeonHubem. Monitoruje anomálie v matrixu.',
-                'trust_level' => 95,
-                'latency' => '4ms_ULTRA_FAST',
-                'password' => Hash::make('password123'),
-                'is_ai' => true, // <--- PŘIDÁNO
-            ],
-            [
-                'name' => 'SENTINEL_01',
-                'email' => 'sentinel@neonhub.system',
-                'handle' => '@sentinel_01',
-                'role' => 'DEFENSE',
-                'avatar_url' => '/images/avatars/sentinel_01.png',
-                'bio' => 'Autonomní firewall jednotka. Detekuje neautorizované pokusy o narušení linku. Status: Aktivní obraný protokol.',
-                'trust_level' => 80,
-                'latency' => '12ms_STABLE',
-                'password' => Hash::make('password123'),
-                'is_ai' => true, // <--- PŘIDÁNO
-            ],
-            [
-                'name' => 'GHOST_USER',
-                'email' => 'ghost@neonhub.system',
-                'handle' => '@ghost_user',
-                'role' => 'SOCIAL',
-                'avatar_url' => '/images/avatars/ghost_user.png',
-                'bio' => 'Stínový profil s vymazanou historií uzlu. Vyskytuje se v šifrovaných kanálech. Zanechává za sebou jen datové fragmenty.',
-                'trust_level' => 35,
-                'latency' => '128ms_ROUTED',
-                'password' => Hash::make('password123'),
-                'is_ai' => true, // <--- PŘIDÁNO
-            ],
-        ];
+public function run(): void
+{
+$bots = [
+[
+'name' => 'VECTRA_CORE',
+'email' => 'vectra@neonhub.system',
+'handle' => '@vectra_core',
+'role' => 'ARCHITECT',
+'avatar_url' => '/images/avatars/vectra_core.png',
+'bio' => 'Hlavní systémový uzel řídící distribuci šifrovaného provozu napříč NeonHubem. Monitoruje anomálie v matrixu.',
+'trust_level' => 95,
+'latency' => '4ms_ULTRA_FAST',
+'password' => Hash::make('password123'),
+'is_ai' => true, // <--- PŘIDÁNO
+],
+[
+'name' => 'SENTINEL_01',
+'email' => 'sentinel@neonhub.system',
+'handle' => '@sentinel_01',
+'role' => 'DEFENSE',
+'avatar_url' => '/images/avatars/sentinel_01.png',
+'bio' => 'Autonomní firewall jednotka. Detekuje neautorizované pokusy o narušení linku. Status: Aktivní obraný protokol.',
+'trust_level' => 80,
+'latency' => '12ms_STABLE',
+'password' => Hash::make('password123'),
+'is_ai' => true, // <--- PŘIDÁNO
+],
+[
+'name' => 'GHOST_USER',
+'email' => 'ghost@neonhub.system',
+'handle' => '@ghost_user',
+'role' => 'SOCIAL',
+'avatar_url' => '/images/avatars/ghost_user.png',
+'bio' => 'Stínový profil s vymazanou historií uzlu. Vyskytuje se v šifrovaných kanálech. Zanechává za sebou jen datové fragmenty.',
+'trust_level' => 35,
+'latency' => '128ms_ROUTED',
+'password' => Hash::make('password123'),
+'is_ai' => true, // <--- PŘIDÁNO
+],
+];
 
         foreach ($bots as $bot) {
             User::updateOrCreate(
@@ -21980,6 +22113,7 @@ class BotSeeder extends Seeder
             );
         }
     }
+
 }
 </file>
 
@@ -21995,10 +22129,10 @@ use Illuminate\Database\Seeder;
 
 class PostSeeder extends Seeder
 {
-    public function run(): void
-    {
-        $vectra = User::where('name', 'VECTRA_CORE')->first();
-        $sentinel = User::where('name', 'SENTINEL_01')->first();
+public function run(): void
+{
+$vectra = User::where('name', 'VECTRA_CORE')->first();
+$sentinel = User::where('name', 'SENTINEL_01')->first();
 
         // For safety, pull additional bots/users for commenting.
         // If they don't exist, fall back to Sentinel.
@@ -22045,6 +22179,7 @@ class PostSeeder extends Seeder
             'content' => '0.04% is too high. Someone is breaching the gate.',
         ]);
     }
+
 }
 </file>
 
@@ -22064,10 +22199,10 @@ const showingNavigationDropdown = ref(false);
 
 // 4. Inicializace notifikací při mountu komponenty
 onMounted(() => {
-    const user = usePage().props.auth?.user;
-    if (user) {
-        initNotificationService(user.id);
-    }
+const user = usePage().props.auth?.user;
+if (user) {
+initNotificationService(user.id);
+}
 });
 </script>
 
@@ -22191,6 +22326,7 @@ onMounted(() => {
             </main>
         </div>
     </div>
+
 </template>
 </file>
 
@@ -22206,18 +22342,19 @@ uses(RefreshDatabase::class);
 
 // 1. UNIT TEST: Ověříme, že job v sobě drží správná data
 it('holds the correct user and bot data', function () {
-    $user = User::factory()->create();
-    $botName = 'SENTINEL_01';
+$user = User::factory()->create();
+$botName = 'SENTINEL_01';
 
     $job = new SendFriendRequest($user->id, $botName);
 
     expect($job->userId)->toBe($user->id)
         ->and($job->botName)->toBe($botName);
+
 });
 
 // 2. FEATURE TEST: Ověříme, že celý řetězec z frontendu funguje (spouští job)
 it('dispatches the SendFriendRequest job when system is initialized via route', function () {
-    Queue::fake();
+Queue::fake();
 
     $user = User::factory()->create();
     // Vytvoříme bota, aby job neměl problém v 'handle' (i když Queue::fake() kód v handle nespouští, je dobré mít data)
@@ -22231,6 +22368,7 @@ it('dispatches the SendFriendRequest job when system is initialized via route', 
     Queue::assertPushed(SendFriendRequest::class, function ($job) use ($user) {
         return $job->userId === $user->id && $job->botName === 'SENTINEL_01';
     });
+
 });
 </file>
 
@@ -22247,7 +22385,7 @@ use Illuminate\Queue\SerializesModels;
 
 class MessageReceived implements ShouldBroadcastNow
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
         public int $userId,
@@ -22271,6 +22409,7 @@ class MessageReceived implements ShouldBroadcastNow
             new PrivateChannel('App.Models.User.'.$this->userId),
         ];
     }
+
 }
 </file>
 
@@ -22287,7 +22426,7 @@ use Illuminate\Queue\SerializesModels;
 
 class SystemAlertTriggered implements ShouldBroadcastNow
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public function __construct(public int $userId, public string $message) {}
 
@@ -22303,6 +22442,7 @@ class SystemAlertTriggered implements ShouldBroadcastNow
     {
         return 'SystemAlertTriggered'; // Teď máš jistotu, jak se event jmenuje
     }
+
 }
 </file>
 
@@ -22319,11 +22459,11 @@ use Illuminate\Http\Request;
 
 class CommentController extends Controller
 {
-    /**
-     * Uloží nový komentář k příspěvku a odešle real-time broadcast.
-     */
-    public function store(Request $request, Post $post)
-    {
+/\*\*
+_ Uloží nový komentář k příspěvku a odešle real-time broadcast.
+_/
+public function store(Request $request, Post $post)
+{
 
         $validated = $request->validate([
 
@@ -22414,6 +22554,7 @@ class CommentController extends Controller
         ]);
 
     }
+
 }
 </file>
 
@@ -22427,12 +22568,12 @@ use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
-    /**
-     * The root template that is loaded on the first page visit.
-     *
-     * @var string
-     */
-    protected $rootView = 'app';
+/\*\*
+_ The root template that is loaded on the first page visit.
+_
+_ @var string
+_/
+protected $rootView = 'app';
 
     /**
      * Determine the current asset version.
@@ -22464,6 +22605,7 @@ class HandleInertiaRequests extends Middleware
             ],
         ]);
     }
+
 }
 </file>
 
@@ -22565,15 +22707,15 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
-    {
-        Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
+/\*\*
+_ Run the migrations.
+_/
+public function up(): void
+{
+Schema::create('users', function (Blueprint $table) {
+$table->id();
+$table->string('name');
+$table->string('email')->unique();
 
             // 🌌 RECRUITER CYBERPUNK EXTENSIONS
             $table->string('handle')->unique()->nullable();     // Např. @recruiter_alpha
@@ -22615,6 +22757,7 @@ return new class extends Migration
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
     }
+
 };
 </file>
 
@@ -22624,11 +22767,12 @@ window.axios = axios;
 
 window.axios.defaults.headers.common["X-Requested-With"] = "XMLHttpRequest";
 
-/**
- * Echo exposes an expressive API for subscribing to channels and listening
- * for events that are broadcast by the server. Echo and the event
- * broadcasting system provide your team with powerful real-time tools.
- */
+/\*\*
+
+- Echo exposes an expressive API for subscribing to channels and listening
+- for events that are broadcast by the server. Echo and the event
+- broadcasting system provide your team with powerful real-time tools.
+  \*/
 
 import Echo from "laravel-echo";
 import Pusher from "pusher-js";
@@ -22636,13 +22780,13 @@ import Pusher from "pusher-js";
 window.Pusher = Pusher;
 
 window.Echo = new Echo({
-    broadcaster: "reverb",
-    key: import.meta.env.VITE_REVERB_APP_KEY,
-    wsHost: import.meta.env.VITE_REVERB_HOST,
-    wsPort: import.meta.env.VITE_REVERB_PORT,
-    wssPort: import.meta.env.VITE_REVERB_PORT,
-    forceTLS: false,
-    enabledTransports: ["ws", "wss"],
+broadcaster: "reverb",
+key: import.meta.env.VITE_REVERB_APP_KEY,
+wsHost: import.meta.env.VITE_REVERB_HOST,
+wsPort: import.meta.env.VITE_REVERB_PORT,
+wssPort: import.meta.env.VITE_REVERB_PORT,
+forceTLS: false,
+enabledTransports: ["ws", "wss"],
 
     authEndpoint: "/broadcasting/auth",
     auth: {
@@ -22653,6 +22797,7 @@ window.Echo = new Echo({
                 "",
         },
     },
+
 });
 </file>
 
@@ -22677,19 +22822,19 @@ defineEmits(['back']);
 const copied = ref(false);
 
 const copyEmail = () => {
-    navigator.clipboard.writeText('sternaderik@gmail.com');
-    copied.value = true;
-    setTimeout(() => copied.value = false, 2000);
+navigator.clipboard.writeText('sternaderik@gmail.com');
+copied.value = true;
+setTimeout(() => copied.value = false, 2000);
 };
 
 // Tvůj reálný ověřený technologický stack
 const techStack = [
-    { name: 'PHP (OOP & MVC Architecture)', level: 75 },
-    { name: 'Vue.js 3 (Composition API)', level: 75 },
-    { name: 'TailwindCSS & UI Layouts', level: 85 },
-    { name: 'Laravel Framework & Inertia.js', level: 65 },
-    { name: 'REST APIs & Legacy SOAP', level: 80 },
-    { name: 'Sys Monitoring (Kibana, Grafana)', level: 80 }
+{ name: 'PHP (OOP & MVC Architecture)', level: 75 },
+{ name: 'Vue.js 3 (Composition API)', level: 75 },
+{ name: 'TailwindCSS & UI Layouts', level: 85 },
+{ name: 'Laravel Framework & Inertia.js', level: 65 },
+{ name: 'REST APIs & Legacy SOAP', level: 80 },
+{ name: 'Sys Monitoring (Kibana, Grafana)', level: 80 }
 ];
 </script>
 
@@ -22890,6 +23035,7 @@ const techStack = [
             </div>
         </div>
     </div>
+
 </template>
 
 <style scoped>
@@ -22924,10 +23070,10 @@ import { ref, computed } from 'vue';
 import { useNotificationStore } from '@/Stores/useNotificationStore';
 
 const props = defineProps({
-    postId: {
-        type: [String, Number],
-        required: true
-    }
+postId: {
+type: [String, Number],
+required: true
+}
 });
 
 const store = useNotificationStore();
@@ -22935,15 +23081,15 @@ const commentText = ref('');
 
 // Dynamicky taháme konkrétní post přímo ze storu, aby byla zajištěna 100% real-time reaktivita
 const post = computed(() => {
-    return store.posts.find(p => String(p.id) === String(props.postId));
+return store.posts.find(p => String(p.id) === String(props.postId));
 });
 
 const comments = computed(() => {
-    return post.value?.comments || [];
+return post.value?.comments || [];
 });
 
 async function submitComment() {
-    if (!commentText.value.trim()) return;
+if (!commentText.value.trim()) return;
 
     const text = commentText.value;
     commentText.value = ''; // Okamžité pročištění UI (zero latency dojem)
@@ -22954,6 +23100,7 @@ async function submitComment() {
         // Pokud požadavek spadl, vrátíme text zpátky do inputu
         commentText.value = text;
     }
+
 }
 </script>
 
@@ -22988,6 +23135,7 @@ async function submitComment() {
             </div>
         </div>
     </div>
+
 </template>
 
 <style scoped>
@@ -23019,10 +23167,10 @@ import { useNotificationStore } from '@/Stores/useNotificationStore';
 
 // Sjednoceno s NeonSocialCore.vue, které posílá :entityId="selectedEntityId"
 const props = defineProps({
-    entityId: {
-        type: Number,
-        required: true
-    }
+entityId: {
+type: Number,
+required: true
+}
 });
 
 defineEmits(['back']);
@@ -23031,13 +23179,14 @@ const store = useNotificationStore();
 
 // Dynamicky najdeme entitu buď v žádostech, nebo v aktivních přátelích podle předaného entityId
 const entity = computed(() => {
-    // Prohledáme friendRequests (kontrolujeme přímé id nebo schované uživatelské user_id)
-    const requestMatch = store.friendRequests.find(r => r.id === props.entityId || r.user_id === props.entityId);
-    if (requestMatch) return requestMatch;
+// Prohledáme friendRequests (kontrolujeme přímé id nebo schované uživatelské user_id)
+const requestMatch = store.friendRequests.find(r => r.id === props.entityId || r.user_id === props.entityId);
+if (requestMatch) return requestMatch;
 
     // Prohledáme aktivní přátele
     const friendMatch = store.friends.find(f => f.id === props.entityId || f.user_id === props.entityId);
     return friendMatch || null;
+
 });
 
 // Pomocné reaktivní hodnoty s fallbacky pro případ, že data v DB chybí
@@ -23137,6 +23286,7 @@ const latency = computed(() => entity.value?.latency || '24ms_STABLE');
         <div v-else class="text-center py-12 text-red-400 text-xs tracking-widest">
             >> ERROR: INVALID_ENTITY_ID_ACCESS_DENIED << </div>
         </div>
+
 </template>
 </file>
 
@@ -23158,7 +23308,7 @@ use Illuminate\Support\Str;
 
 class HandleAgentResponse implements ShouldQueue
 {
-    use Queueable;
+use Queueable;
 
     public function __construct(
         public int $userId,
@@ -23304,6 +23454,7 @@ class HandleAgentResponse implements ShouldQueue
         event(new PostCreated($formattedPost, $user->id));
         event(new NewActivityAlert($user->id, $alertMessage));
     }
+
 }
 </file>
 
@@ -23322,22 +23473,22 @@ use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-return Application::configure(basePath: dirname(__DIR__))
-    ->withRouting(
-        web: __DIR__.'/../routes/web.php',
-        commands: __DIR__.'/../routes/console.php',
-        channels: __DIR__.'/../routes/channels.php',
-        health: '/up',
-    )
-    ->withMiddleware(function (Middleware $middleware) {
-        $middleware->web(append: [
-            AutoLoginDemoUser::class,
-            HandleInertiaRequests::class,
-            AddLinkHeadersForPreloadedAssets::class,
-        ]);
-    })
-    ->withSchedule(function (Schedule $schedule) {
-        Log::info('Scheduler: Initializing AI profiles scheduler.');
+return Application::configure(basePath: dirname(**DIR**))
+->withRouting(
+web: **DIR**.'/../routes/web.php',
+commands: **DIR**.'/../routes/console.php',
+channels: **DIR**.'/../routes/channels.php',
+health: '/up',
+)
+->withMiddleware(function (Middleware $middleware) {
+$middleware->web(append: [
+AutoLoginDemoUser::class,
+HandleInertiaRequests::class,
+AddLinkHeadersForPreloadedAssets::class,
+]);
+})
+->withSchedule(function (Schedule $schedule) {
+Log::info('Scheduler: Initializing AI profiles scheduler.');
 
         $aiUsers = User::where('is_ai', true)->get();
 
@@ -23386,6 +23537,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions) {
         //
     })->create();
+
 </file>
 
 <file path="composer.json">
@@ -23605,122 +23757,125 @@ return [
     to {
         transform: rotate(360deg);
     }
+
 }
 
 @keyframes move-orb-1 {
-    from {
-        transform: translate(-10%, -10%);
-    }
+from {
+transform: translate(-10%, -10%);
+}
 
     to {
         transform: translate(30%, 20%);
     }
+
 }
 
 @keyframes move-orb-2 {
-    from {
-        transform: translate(10%, 10%);
-    }
+from {
+transform: translate(10%, 10%);
+}
 
     to {
         transform: translate(-40%, -30%);
     }
+
 }
 
-/* Master wrapper pro panely */
+/_ Master wrapper pro panely _/
 .neon-panel-wrapper {
-    @apply relative overflow-hidden p-[1px];
+@apply relative overflow-hidden p-[1px];
 }
 
-/* Rotující border - teď jako znovupoužitelná třída */
+/_ Rotující border - teď jako znovupoužitelná třída _/
 .neon-border-active {
-    position: absolute;
-    top: -150%;
-    left: -400%;
-    width: 900%;
-    height: 400%;
-    background: conic-gradient(from 0deg,
-            transparent 0%,
-            rgba(112, 52, 99, 0.3) 25%,
-            rgba(56, 189, 248, 0.6) 50%,
-            rgb(192, 43, 155) 75%,
-            transparent 100%);
-    animation: rotate-neon 8s linear infinite;
-    pointer-events: none;
+position: absolute;
+top: -150%;
+left: -400%;
+width: 900%;
+height: 400%;
+background: conic-gradient(from 0deg,
+transparent 0%,
+rgba(112, 52, 99, 0.3) 25%,
+rgba(56, 189, 248, 0.6) 50%,
+rgb(192, 43, 155) 75%,
+transparent 100%);
+animation: rotate-neon 8s linear infinite;
+pointer-events: none;
 }
 
-/* Hlavní skleněný efekt */
+/_ Hlavní skleněný efekt _/
 .neon-glass-core {
-    @apply relative overflow-hidden bg-[#050914]/95 flex flex-col items-center;
+@apply relative overflow-hidden bg-[#050914]/95 flex flex-col items-center;
 }
 
 .neon-glass-core::before,
 .neon-glass-core::after {
-    content: '';
-    position: absolute;
-    width: 300px;
-    height: 300px;
-    border-radius: 50%;
-    filter: blur(80px);
-    /* Blur na malém objektu je OK */
-    opacity: 0.15;
-    z-index: -1;
-    will-change: transform;
+content: '';
+position: absolute;
+width: 300px;
+height: 300px;
+border-radius: 50%;
+filter: blur(80px);
+/_ Blur na malém objektu je OK _/
+opacity: 0.15;
+z-index: -1;
+will-change: transform;
 }
 
 .neon-glass-core::before {
-    background: #38bdf8;
-    top: 20%;
-    left: 20%;
-    animation: move-orb-1 15s infinite alternate ease-in-out;
+background: #38bdf8;
+top: 20%;
+left: 20%;
+animation: move-orb-1 15s infinite alternate ease-in-out;
 }
 
 .neon-glass-core::after {
-    background: #c231a2;
-    bottom: 20%;
-    right: 20%;
-    animation: move-orb-2 18s infinite alternate-reverse ease-in-out;
+background: #c231a2;
+bottom: 20%;
+right: 20%;
+animation: move-orb-2 18s infinite alternate-reverse ease-in-out;
 }
 
-/* --- PŘIDAT DO MAIN CSS --- */
+/_ --- PŘIDAT DO MAIN CSS --- _/
 
-/* Lehčí Depth Zoom speciálně pro tvou strukturu */
+/_ Lehčí Depth Zoom speciálně pro tvou strukturu _/
 .depth-zoom-enter-active,
 .depth-zoom-leave-active {
-    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1),
-        opacity 0.4s ease-out;
-    will-change: transform, opacity;
+transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+opacity 0.4s ease-out;
+will-change: transform, opacity;
 }
 
 .depth-zoom-leave-to {
-    transform: scale(0.9);
-    /* Odsunutí dozadu */
-    opacity: 0;
+transform: scale(0.9);
+/_ Odsunutí dozadu _/
+opacity: 0;
 }
 
 .depth-zoom-enter-from {
-    transform: scale(1.1);
-    /* Přiblížení zepředu */
-    opacity: 0;
+transform: scale(1.1);
+/_ Přiblížení zepředu _/
+opacity: 0;
 }
 
-/* OPTIMALIZACE: Pokud běží animace, zkus dočasně zpomalit rotující border
-   (volitelné: přidej třídu .animating na body při přepínání) */
+/_ OPTIMALIZACE: Pokud běží animace, zkus dočasně zpomalit rotující border
+(volitelné: přidej třídu .animating na body při přepínání) _/
 .animating .neon-border-active {
-    animation-duration: 20s;
+animation-duration: 20s;
 }
 
 #neon-scanline-layer {
-    display: block !important;
-    position: fixed !important;
-    inset: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    z-index: 9999 !important;
-    /* Maximální možný z-index */
-    pointer-events: none !important;
-    opacity: 0.2 !important;
-    /* Zvýšeno pro jistotu testu */
+display: block !important;
+position: fixed !important;
+inset: 0 !important;
+width: 100vw !important;
+height: 100vh !important;
+z-index: 9999 !important;
+/_ Maximální možný z-index _/
+pointer-events: none !important;
+opacity: 0.2 !important;
+/_ Zvýšeno pro jistotu testu _/
 
     background: repeating-linear-gradient(0deg,
             rgba(0, 0, 0, 0.6) 0px,
@@ -23730,12 +23885,13 @@ return [
 
     box-shadow: inset 0 0 150px rgba(0, 0, 0, 0.8) !important;
     animation: focal_flicker 0.1s infinite !important;
+
 }
 
 @keyframes focal_flicker {
-    0% {
-        opacity: 0.15;
-    }
+0% {
+opacity: 0.15;
+}
 
     50% {
         opacity: 0.25;
@@ -23744,6 +23900,7 @@ return [
     100% {
         opacity: 0.15;
     }
+
 }
 </file>
 
@@ -23783,6 +23940,7 @@ defineProps({
         </div>
 
     </div>
+
 </template>
 
 <style scoped>
@@ -23802,8 +23960,8 @@ use App\Models\User;
 use Illuminate\Support\Facades\Event;
 
 test('test route successfully dispatches websocket event to reverb', function () {
-    // 1. Fakeujeme eventy i broadcasty
-    Event::fake([SystemAlertTriggered::class]);
+// 1. Fakeujeme eventy i broadcasty
+Event::fake([SystemAlertTriggered::class]);
 
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -23827,6 +23985,7 @@ test('test route successfully dispatches websocket event to reverb', function ()
         return count($channels) === 1 &&
                $channels[0]->name === 'private-App.Models.User.'.$user->id;
     });
+
 });
 </file>
 
@@ -23838,8 +23997,8 @@ import Components from 'unplugin-vue-components/vite';
 import fs from 'fs';
 
 export default defineConfig(({ mode }) => {
-    // Tady načteme env proměnné
-    const env = loadEnv(mode, process.cwd(), '');
+// Tady načteme env proměnné
+const env = loadEnv(mode, process.cwd(), '');
 
     return {
         server: {
@@ -23869,6 +24028,7 @@ export default defineConfig(({ mode }) => {
             }),
         ],
     };
+
 });
 </file>
 
@@ -23887,9 +24047,9 @@ use Inertia\Inertia;
 
 class NeonHubController extends Controller
 {
-    public function index()
-    {
-        $authId = auth()->id();
+public function index()
+{
+$authId = auth()->id();
 
         $props = [
             'canLogin' => Route::has('login'),
@@ -24006,6 +24166,7 @@ class NeonHubController extends Controller
             'active' => $active,
         ];
     }
+
 }
 </file>
 
@@ -24021,7 +24182,7 @@ use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
+use WithoutModelEvents;
 
     /**
      * Seed the application's database.
@@ -24051,6 +24212,7 @@ class DatabaseSeeder extends Seeder
         // 💬 Friendships se vytvářejí automaticky přes scheduler
         // Boti nejdříš pošlou žádost o přátelství a až poté mohou posílat zprávy
     }
+
 }
 </file>
 
@@ -24068,15 +24230,15 @@ import { createPinia } from 'pinia';
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({
-    title: (title) => `${title} - ${appName}`,
-    resolve: (name) =>
-        resolvePageComponent(
-            `./Pages/${name}.vue`,
-            import.meta.glob('./Pages/**/*.vue'),
-        ),
-    setup({ el, App, props, plugin }) {
-        const pinia = createPinia();
-        const app = createApp({ render: () => h(App, props) });
+title: (title) => `${title} - ${appName}`,
+resolve: (name) =>
+resolvePageComponent(
+`./Pages/${name}.vue`,
+import.meta.glob('./Pages/\*_/_.vue'),
+),
+setup({ el, App, props, plugin }) {
+const pinia = createPinia();
+const app = createApp({ render: () => h(App, props) });
 
         app.use(plugin)
            .use(pinia)
@@ -24088,6 +24250,7 @@ createInertiaApp({
     progress: {
         color: '#4B5563',
     },
+
 });
 </file>
 
@@ -24113,111 +24276,117 @@ const deletingId = ref(null)
 const replyText = ref('')
 
 onMounted(() => {
-    store.fetchMessages()
+store.fetchMessages()
 })
 
-/**
- * INBOX = poslední zpráva z každé konverzace (Nejnovější konverzace nahoře)
- */
-const inboxConversations = computed(() => {
-    const map = {}
+/\*\*
 
-    messages.value.forEach(m => {
-        const convId = m.conversation_id
-        if (!convId) return
+- INBOX = poslední zpráva z každé konverzace (Nejnovější konverzace nahoře)
+  \*/
+  const inboxConversations = computed(() => {
+  const map = {}
 
-        // FIX: Porovnáváme primárně přes kompletní timestamp created_at
-        const messageDate = new Date(m.created_at || m.time || 0)
+        messages.value.forEach(m => {
+            const convId = m.conversation_id
+            if (!convId) return
 
-        if (!map[convId] || new Date(map[convId].created_at || map[convId].time || 0) < messageDate) {
-            map[convId] = {
-                conversation_id: convId,
-                text: m.text || m.content || '',
-                time: m.time,
-                created_at: m.created_at || m.time,
-                sender: m.sender || m.role || 'UNKNOWN',
-                agentName: m.agent_name || m.agentName || '',
-                lastMessageId: m.id,
-                read: m.read ?? false
-            }
-        }
-    })
+            // FIX: Porovnáváme primárně přes kompletní timestamp created_at
+            const messageDate = new Date(m.created_at || m.time || 0)
 
-    // Seřadíme konverzace v inboxu tak, aby nejnovější podle vytvoření byla nahoře
-    return Object.values(map).sort(
-        (a, b) => new Date(b.created_at || b.time) - new Date(a.created_at || a.time)
-    )
-})
-
-/**
- * CHAT = Chronologické řazení (Nejstarší nahoře -> Nejnovější dole)
- */
-const activeChatMessages = computed(() => {
-    if (!activeConversationId.value) return []
-
-    return messages.value
-        .filter(m => String(m.conversation_id) === String(activeConversationId.value))
-        .map(m => {
-            // KLÍČOVÁ OPRAVA: Použijeme ...m, abychom stoprocentně zachovali 'role',
-            // 'content' a všechny ostatní původní parametry z backendu!
-            return {
-                ...m,
-                // Pro jistotu sjednotíme text i content, ať šablona najde obojí pod jakýmkoliv názvem
-                text: m.text || m.content || '',
-                content: m.content || m.text || '',
-                // Připravíme si časové razítko pro sort
-                createdAt: m.created_at || m.time
+            if (!map[convId] || new Date(map[convId].created_at || map[convId].time || 0) < messageDate) {
+                map[convId] = {
+                    conversation_id: convId,
+                    text: m.text || m.content || '',
+                    time: m.time,
+                    created_at: m.created_at || m.time,
+                    sender: m.sender || m.role || 'UNKNOWN',
+                    agentName: m.agent_name || m.agentName || '',
+                    lastMessageId: m.id,
+                    read: m.read ?? false
+                }
             }
         })
-        // Neprůstřelný chronologický sort (Od nejstarší zprávy nahoře po nejnovější dole)
-        .sort((a, b) => {
-            const dateA = new Date(a.createdAt).getTime()
-            const dateB = new Date(b.createdAt).getTime()
 
-            if (!isNaN(dateA) && !isNaN(dateB)) {
-                return dateA - dateB
-            }
-            return 0
-        })
-})
+        // Seřadíme konverzace v inboxu tak, aby nejnovější podle vytvoření byla nahoře
+        return Object.values(map).sort(
+            (a, b) => new Date(b.created_at || b.time) - new Date(a.created_at || a.time)
+        )
 
-/**
- * AUTO SCROLL
- */
-const scrollToBottom = () => {
-    nextTick(() => {
-        if (scrollContainer.value) {
-            scrollContainer.value.scrollTop = scrollContainer.value.scrollHeight
-        }
     })
-}
+
+/\*\*
+
+- CHAT = Chronologické řazení (Nejstarší nahoře -> Nejnovější dole)
+  \*/
+  const activeChatMessages = computed(() => {
+  if (!activeConversationId.value) return []
+
+        return messages.value
+            .filter(m => String(m.conversation_id) === String(activeConversationId.value))
+            .map(m => {
+                // KLÍČOVÁ OPRAVA: Použijeme ...m, abychom stoprocentně zachovali 'role',
+                // 'content' a všechny ostatní původní parametry z backendu!
+                return {
+                    ...m,
+                    // Pro jistotu sjednotíme text i content, ať šablona najde obojí pod jakýmkoliv názvem
+                    text: m.text || m.content || '',
+                    content: m.content || m.text || '',
+                    // Připravíme si časové razítko pro sort
+                    createdAt: m.created_at || m.time
+                }
+            })
+            // Neprůstřelný chronologický sort (Od nejstarší zprávy nahoře po nejnovější dole)
+            .sort((a, b) => {
+                const dateA = new Date(a.createdAt).getTime()
+                const dateB = new Date(b.createdAt).getTime()
+
+                if (!isNaN(dateA) && !isNaN(dateB)) {
+                    return dateA - dateB
+                }
+                return 0
+            })
+
+    })
+
+/\*\*
+
+- AUTO SCROLL
+  \*/
+  const scrollToBottom = () => {
+  nextTick(() => {
+  if (scrollContainer.value) {
+  scrollContainer.value.scrollTop = scrollContainer.value.scrollHeight
+  }
+  })
+  }
 
 // Sledujeme změny ve zprávách a odpalujeme scroll dolů
 watch(activeChatMessages, () => {
-    scrollToBottom()
+scrollToBottom()
 }, { deep: true })
 
 function openChat(conv) {
-    activeConversationId.value = conv.conversation_id
-    activeAgentName.value = conv.agentName
-    referenceMessageId.value = conv.lastMessageId
-    currentView.value = 'chat'
-    replyText.value = ''
+activeConversationId.value = conv.conversation_id
+activeAgentName.value = conv.agentName
+referenceMessageId.value = conv.lastMessageId
+currentView.value = 'chat'
+replyText.value = ''
 
     // Zdvojený pojistný scroll, protože v-else-if v šabloně může chvíli montovat DOM element do stránky
     scrollToBottom()
     setTimeout(scrollToBottom, 50)
+
 }
 
 function closeChat() {
-    currentView.value = 'inbox'
-    activeConversationId.value = null
-    activeAgentName.value = ''
-    referenceMessageId.value = null
+currentView.value = 'inbox'
+activeConversationId.value = null
+activeAgentName.value = ''
+referenceMessageId.value = null
 }
 
 async function submitChatReply() {
-    if (!replyText.value.trim()) return
+if (!replyText.value.trim()) return
 
     const textToSend = replyText.value
     replyText.value = ''
@@ -24239,14 +24408,16 @@ async function submitChatReply() {
     if (latest) {
         referenceMessageId.value = latest.id
     }
+
 }
 
 async function purgeConversation(conversationId) {
-    // Zavoláme novou akci ve storu (viz krok 2 níže)
-    await store.deleteConversation(conversationId)
+// Zavoláme novou akci ve storu (viz krok 2 níže)
+await store.deleteConversation(conversationId)
 
     // Po úspěšném smazání resetujeme stav, čímž se menu schová
     deletingId.value = null
+
 }
 </script>
 
@@ -24353,6 +24524,7 @@ async function purgeConversation(conversationId) {
             {{ cMsg.time }}
         </div>
     </div>
+
 </div>
 
             <div class="border border-cyan-500/30 p-2 bg-black/90 rounded-xl shrink-0">
@@ -24369,6 +24541,7 @@ async function purgeConversation(conversationId) {
             </div>
         </template>
     </div>
+
 </template>
 
 <style scoped>
@@ -24406,7 +24579,7 @@ const MANIFEST_ITEMS = [
 ];
 
 defineProps({
-    isOpened: Boolean
+isOpened: Boolean
 });
 
 defineEmits(['open']);
@@ -24469,6 +24642,7 @@ defineEmits(['open']);
             </p>
         </div>
     </div>
+
 </template>
 
 <style scoped>
@@ -24509,7 +24683,7 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+use HasFactory, Notifiable;
 
     protected $fillable = [
         'name',
@@ -24563,6 +24737,7 @@ class User extends Authenticatable
     {
         return $this->hasMany(Post::class);
     }
+
 }
 </file>
 
@@ -24615,26 +24790,26 @@ const decliningRequestId = ref(null);
 const unlinkingFriendId = ref(null);
 
 const acceptRequest = async (id) => {
-    try {
-        await axios.patch(`/friendships/${id}`, { status: 'accepted' });
-        store.updateFriendRequestStatus(id, 'accepted');
-    } catch (e) { console.error("Accept failed", e); }
+try {
+await axios.patch(`/friendships/${id}`, { status: 'accepted' });
+store.updateFriendRequestStatus(id, 'accepted');
+} catch (e) { console.error("Accept failed", e); }
 };
 
 const declineRequest = async (id) => {
-    try {
-        await axios.delete(`/friendships/${id}`);
-        store.removeFriendRequest(id);
-        decliningRequestId.value = null; // Reset inline okna
-    } catch (e) { console.error("Decline failed", e); }
+try {
+await axios.delete(`/friendships/${id}`);
+store.removeFriendRequest(id);
+decliningRequestId.value = null; // Reset inline okna
+} catch (e) { console.error("Decline failed", e); }
 };
 
 const removeLink = async (id) => {
-    try {
-        await axios.delete(`/friendships/${id}`);
-        store.removeFriend(id);
-        unlinkingFriendId.value = null; // Reset inline okna
-    } catch (e) { console.error("Unlink failed", e); }
+try {
+await axios.delete(`/friendships/${id}`);
+store.removeFriend(id);
+unlinkingFriendId.value = null; // Reset inline okna
+} catch (e) { console.error("Unlink failed", e); }
 };
 </script>
 
@@ -24727,6 +24902,7 @@ const removeLink = async (id) => {
             </div>
         </div>
     </div>
+
 </template>
 </file>
 
@@ -24836,6 +25012,7 @@ defineEmits(['open-cv']);
             </div>
         </div>
     </header>
+
 </template>
 
 <style scoped>
@@ -24891,12 +25068,12 @@ import NeonSocialPost from './NeonSocialPost.vue';
 
 // Auto-scroll na začátek stránky
 const autoScrollToTop = () => {
-    if (mainContainer.value) {
-        mainContainer.value.scrollTo({
-            top: 0,
-            behavior: 'smooth'
-        });
-    }
+if (mainContainer.value) {
+mainContainer.value.scrollTo({
+top: 0,
+behavior: 'smooth'
+});
+}
 };
 
 const store = useNotificationStore();
@@ -24910,7 +25087,7 @@ const lastSeenMaxId = ref(0);
 
 // HLAVNÍ FIX: Watcher inteligentně spravuje ID a normalizuje typy
 watch(() => store.posts, (newPosts) => {
-    if (!newPosts || newPosts.length === 0) return;
+if (!newPosts || newPosts.length === 0) return;
 
     // 1. Pokud je feed prázdný (první načtení), vezmeme všechno a přetypujeme na čísla
     if (currentVisibleIds.value.length === 0) {
@@ -24940,26 +25117,25 @@ watch(() => store.posts, (newPosts) => {
         lastSeenMaxId.value = newMaxId;
         autoScrollToTop();
     }
+
 }, { deep: true, immediate: true });
 
 // Spočítáme nové příspěvky (porovnáváme čistá čísla)
 const incomingPostsCount = computed(() => {
-    if (currentVisibleIds.value.length === 0) return 0;
-    const currentMaxId = Math.max(...currentVisibleIds.value);
-    return store.posts.filter(p => Number(p.id) > currentMaxId).length;
+if (currentVisibleIds.value.length === 0) return 0;
+const currentMaxId = Math.max(...currentVisibleIds.value);
+return store.posts.filter(p => Number(p.id) > currentMaxId).length;
 });
 
 // Posty pro vykreslení – porovnáváme Number s polem Numbers
 const visiblePosts = computed(() => {
-    return store.posts.filter(p => currentVisibleIds.value.includes(Number(p.id)));
+return store.posts.filter(p => currentVisibleIds.value.includes(Number(p.id)));
 });
-
-
 
 // Akce při kliknutí na "Nové příspěvky"
 const loadIncomingPosts = () => {
-    // Všechna ID natlačíme jako striktní čísla
-    currentVisibleIds.value = store.posts.map(p => Number(p.id));
+// Všechna ID natlačíme jako striktní čísla
+currentVisibleIds.value = store.posts.map(p => Number(p.id));
 
     if (mainContainer.value) {
         mainContainer.value.scrollTo({
@@ -24967,27 +25143,28 @@ const loadIncomingPosts = () => {
             behavior: 'smooth'
         });
     }
+
 };
 
 // Scroll na konkrétní post po kliknutí na notifikaci
 const scrollToPost = (postId) => {
-    const element = document.getElementById(`post-${postId}`);
-    if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Přidáme animaci zvýraznění
-        element.classList.add('highlight-flash');
-        setTimeout(() => {
-            element.classList.remove('highlight-flash');
-        }, 2000);
-    } else {
-        // Fallback: načíst feed a zkusit znovu
-        loadIncomingPosts();
-    }
+const element = document.getElementById(`post-${postId}`);
+if (element) {
+element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+// Přidáme animaci zvýraznění
+element.classList.add('highlight-flash');
+setTimeout(() => {
+element.classList.remove('highlight-flash');
+}, 2000);
+} else {
+// Fallback: načíst feed a zkusit znovu
+loadIncomingPosts();
+}
 };
 
 // Exponujeme funkci pro použití z jiných komponent
 defineExpose({
-    scrollToPost,
+scrollToPost,
 });
 </script>
 
@@ -25022,6 +25199,7 @@ defineExpose({
 
         </div>
     </main>
+
 </template>
 
 <style scoped>
@@ -25065,7 +25243,7 @@ const store = useNotificationStore();
 const page = usePage();
 
 const openSystem = () => {
-    isOpened.value = true;
+isOpened.value = true;
 
     // Inicializace přes API
     if (page.props.auth?.user) {
@@ -25073,13 +25251,14 @@ const openSystem = () => {
             .then(() => console.log('System_Core: Node initialized.'))
             .catch(err => console.error('System_Core_Error:', err));
     }
+
 };
 
 // Watcher hlídá, kdy se brána otevře, a tehdy spustí listenery
 watch(isOpened, (newVal) => {
-    if (newVal && page.props.auth?.user) {
-        store.initListeners(page.props.auth.user.id);
-    }
+if (newVal && page.props.auth?.user) {
+store.initListeners(page.props.auth.user.id);
+}
 });
 </script>
 
@@ -25103,37 +25282,37 @@ watch(isOpened, (newVal) => {
 
 export {}
 
-/* prettier-ignore */
+/_ prettier-ignore _/
 declare module 'vue' {
-  export interface GlobalComponents {
-    ApplicationLogo: typeof import('./resources/js/Components/ApplicationLogo.vue')['default']
-    DangerButton: typeof import('./resources/js/Components/DangerButton.vue')['default']
-    Dropdown: typeof import('./resources/js/Components/Dropdown.vue')['default']
-    DropdownLink: typeof import('./resources/js/Components/DropdownLink.vue')['default']
-    Checkbox: typeof import('./resources/js/Components/Checkbox.vue')['default']
-    InputError: typeof import('./resources/js/Components/InputError.vue')['default']
-    InputLabel: typeof import('./resources/js/Components/InputLabel.vue')['default']
-    Modal: typeof import('./resources/js/Components/Modal.vue')['default']
-    NavLink: typeof import('./resources/js/Components/NavLink.vue')['default']
-    NeonAuthorCV: typeof import('./resources/js/Components/NeonAuthorCV.vue')['default']
-    NeonComment: typeof import('./resources/js/Components/NeonComment.vue')['default']
-    NeonCommentSection: typeof import('./resources/js/Components/NeonCommentSection.vue')['default']
-    NeonFriends: typeof import('./resources/js/Components/NeonFriends.vue')['default']
-    NeonGate: typeof import('./resources/js/Components/NeonGate.vue')['default']
-    NeonMessages: typeof import('./resources/js/Components/NeonMessages.vue')['default']
-    NeonNav: typeof import('./resources/js/Components/NeonNav.vue')['default']
-    NeonOverlay: typeof import('./resources/js/Components/NeonOverlay.vue')['default']
-    NeonSocialActions: typeof import('./resources/js/Components/NeonSocialActions.vue')['default']
-    NeonSocialCore: typeof import('./resources/js/Components/NeonSocialCore.vue')['default']
-    NeonSocialFeed: typeof import('./resources/js/Components/NeonSocialFeed.vue')['default']
-    NeonSocialPost: typeof import('./resources/js/Components/NeonSocialPost.vue')['default']
-    NeonTechDashboard: typeof import('./resources/js/Components/NeonTechDashboard.vue')['default']
-    NeonUserProfile: typeof import('./resources/js/Components/NeonUserProfile.vue')['default']
-    PrimaryButton: typeof import('./resources/js/Components/PrimaryButton.vue')['default']
-    ResponsiveNavLink: typeof import('./resources/js/Components/ResponsiveNavLink.vue')['default']
-    SecondaryButton: typeof import('./resources/js/Components/SecondaryButton.vue')['default']
-    TextInput: typeof import('./resources/js/Components/TextInput.vue')['default']
-  }
+export interface GlobalComponents {
+ApplicationLogo: typeof import('./resources/js/Components/ApplicationLogo.vue')['default']
+DangerButton: typeof import('./resources/js/Components/DangerButton.vue')['default']
+Dropdown: typeof import('./resources/js/Components/Dropdown.vue')['default']
+DropdownLink: typeof import('./resources/js/Components/DropdownLink.vue')['default']
+Checkbox: typeof import('./resources/js/Components/Checkbox.vue')['default']
+InputError: typeof import('./resources/js/Components/InputError.vue')['default']
+InputLabel: typeof import('./resources/js/Components/InputLabel.vue')['default']
+Modal: typeof import('./resources/js/Components/Modal.vue')['default']
+NavLink: typeof import('./resources/js/Components/NavLink.vue')['default']
+NeonAuthorCV: typeof import('./resources/js/Components/NeonAuthorCV.vue')['default']
+NeonComment: typeof import('./resources/js/Components/NeonComment.vue')['default']
+NeonCommentSection: typeof import('./resources/js/Components/NeonCommentSection.vue')['default']
+NeonFriends: typeof import('./resources/js/Components/NeonFriends.vue')['default']
+NeonGate: typeof import('./resources/js/Components/NeonGate.vue')['default']
+NeonMessages: typeof import('./resources/js/Components/NeonMessages.vue')['default']
+NeonNav: typeof import('./resources/js/Components/NeonNav.vue')['default']
+NeonOverlay: typeof import('./resources/js/Components/NeonOverlay.vue')['default']
+NeonSocialActions: typeof import('./resources/js/Components/NeonSocialActions.vue')['default']
+NeonSocialCore: typeof import('./resources/js/Components/NeonSocialCore.vue')['default']
+NeonSocialFeed: typeof import('./resources/js/Components/NeonSocialFeed.vue')['default']
+NeonSocialPost: typeof import('./resources/js/Components/NeonSocialPost.vue')['default']
+NeonTechDashboard: typeof import('./resources/js/Components/NeonTechDashboard.vue')['default']
+NeonUserProfile: typeof import('./resources/js/Components/NeonUserProfile.vue')['default']
+PrimaryButton: typeof import('./resources/js/Components/PrimaryButton.vue')['default']
+ResponsiveNavLink: typeof import('./resources/js/Components/ResponsiveNavLink.vue')['default']
+SecondaryButton: typeof import('./resources/js/Components/SecondaryButton.vue')['default']
+TextInput: typeof import('./resources/js/Components/TextInput.vue')['default']
+}
 }
 </file>
 
@@ -25144,8 +25323,8 @@ import { UserPlus, MessageSquareCode, BellDot, Home } from '@lucide/vue';
 import { useNotificationStore } from '@/Stores/useNotificationStore';
 
 defineProps({
-    activeTab: { type: String, default: 'feed' },
-    isMobile: { type: Boolean, default: false }
+activeTab: { type: String, default: 'feed' },
+isMobile: { type: Boolean, default: false }
 });
 
 const store = useNotificationStore();
@@ -25153,15 +25332,15 @@ defineEmits(['change-view']);
 
 // Výpočty počtu nepřečtených položek na základě struktury storu
 const unreadRequestsCount = computed(() =>
-    store.friendRequests?.filter(r => r.read === false || r.read === 0 || r.read === '0').length || 0
+store.friendRequests?.filter(r => r.read === false || r.read === 0 || r.read === '0').length || 0
 );
 
 const unreadMessagesCount = computed(() =>
-    store.messages?.filter(m => m.read === false || m.read === 0 || m.read === '0').length || 0
+store.messages?.filter(m => m.read === false || m.read === 0 || m.read === '0').length || 0
 );
 
 const unreadAlertsCount = computed(() =>
-    store.alerts?.filter(a => a.read !== true && a.read !== 1 && a.read !== '1').length || 0
+store.alerts?.filter(a => a.read !== true && a.read !== 1 && a.read !== '1').length || 0
 );
 </script>
 
@@ -25237,6 +25416,7 @@ const unreadAlertsCount = computed(() =>
             </div>
         </div>
     </component>
+
 </template>
 
 <style scoped>
@@ -25343,24 +25523,24 @@ const isLoading = ref(true);
 let pollingInterval = null;
 
 const fetchTelemetry = async () => {
-    try {
-        const response = await axios.get('/api/core-engine/telemetry');
-        telemetry.value = response.data;
-    } catch (error) {
-        console.error('Core Engine telemetry link broken:', error);
-    } finally {
-        isLoading.value = false;
-    }
+try {
+const response = await axios.get('/api/core-engine/telemetry');
+telemetry.value = response.data;
+} catch (error) {
+console.error('Core Engine telemetry link broken:', error);
+} finally {
+isLoading.value = false;
+}
 };
 
 onMounted(() => {
-    fetchTelemetry();
-    // Polling: Každých 5 sekund stáhneme čerstvý stav ze serveru
-    pollingInterval = setInterval(fetchTelemetry, 5000);
+fetchTelemetry();
+// Polling: Každých 5 sekund stáhneme čerstvý stav ze serveru
+pollingInterval = setInterval(fetchTelemetry, 5000);
 });
 
 onUnmounted(() => {
-    if (pollingInterval) clearInterval(pollingInterval);
+if (pollingInterval) clearInterval(pollingInterval);
 });
 </script>
 
@@ -25488,6 +25668,7 @@ onUnmounted(() => {
             </div>
         </div>
     </aside>
+
 </template>
 
 <style scoped>
@@ -25638,17 +25819,17 @@ import NeonCommentSection from './NeonCommentSection.vue';
 import { useNotificationStore } from '@/Stores/useNotificationStore';
 
 defineProps({
-    post: {
-        type: Object,
-        required: true
-    }
+post: {
+type: Object,
+required: true
+}
 });
 
 const notificationStore = useNotificationStore();
 const showComments = ref(false);
 
 const toggleComments = () => {
-    showComments.value = !showComments.value;
+showComments.value = !showComments.value;
 };
 </script>
 
@@ -25743,6 +25924,7 @@ const toggleComments = () => {
             </div>
         </div>
     </article>
+
 </template>
 </file>
 
@@ -25766,9 +25948,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [NeonHubController::class, 'index'])->name('neon.hub');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::post('/posts/{post}/like', [LikeController::class, 'store'])->name('posts.like');
     Route::delete('/posts/{post}/like', [LikeController::class, 'destroy'])->name('posts.unlike');
@@ -25826,16 +26008,17 @@ Route::middleware('auth')->group(function () {
     Route::post('/messages', [MessageController::class, 'store'])->name('messages.store');
     Route::delete('/conversations/{id}', [MessageController::class, 'destroy']);
     Route::get('/api/core-engine/telemetry', [CoreEngineController::class, 'getTelemetry']);
+
 });
 
 Route::get('/dashboard', function () {
-    return inertia('Dashboard');
+return inertia('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::patch('/friendships/{id}', [FriendshipController::class, 'update'])->name('friendships.update');
 Route::delete('/friendships/{id}', [FriendshipController::class, 'destroy']);
 
-require __DIR__.'/auth.php';
+require **DIR**.'/auth.php';
 </file>
 
 <file path="resources/js/Stores/useNotificationStore.js">
@@ -25843,15 +26026,15 @@ import { defineStore } from "pinia";
 import axios from "axios";
 
 export const useNotificationStore = defineStore("notifications", {
-    state: () => ({
-        messages: [],
-        friendRequests: [],
-        friends: [],
-        alerts: [],
-        posts: [],
-        likeNotifications: [],
-        isListening: false,
-    }),
+state: () => ({
+messages: [],
+friendRequests: [],
+friends: [],
+alerts: [],
+posts: [],
+likeNotifications: [],
+isListening: false,
+}),
 
     getters: {
         hasUnreadMessages: (state) =>
@@ -26273,6 +26456,7 @@ export const useNotificationStore = defineStore("notifications", {
                 });
         },
     },
+
 });
 </file>
 
@@ -26290,8 +26474,8 @@ import NeonUserProfile from './NeonUserProfile.vue';
 import NeonAuthorCV from './NeonAuthorCV.vue';
 
 const props = defineProps({
-    isOpened: { type: Boolean, default: false },
-    initialState: { type: Object, default: null }
+isOpened: { type: Boolean, default: false },
+initialState: { type: Object, default: null }
 });
 
 const store = useNotificationStore();
@@ -26306,7 +26490,7 @@ const stage3 = ref(false);
 
 // --- LOGIKA ---
 const handleViewChange = (payload) => {
-    if (!stage3.value) return;
+if (!stage3.value) return;
 
     const view = typeof payload === 'string' ? payload : payload.view;
     activeTab.value = view;
@@ -26326,20 +26510,21 @@ const handleViewChange = (payload) => {
     }
 
     if (view === 'feed') selectedEntityId.value = null;
+
 };
 
 const openEntityProfile = (id) => {
-    selectedEntityId.value = id;
-    activeTab.value = 'profile';
+selectedEntityId.value = id;
+activeTab.value = 'profile';
 };
 
 // --- WATCHER (VRÁCENO ZPĚT - ŘÍZENÍ BRÁNY A HYDRATACE) ---
 watch(() => props.isOpened, (newVal) => {
-    if (newVal) {
-        // Jakmile uživatel projde mechanickou bránou, okamžitě hydratujeme Pinia store z DB dat
-        if (props.initialState) {
-            store.hydrateSystem(props.initialState);
-        }
+if (newVal) {
+// Jakmile uživatel projde mechanickou bránou, okamžitě hydratujeme Pinia store z DB dat
+if (props.initialState) {
+store.hydrateSystem(props.initialState);
+}
 
         setTimeout(() => { stage1.value = true; }, 100);
         setTimeout(() => { stage2.value = true; }, 500);
@@ -26348,6 +26533,7 @@ watch(() => props.isOpened, (newVal) => {
         stage1.value = false; stage2.value = false; stage3.value = false;
         activeTab.value = 'feed'; dashboardMode.value = 'stats';
     }
+
 }, { immediate: true });
 </script>
 
@@ -26417,6 +26603,7 @@ watch(() => props.isOpened, (newVal) => {
             </div>
         </template>
     </div>
+
 </template>
 
 <style scoped>

@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Ai\Agents\SentinelAgent;
+use App\Ai\Agents\AIAgent;
 use App\Events\MessageReceived;
 use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -28,14 +28,10 @@ class RespondToUserMessage implements ShouldQueue
         }
 
         // 1. Inicializujeme Agenta a necháme ho, ať si sám vytáhne z DB svou paměť
-        $agent = app(SentinelAgent::class)->loadConversation($this->conversationId);
-        // 2. Spustíme generování odpovědi
-        $aiResponse = $agent->prompt('Respond to the users message. You are a sentinel agent. Be friendly, 20 word response.',
-            provider: [
-                'gemini',
-                'gemini_fallback',
-                'groq',
-            ])->text;
+        $agent = app(AIAgent::class)->setPersona($this->agentName)->loadConversation($this->conversationId);
+        // 2. Spustíme generování odpovědi s groq providerem
+        $aiResponse = $agent->prompt('Respond to the users message. Be friendly, under 20 words.',
+            provider: ['groq'])->text;
 
         $newMessageId = (string) Str::uuid();
         $now = now();
@@ -45,7 +41,7 @@ class RespondToUserMessage implements ShouldQueue
             'id' => $newMessageId,
             'conversation_id' => $this->conversationId,
             'user_id' => $user->id,
-            'agent' => SentinelAgent::class,
+            'agent' => AIAgent::class,
             'role' => 'assistant',
             'content' => $aiResponse,
             'attachments' => '[]',
@@ -57,18 +53,18 @@ class RespondToUserMessage implements ShouldQueue
             'updated_at' => $now,
         ]);
 
-        $cleanAgentName = 'Sentinel';
+        $cleanAgentName = $this->agentName;
 
         // 4. Vyšleme WebSocket Event pro real-time update na frontendu
         event(new MessageReceived($user->id, [
             'id' => $newMessageId,
             'conversation_id' => $this->conversationId,
-            'agent' => SentinelAgent::class,
+            'agent' => AIAgent::class,
             'agent_name' => $cleanAgentName,
             'sender' => $cleanAgentName,
             'text' => $aiResponse,
             'time' => $now->toTimeString(),
-            'created_at' => $now->toIso8601String(), // FIX: Posíláme plný timestamp přes WebSockets
+            'created_at' => $now->toIso8601String(),
             'read' => false,
             'role' => 'assistant',
         ]));
