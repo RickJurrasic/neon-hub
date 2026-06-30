@@ -15,7 +15,8 @@ class MessageReceived implements ShouldBroadcastNow
     public function __construct(
         public int $userId,
         public array $data
-    ) {}
+    ) {
+    }
 
     /**
      * Definice dat, která skutečně poletí do prohlížeče.

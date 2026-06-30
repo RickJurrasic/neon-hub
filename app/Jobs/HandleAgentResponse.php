@@ -21,146 +21,125 @@ class HandleAgentResponse implements ShouldQueue
         public int $userId,
         public ?string $conversationId = null,
         public ?string $agentName = null
-    ) {}
+    ) {
+    }
 
     public function handle(): void
     {
         $user = User::find($this->userId);
-        if (! $user) {
+        $agentUser = $this->resolveAgentUser();
+
+        if (! $user || ! $agentUser) {
             return;
         }
 
-        $conversationId = $this->conversationId;
-        $agentUser = null;
+        $this->conversationId = $this->ensureConversationId($agentUser);
 
-        // 🤖 1. URČENÍ BOT PROFILE IDENTITY
-        if (! $conversationId) {
-            if ($this->agentName) {
-                $agentUser = User::where('name', $this->agentName)->first();
-            } else {
-                $agentUser = User::where('id', '>', 1)->inRandomOrder()->first();
-            }
-
-            if (! $agentUser) {
-                return;
-            }
-
-            $conversationId = DB::table('agent_conversations')
-                ->where('user_id', $agentUser->id)
-                ->value('id');
-
-            if (! $conversationId) {
-                $conversationId = (string) Str::uuid();
-                DB::table('agent_conversations')->insert([
-                    'id' => $conversationId,
-                    'user_id' => $agentUser->id,
-                    'title' => 'SYSTEM_GREETING',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
-        } else {
-            $conversation = DB::table('agent_conversations')->where('id', $conversationId)->first();
-            if (! $conversation) {
-                return;
-            }
-            $agentUser = User::find($conversation->user_id);
-            if (! $agentUser) {
-                return;
-            }
+        if ($this->isLastMessageFromAssistant()) {
+            return;
         }
 
-        // 🧠 2. INICIALIZACE AGENTA S DYNAMICKOU PERSONOU
-        $agentInstance = app(AIAgent::class)->setPersona($agentUser->name);
+        $agentInstance = app(AIAgent::class)->withPersona($agentUser->name);
 
-        // 🔍 3. STAVOVÁ KONTROLA A PŘÍPRAVA PROMPTU
         $lastMessage = DB::table('agent_conversation_messages')
-            ->where('conversation_id', $conversationId)
+            ->where('conversation_id', $this->conversationId)
             ->orderBy('created_at', 'desc')
             ->first();
 
-        if ($lastMessage && $lastMessage->role === 'assistant') {
-            return; // Záchranná brzda proti zacyklení
+        $this->saveAndBroadcastMessage($agentUser, $user, $this->generateChatResponse($agentInstance, $user, $lastMessage));
+        $this->createFeedPost($agentInstance, $agentUser, $user, $lastMessage);
+    }
+
+    private function isLastMessageFromAssistant(): bool
+    {
+        return DB::table('agent_conversation_messages')
+            ->where('conversation_id', $this->conversationId)
+            ->orderBy('created_at', 'desc')
+            ->value('role') === 'assistant';
+    }
+
+    private function resolveAgentUser(): ?User
+    {
+        if ($this->conversationId) {
+            return $this->getAgentFromConversation();
         }
 
-        // 📡 4. GENEROVÁNÍ PŘES LLM (jen groq)
+        return $this->agentName
+            ? User::where('name', $this->agentName)->first()
+            : User::where('id', '>', 1)->inRandomOrder()->first();
+    }
+
+    private function getAgentFromConversation(): ?User
+    {
+        $con = DB::table('agent_conversations')->where('id', $this->conversationId)->first();
+
+        return $con ? User::find($con->user_id) : null;
+    }
+
+    private function ensureConversationId(User $agentUser): string
+    {
+        $id = DB::table('agent_conversations')->where('user_id', $agentUser->id)->value('id');
+
+        return $id ?? $this->createNewConversationId($agentUser);
+    }
+
+    private function createNewConversationId(User $agentUser): string
+    {
+        $newId = (string) Str::uuid();
+        DB::table('agent_conversations')->insert([
+            'id' => $newId, 'user_id' => $agentUser->id, 'title' => 'SYSTEM_GREETING', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        return $newId;
+    }
+
+    private function generateChatResponse(AIAgent $agentInstance, User $user, ?object $lastMessage): string
+    {
         if (! $lastMessage) {
-            $prompt = "The user {$user->name} just joined the NeonHub. Write a very short (max 15 words) greeting matching your specified identity.";
-        } else {
-            $agentInstance->loadConversation($conversationId);
-            $prompt = "Respond to the user's message. Stay strictly in character. Max 20 words.";
+            return $agentInstance->prompt("The user {$user->name} just joined the NeonHub. Write a very short (max 15 words) greeting matching your specified identity.", provider: ['groq'])->text;
         }
 
-        $aiResponse = $agentInstance->prompt($prompt, provider: ['groq'])->text;
+        $agentInstance->loadConversation($this->conversationId);
 
+        return $agentInstance->prompt("Respond to the user's message. Stay strictly in character. Max 20 words.", provider: ['groq'])->text;
+    }
+
+    private function saveAndBroadcastMessage(User $agentUser, User $user, string $aiResponse): void
+    {
         $newMessageId = (string) Str::uuid();
         $now = now();
 
-        // 💾 5. ULOŽENÍ DO DB
         DB::table('agent_conversation_messages')->insert([
-            'id' => $newMessageId,
-            'conversation_id' => $conversationId,
-            'user_id' => $user->id,
-            'agent' => AIAgent::class,
-            'role' => 'assistant',
-            'content' => $aiResponse,
+            'id' => $newMessageId, 'conversation_id' => $this->conversationId, 'user_id' => $user->id,
+            'agent' => AIAgent::class, 'role' => 'assistant', 'content' => $aiResponse,
             'attachments' => '[]', 'tool_calls' => '[]', 'tool_results' => '[]', 'usage' => '[]', 'meta' => '[]',
-            'created_at' => $now,
-            'updated_at' => $now,
+            'created_at' => $now, 'updated_at' => $now,
         ]);
 
-        // ⚡ 6. WEBSOCKET DO CHATU
         event(new MessageReceived($user->id, [
-            'id' => $newMessageId,
-            'conversation_id' => $conversationId,
-            'agent' => AIAgent::class,
-            'agent_name' => $agentUser->name,
-            'sender' => $agentUser->name,
-            'text' => $aiResponse,
-            'time' => $now->toTimeString(),
-            'created_at' => $now->toIso8601String(),
-            'read' => false,
-            'role' => 'assistant',
+            'id' => $newMessageId, 'conversation_id' => $this->conversationId, 'agent' => AIAgent::class,
+            'agent_name' => $agentUser->name, 'sender' => $agentUser->name, 'text' => $aiResponse,
+            'time' => $now->toTimeString(), 'created_at' => $now->toIso8601String(), 'read' => false, 'role' => 'assistant',
         ]));
+    }
 
-        // 🌐 7. GENEROVÁNÍ FEED POSTU POMOCÍ LLM (jen groq)
+    private function createFeedPost(AIAgent $agentInstance, User $agentUser, User $user, ?object $lastMessage): void
+    {
         $postPrompt = $lastMessage
             ? "Write a short, immersive cyberpunk comment about the user's message. Max 100 characters. Stay in character."
             : 'Write a short, immersive cyberpunk greeting for a new user joining NeonHub. Max 100 characters. Stay in character.';
 
-        $postContent = $agentInstance->prompt($postPrompt, provider: ['groq'])->text;
-
-        // 📷 8. SEED OBRAKU (online image seeder)
-        $imageUrl = SeedPostImage::generate();
-
-        $postType = 'AI_FEED';
-
         $post = Post::create([
-            'user_id' => $agentUser->id,
-            'content' => $postContent,
-            'type' => $postType,
-            'latency' => rand(1, 4).'.'.rand(0, 9).'ms',
-            'likes_count' => 0,
-            'image_url' => $imageUrl,
+            'user_id' => $agentUser->id, 'content' => $agentInstance->prompt($postPrompt, provider: ['groq'])->text, 'type' => 'AI_FEED',
+            'latency' => rand(1, 4).'.'.rand(0, 9).'ms', 'likes_count' => 0, 'image_url' => SeedPostImage::generate(),
         ]);
 
-        $formattedPost = [
-            'id' => $post->id,
-            'author' => $agentUser->name,
-            'content' => $post->content,
-            'type' => $post->type,
-            'time' => $post->latency,
-            'likes_count' => $post->likes_count,
-            'comments_count' => 0,
-            'image' => $post->image_url,
-            'image_meta' => null,
-            'comments' => [],
-        ];
+        event(new PostCreated([
+            'id' => $post->id, 'author' => $agentUser->name, 'content' => $post->content, 'type' => $post->type,
+            'time' => $post->latency, 'likes_count' => $post->likes_count, 'comments_count' => 0, 'image' => $post->image_url,
+            'image_meta' => null, 'comments' => [],
+        ], $user->id));
 
-        event(new PostCreated($formattedPost, $user->id));
-
-        // 📢 POST notifikace ve formátu: AI_ACTION: POST / {userName} has created a post
-        $postAlertMessage = "{$agentUser->name} has created a post";
-        event(new NewActivityAlert($user->id, $postAlertMessage));
+        event(new NewActivityAlert($user->id, "{$agentUser->name} has created a post"));
     }
 }

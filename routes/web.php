@@ -9,7 +9,6 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NeonHubController;
 use App\Http\Controllers\ProfileController;
 use App\Jobs\HandleAgentResponse;
-use App\Jobs\SendFriendRequest;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
@@ -24,46 +23,37 @@ Route::middleware('auth')->group(function () {
     Route::post('/posts/{post}/like', [LikeController::class, 'store'])->name('posts.like');
     Route::delete('/posts/{post}/like', [LikeController::class, 'destroy'])->name('posts.unlike');
     Route::post('/posts/{post}/comments', [CommentController::class, 'store'])->name('comments.store');
-    // NOVÁ ROUTA PRO UPDATE:
     Route::patch('/comments/{comment}', [CommentController::class, 'update'])->name('comments.update');
 
     Route::post('/system/initialize-node', function () {
         try {
             $userId = auth()->id();
 
-            // Bezpečnostní pojistka, pokud by session vypršela
             if (! $userId) {
                 return response()->json(['error' => 'Uživatel není přihlášen.'], 401);
             }
 
-            // 1. FIX: Použití anonymního jobu, který nepotřebuje chybějící soubor SendFriendRequest.php
             dispatch(function () use ($userId) {
-                // Najdeme Sentinela v databázi (podle jména nebo handle)
                 $sentinel = User::where('name', 'like', '%Sentinel%')
                     ->orWhere('handle', 'like', '%sentinel%')
                     ->first();
 
                 if ($sentinel) {
-                    // Spustíme tvou existující akci pro poslání žádosti o přátelství
                     app(SendFriendRequestAction::class)->execute((int) $sentinel->id, (int) $userId);
                 } else {
                     Log::warning('Sentinel bot nebyl v databázi nalezen pro inicializaci.');
                 }
             })->delay(now()->addSeconds(4));
 
-            // 2. Úvodní pozdrav (Tento job existuje a je sjednocený)
             HandleAgentResponse::dispatch($userId, null, 'SENTINEL_01')
                 ->delay(now()->addSeconds(7));
 
             return response()->json(['status' => 'NODE_INITIALIZED']);
-
         } catch (Throwable $e) {
-            // Zaloguje detail do laravel.log
             Log::error('Inicializace uzlu selhala: '.$e->getMessage(), [
                 'exception' => $e,
             ]);
 
-            // Vrátí detail chyby přímo do Axia, abys ho viděl v prohlížeči
             return response()->json([
                 'status' => 'ERROR',
                 'message' => $e->getMessage(),

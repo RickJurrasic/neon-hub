@@ -21,114 +21,124 @@ class NeonHubController extends Controller
             'canRegister' => Route::has('register'),
             'laravelVersion' => Application::VERSION,
             'phpVersion' => PHP_VERSION,
-            'initialState' => null,
+            'initialState' => $authId ? $this->getInitialState($authId) : null,
         ];
 
         if ($authId) {
-            $props['initialState'] = [
-                'friendships' => $this->getFriendshipData($authId),
-                'messages' => [], // Tvůj stávající prázdný array pro zprávy
-
-                // TADY TO PŘIPOJUJEME: Načteme posty, autory, komentáře a zjistíme stav lajků
-                'posts' => Post::with(['author', 'comments.author'])
-                    ->withCount('likes')
-    // 1. OPRAVA SQL: Správně seskupíme where podmínky do závorek
-                    ->withExists(['likes as is_liked' => function ($query) use ($authId) {
-                        $query->where(function ($q) use ($authId) {
-                            $q->where('where_id', $authId)
-                                ->orWhere('user_id', $authId);
-                        });
-                    }])
-                    ->latest()
-                    ->get()
-    // 2. OPRAVA MAPOVÁNÍ: Musíme sem předat use ($authId), jinak is_liked v mapě nefunguje!
-                    ->map(function ($post) use ($authId) {
-                        return [
-                            'id' => $post->id,
-                            'author' => $post->author->name ?? 'UNKNOWN_NODE',
-                            'content' => $post->content,
-                            'type' => $post->type,
-                            'time' => $post->latency ?? '0.0ms',
-                            'likes_count' => $post->likes_count ?? 0,
-                            // Teď už bude hodnota odpovídat realitě v DB:
-                            'is_liked' => (bool) $post->is_liked,
-                            'comments_count' => $post->comments->count(),
-                            'image' => $post->image_url,
-                            'image_meta' => $post->image_meta,
-                            'comments' => $post->comments->map(function ($comment) use ($authId) {
-                                return [
-                                    'id' => $comment->id,
-                                    'author' => $comment->author->name ?? 'ANONYMOUS',
-                                    'text' => $comment->content,
-                                    'timestamp' => $comment->created_at->format('H:i'),
-                                    'can_edit' => $comment->user_id === $authId,
-                                ];
-                            })->toArray(),
-                        ];
-                    })->toArray(),
-            ];
-
-            // FIX: Voláme nový job. Pokud uživatel dá refresh, stavová pojistka uvnitř jobu
-            // zabrání tomu, aby bot poslal zprávu podruhé.
             HandleAgentResponse::dispatch($authId)->delay(now()->addSeconds(7));
         }
 
         return Inertia::render('Welcome', $props);
     }
 
+    private function getInitialState(int $authId): array
+    {
+        return [
+            'friendships' => $this->getFriendshipData($authId),
+            'messages' => [],
+            'posts' => $this->getPostsData($authId),
+        ];
+    }
+
+    private function getPostsData(int $authId): array
+    {
+        return Post::with(['author', 'comments.author'])
+            ->withCount('likes')
+            ->withExists([
+                'likes as is_liked' => function ($query) use ($authId) {
+                    $query->where(function ($q) use ($authId) {
+                        $q->where('where_id', $authId)->orWhere('user_id', $authId);
+                    });
+                },
+            ])
+            ->latest()
+            ->get()
+            ->map(fn ($post) => $this->transformPost($post, $authId))
+            ->toArray();
+    }
+
+    private function transformPost($post, int $authId): array
+    {
+        return [
+            'id' => $post->id,
+            'author' => $post->author->name ?? 'UNKNOWN_NODE',
+            'content' => $post->content,
+            'type' => $post->type,
+            'time' => $post->latency ?? '0.0ms',
+            'likes_count' => $post->likes_count ?? 0,
+            'is_liked' => (bool) $post->is_liked,
+            'comments_count' => $post->comments->count(),
+            'image' => $post->image_url,
+            'image_meta' => $post->image_meta,
+            'comments' => $this->transformComments($post->comments, $authId),
+        ];
+    }
+
+    private function transformComments($comments, int $authId): array
+    {
+        return $comments->map(fn ($comment) => [
+            'id' => $comment->id,
+            'author' => $comment->author->name ?? 'ANONYMOUS',
+            'text' => $comment->content,
+            'timestamp' => $comment->created_at->format('H:i'),
+            'can_edit' => $comment->user_id === $authId,
+        ])->toArray();
+    }
+
     private function getFriendshipData($authId): array
     {
-        // 1. ŽÁDOSTI O PROPOJENÍ (Čekající žádosti, kde přihlášený uživatel je příjemcem)
-        $requests = Friendship::where('recipient_id', $authId)
+        return [
+            'requests' => $this->getPendingRequests($authId),
+            'active' => $this->getActiveFriendships($authId),
+        ];
+    }
+
+    private function getPendingRequests($authId): array
+    {
+        return Friendship::where('recipient_id', $authId)
             ->where('status', 'pending')
             ->join('users', 'friendships.sender_id', '=', 'users.id')
-            ->select(
-                'friendships.id',
-                'users.id as user_id',
-                'users.name',
-                'users.role',
-                'users.bio',
-                'users.trust_level',
-                'users.latency',
-                'users.avatar_url as avatar',
-                'friendships.status'
-            )
+            ->select([
+                'friendships.id', 'users.id as user_id', 'users.name', 'users.role',
+                'users.bio', 'users.trust_level', 'users.latency', 'users.avatar_url as avatar',
+                'friendships.status',
+            ])
             ->get()
             ->toArray();
+    }
 
-        // 2. AKTIVNÍ SPOJENÍ (Akceptované linky, kde figuruješ jako odesílatel nebo příjemce)
-        $active = Friendship::where(function ($q) use ($authId) {
+    private function getActiveFriendships($authId): array
+    {
+        return Friendship::where(function ($q) use ($authId) {
             $q->where('sender_id', $authId)->orWhere('recipient_id', $authId);
         })
             ->where('status', 'accepted')
             ->get()
-            ->map(function ($friendship) use ($authId) {
-                $friendId = $friendship->sender_id == $authId ? $friendship->recipient_id : $friendship->sender_id;
-                $friend = User::find($friendId);
-
-                if (! $friend) {
-                    return null;
-                }
-
-                return [
-                    'id' => $friendship->id,
-                    'user_id' => $friend->id,
-                    'name' => $friend->name,
-                    'role' => $friend->role ?? 'EXTERNAL_NODE',
-                    'bio' => $friend->bio ?? '"Šifrované bio prázdné."',
-                    'trust_level' => $friend->trust_level ?? 50,
-                    'latency' => $friend->latency ?? '24ms_STABLE',
-                    'avatar' => $friend->avatar_url,
-                    'status' => 'accepted',
-                ];
-            })
+            ->map(fn ($friendship) => $this->transformActiveFriendship($friendship, $authId))
             ->filter()
             ->values()
             ->toArray();
+    }
+
+    private function transformActiveFriendship($friendship, $authId): ?array
+    {
+        $friendId = $friendship->sender_id === $authId ? $friendship->recipient_id : $friendship->sender_id;
+        $friend = User::find($friendId);
+
+        if (! $friend) {
+            return null;
+        }
 
         return [
-            'requests' => $requests,
-            'active' => $active,
+            'id' => $friendship->id,
+            'user_id' => $friend->id,
+            'name' => $friend->name,
+            'role' => $friend->role ?? 'EXTERNAL_NODE',
+            'bio' => $friend->bio ?? '"Šifrované bio prázdné."',
+            'trust_level' => $friend->trust_level ?? 50,
+            'latency' => $friend->latency ?? '24ms_STABLE',
+            'avatar' => $friend->avatar_url,
+            'status' => 'accepted',
         ];
     }
 }

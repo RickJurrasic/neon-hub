@@ -12,7 +12,9 @@ class SystemAlertTriggered implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public function __construct(public int $userId, public string $message) {}
+    public function __construct(public int $userId, public string $message)
+    {
+    }
 
     public function broadcastOn(): array
     {

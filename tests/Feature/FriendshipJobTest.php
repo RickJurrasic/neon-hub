@@ -13,7 +13,7 @@ it('holds the correct user and bot data', function () {
     $user = User::factory()->create();
     $botId = User::factory()->create(['name' => 'SENTINEL_01'])->id;
 
-    $action = new SendFriendRequestAction;
+    $action = new SendFriendRequestAction();
 
     // Execute the action
     $result = $action->execute($user->id, $botId);

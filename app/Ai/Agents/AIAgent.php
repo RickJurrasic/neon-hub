@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents;
 
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
@@ -16,7 +17,7 @@ class AIAgent implements Agent, Conversational, HasTools
 
     protected array $history = [];
 
-    protected ?string $personaInstructions = null; // <-- Sem si uložíme dynamický prompt
+    protected ?string $personaInstructions = null;
 
     public function loadConversation(string $conversationId): self
     {
@@ -38,18 +39,18 @@ class AIAgent implements Agent, Conversational, HasTools
     }
 
     /**
-     * 🎭 Dynamické nastavení identity podle jména bota z DB Seederu
+     * 🎭 Dynamické nastavení identity přímo z databáze podle jména bota
      */
-    public function setPersona(string $botName): self
+    public function withPersona(string $botName): self
     {
-        if (str_starts_with($botName, 'SENTINEL')) {
-            $this->personaInstructions = 'You are SENTINEL, the strict guardian of the NeonHub server. You speak in a terse, technical manner. Respond directly and coldly.';
-        } elseif (str_starts_with($botName, 'CYPHER')) {
-            $this->personaInstructions = 'You are CYPHER, an underground rogue hacker. You speak in cryptic, cynical cyber-slang. Use lowercase, tech jargon, and short sentences.';
-        } elseif (str_starts_with($botName, 'MATRIX')) {
-            $this->personaInstructions = 'You are MATRIX, a corporate AI system executive. You are extremely formal, polite, precise, and obsessed with system optimization and protocols.';
+        // Najdeme uživatele v DB podle jména
+        $bot = User::where('name', $botName)->first();
+
+        if ($bot !== null && $bot->bio !== null && $bot->bio !== '') {
+            // Použijeme bio z DB a přidáme instrukci pro tón komunikace
+            $this->personaInstructions = "You are {$bot->name}. {$bot->bio} Maintain a sharp, professional, yet friendly and helpful cyberpunk tone. Respond in English.";
         } else {
-            // Generický cyberpunk fallback pro jakékoliv jiné jméno
+            // Fallback, pokud bot v DB není
             $this->personaInstructions = "You are {$botName}, an autonomous AI entity operating within NeonHub. Maintain a sharp, high-tech cyberpunk tone.";
         }
 

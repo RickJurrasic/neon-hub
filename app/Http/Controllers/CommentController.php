@@ -15,58 +15,20 @@ class CommentController extends Controller
      */
     public function store(Request $request, Post $post)
     {
-
         $validated = $request->validate([
-
             'content' => 'required|string|max:1000',
-
         ]);
 
         $comment = $post->comments()->create([
-
             'user_id' => auth()->id(),
-
             'content' => $validated['content'],
-
         ]);
 
-        $commentData = [
+        $commentData = $this->formatCommentData($comment, $post);
 
-            'id' => $comment->id,
-
-            'post_id' => $post->id,
-
-            'content' => $comment->content,
-
-            'author' => auth()->user()->name,
-
-            'timestamp' => $comment->created_at->format('H:i'),
-
-            'created_at' => $comment->created_at->toIso8601String(),
-
-        ];
-
-        // Real-time broadcast pro ostatní uživatele (aktualizace feedu)
-        event(new CommentCreated($post->id, $commentData, $post->user_id, auth()->id()));
-
-        // Notifikace autora postu (pokud to není jeho vlastní komentář)
-
-        if ($post->user_id !== auth()->id()) {
-
-            event(new NewActivityAlert(
-
-                $post->user_id,
-
-                auth()->user()->name.' commented on your post.'
-
-            ));
-
-        }
-
-        // Vrátíme data pro okamžité zobrazení odesílateli
+        $this->notifyAndBroadcast($post, $commentData);
 
         return response()->json($commentData);
-
     }
 
     /**
@@ -74,34 +36,48 @@ class CommentController extends Controller
      */
     public function update(Request $request, Comment $comment)
     {
-
         if ($comment->user_id !== auth()->id()) {
-
             return response()->json(['error' => 'ACCESS_DENIED'], 403);
-
         }
 
         $validated = $request->validate([
-
             'content' => 'required|string|max:1000',
-
         ]);
 
         $comment->update([
-
             'content' => $validated['content'],
-
         ]);
 
         return response()->json([
-
             'id' => $comment->id,
-
             'content' => $comment->content,
-
             'status' => 'NODE_UPDATED',
-
         ]);
+    }
 
+    private function formatCommentData(Comment $comment, Post $post): array
+    {
+        return [
+            'id' => $comment->id,
+            'post_id' => $post->id,
+            'content' => $comment->content,
+            'author' => auth()->user()->name,
+            'timestamp' => $comment->created_at->format('H:i'),
+            'created_at' => $comment->created_at->toIso8601String(),
+        ];
+    }
+
+    private function notifyAndBroadcast(Post $post, array $commentData): void
+    {
+        // Real-time broadcast pro ostatní uživatele (aktualizace feedu)
+        event(new CommentCreated($post->id, $commentData, $post->user_id, auth()->id()));
+
+        // Notifikace autora postu (pokud to není jeho vlastní komentář)
+        if ($post->user_id !== auth()->id()) {
+            event(new NewActivityAlert(
+                $post->user_id,
+                auth()->user()->name.' commented on your post.'
+            ));
+        }
     }
 }

@@ -25,7 +25,7 @@ it('responds to user message, persists to database and dispatches event', functi
 
     // 3. Vytvoříme mock AIAgenta
     $agentMock = Mockery::mock(AIAgent::class);
-    $agentMock->shouldReceive('setPersona')->andReturnSelf();
+    $agentMock->shouldReceive('withPersona')->andReturnSelf();
     $agentMock->shouldReceive('loadConversation')->andReturnSelf();
 
     // 4. Řekneme agentovi, aby vracel náš responseMock

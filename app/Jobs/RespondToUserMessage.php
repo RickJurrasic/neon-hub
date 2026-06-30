@@ -18,7 +18,8 @@ class RespondToUserMessage implements ShouldQueue
         public int $userId,
         public string $conversationId,
         public string $agentName = 'SENTINEL_01'
-    ) {}
+    ) {
+    }
 
     public function handle(): void
     {
@@ -27,23 +28,38 @@ class RespondToUserMessage implements ShouldQueue
             return;
         }
 
-        // 1. Inicializujeme Agenta a necháme ho, ať si sám vytáhne z DB svou paměť
-        $agent = app(AIAgent::class)->setPersona($this->agentName)->loadConversation($this->conversationId);
-        // 2. Spustíme generování odpovědi s groq providerem
-        $aiResponse = $agent->prompt('Respond to the users message. Be friendly, under 20 words.',
-            provider: ['groq'])->text;
+        $aiResponse = $this->generateAiResponse();
 
+        $this->saveAndBroadcast($user->id, $aiResponse);
+    }
+
+    private function generateAiResponse(): string
+    {
+        return app(AIAgent::class)
+            ->withPersona($this->agentName)
+            ->loadConversation($this->conversationId)
+            ->prompt('Respond to the users message. Be friendly, under 20 words.', provider: ['groq'])
+            ->text;
+    }
+
+    private function saveAndBroadcast(int $userId, string $aiResponse): void
+    {
         $newMessageId = (string) Str::uuid();
         $now = now();
 
-        // 3. Uložíme odpověď bota do databáze
+        $this->saveMessageToDatabase($newMessageId, $aiResponse, $userId, $now);
+        $this->broadcastMessageEvent($newMessageId, $aiResponse, $userId, $now);
+    }
+
+    private function saveMessageToDatabase(string $id, string $content, int $userId, $now): void
+    {
         DB::table('agent_conversation_messages')->insert([
-            'id' => $newMessageId,
+            'id' => $id,
             'conversation_id' => $this->conversationId,
-            'user_id' => $user->id,
+            'user_id' => $userId,
             'agent' => AIAgent::class,
             'role' => 'assistant',
-            'content' => $aiResponse,
+            'content' => $content,
             'attachments' => '[]',
             'tool_calls' => '[]',
             'tool_results' => '[]',
@@ -52,17 +68,17 @@ class RespondToUserMessage implements ShouldQueue
             'created_at' => $now,
             'updated_at' => $now,
         ]);
+    }
 
-        $cleanAgentName = $this->agentName;
-
-        // 4. Vyšleme WebSocket Event pro real-time update na frontendu
-        event(new MessageReceived($user->id, [
-            'id' => $newMessageId,
+    private function broadcastMessageEvent(string $id, string $content, int $userId, $now): void
+    {
+        event(new MessageReceived($userId, [
+            'id' => $id,
             'conversation_id' => $this->conversationId,
             'agent' => AIAgent::class,
-            'agent_name' => $cleanAgentName,
-            'sender' => $cleanAgentName,
-            'text' => $aiResponse,
+            'agent_name' => $this->agentName,
+            'sender' => $this->agentName,
+            'text' => $content,
             'time' => $now->toTimeString(),
             'created_at' => $now->toIso8601String(),
             'read' => false,

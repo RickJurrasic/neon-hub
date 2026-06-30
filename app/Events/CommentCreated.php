@@ -17,7 +17,8 @@ class CommentCreated implements ShouldBroadcastNow
         public array $comment,
         public int $postOwnerId,
         public int $userId,
-    ) {}
+    ) {
+    }
 
     public function broadcastWith(): array
     {

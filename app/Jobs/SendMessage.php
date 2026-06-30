@@ -14,7 +14,8 @@ class SendMessage implements ShouldQueue
     public function __construct(
         public int $userId,
         public array $data
-    ) {}
+    ) {
+    }
 
     public function handle(): void
     {

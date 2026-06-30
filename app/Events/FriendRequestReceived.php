@@ -13,7 +13,9 @@ class FriendRequestReceived implements ShouldBroadcast
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     // Data, která frontend očekává
-    public function __construct(public int $userId, public array $data) {}
+    public function __construct(public int $userId, public array $data)
+    {
+    }
 
     public function broadcastOn(): array
     {

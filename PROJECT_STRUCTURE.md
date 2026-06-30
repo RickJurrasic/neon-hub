@@ -421,7 +421,7 @@ use Promptable;
     /**
      * 🎭 Dynamické nastavení identity podle jména bota z DB Seederu
      */
-    public function setPersona(string $botName): self
+    public function withPersona(string $botName): self
     {
         if (str_starts_with($botName, 'SENTINEL')) {
             $this->personaInstructions = 'You are SENTINEL, the strict guardian of the NeonHub server. You speak in a terse, technical manner. Respond directly and coldly.';
@@ -23365,7 +23365,7 @@ use Queueable;
 
         // 🧠 2. INICIALIZACE AGENTA S DYNAMICKOU PERSONOU
         // OPRAVENO: Voláme AIAgent místo SentinelAgent
-        $agentInstance = app(AIAgent::class)->setPersona($agentUser->name);
+        $agentInstance = app(AIAgent::class)->withPersona($agentUser->name);
 
         // 🔍 3. STAVOVÁ KONTROLA A PŘÍPRAVA PROMPTU
         $lastMessage = DB::table('agent_conversation_messages')
