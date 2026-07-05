@@ -13,14 +13,8 @@ class LikeController extends Controller
         $post->likes()->firstOrCreate(['user_id' => auth()->id()]);
         $likesCount = $post->likes()->count();
 
-        // POUŽITÍ FACTORY METODY
-        event(new PostLiked(
-            $post->id,
-            $post->likes()->count(),
-            auth()->id(),
-            auth()->user(),
-            true
-        ));
+        // Volání privátní metody pro zachování konzistence
+        $this->notifyAndBroadcast($post, $likesCount, true);
 
         return response()->json([
             'likes_count' => $likesCount,
@@ -33,12 +27,26 @@ class LikeController extends Controller
         $post->likes()->where('user_id', auth()->id())->delete();
         $likesCount = $post->likes()->count();
 
-        // POUŽITÍ FACTORY METODY
-        event(PostLiked::fromModels($post, $likesCount, auth()->user(), false));
+        // Volání privátní metody pro zachování konzistence
+        $this->notifyAndBroadcast($post, $likesCount, false);
 
         return response()->json([
             'likes_count' => $likesCount,
             'is_liked' => false,
         ]);
+    }
+
+    /**
+     * Zpracuje real-time broadcast pro lajky.
+     */
+    private function notifyAndBroadcast(Post $post, int $likesCount, bool $isLiked): void
+    {
+        event(new PostLiked(
+            $post->id,
+            $likesCount,
+            auth()->id(),
+            auth()->user()?->name, // OPRAVENO: Předáváme string (jméno), ne celý objekt
+            $isLiked
+        ));
     }
 }

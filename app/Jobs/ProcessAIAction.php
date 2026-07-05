@@ -2,11 +2,11 @@
 
 namespace App\Jobs;
 
-use App\Actions\Ai\ExecuteCommentPostAction;
-use App\Actions\Ai\ExecuteCreatePostAction;
-use App\Actions\Ai\ExecuteFriendRequestAction;
-use App\Actions\Ai\ExecuteLikePostAction;
-use App\Actions\Ai\ExecuteSendMessageAction;
+use App\Ai\Agents\Actions\Ai\ExecuteCommentPostAction;
+use App\Ai\Agents\Actions\Ai\ExecuteCreatePostAction;
+use App\Ai\Agents\Actions\Ai\ExecuteFriendRequestAction;
+use App\Ai\Agents\Actions\Ai\ExecuteLikePostAction;
+use App\Ai\Agents\Actions\Ai\ExecuteSendMessageAction;
 use App\Events\AIActionPerformed;
 use App\Models\User;
 use Illuminate\Bus\Queueable;

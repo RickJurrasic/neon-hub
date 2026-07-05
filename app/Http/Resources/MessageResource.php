@@ -3,11 +3,13 @@
 namespace App\Http\Resources;
 
 use Carbon\Carbon;
+use Illuminate\Http\Request; // Přidáno
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class MessageResource extends JsonResource
 {
-    public function toArray(): array
+    // Přidán parametr Request $request, aby byla dodržena dědičnost z Laravelu
+    public function toArray(Request $request): array
     {
         return [
             'id' => $this->id,

@@ -1,7 +1,7 @@
 <?php
 
-namespace App\Actions\Ai;
-
+namespace App\Ai\Agents\Actions\Ai;
+use App\Ai\Agents\Actions\AIAction;
 use App\Events\PostLiked;
 use App\Models\Post;
 use App\Models\User;

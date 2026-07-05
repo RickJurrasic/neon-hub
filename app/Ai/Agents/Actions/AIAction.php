@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Actions\Ai;
+namespace App\Ai\Agents\Actions;
 
 use App\Models\User;
 

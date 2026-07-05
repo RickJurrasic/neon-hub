@@ -1,7 +1,7 @@
 <?php
 
-namespace App\Actions\Ai;
-
+namespace App\Ai\Agents\Actions\Ai;
+use App\Ai\Agents\Actions\AIAction;
 use App\Actions\SendMessageAction;
 use App\Ai\Agents\AIAgent;
 use App\Models\User;

@@ -1,7 +1,7 @@
 <?php
 
-namespace App\Actions\Ai;
-
+namespace App\Ai\Agents\Actions\Ai;
+use App\Ai\Agents\Actions\AIAction;
 use App\Actions\SendFriendRequestAction;
 use App\Models\User;
 

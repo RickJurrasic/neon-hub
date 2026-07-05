@@ -73,8 +73,14 @@ export const useNotificationStore = defineStore("notifications", {
         async fetchMessages() {
             try {
                 const response = await axios.get(route("messages.index"));
+
+                // OPRAVENO: Laravel MessageResource balí kolekci do objektu "data"
+                const messagesArray = Array.isArray(response.data)
+                    ? response.data
+                    : response.data.data || [];
+
                 const existingIds = new Set(this.messages.map((m) => m.id));
-                const newMessages = response.data.filter(
+                const newMessages = messagesArray.filter(
                     (m) => !existingIds.has(m.id),
                 );
                 this.messages = [...this.messages, ...newMessages];
@@ -89,8 +95,12 @@ export const useNotificationStore = defineStore("notifications", {
                     message_id: messageId,
                     text: text,
                 });
+
+                // OPRAVENO: Pokud i jednotlivá zpráva chodí přes Resource wrapper
+                const messageData = response.data.data || response.data;
+
                 const myMessage = {
-                    ...response.data,
+                    ...messageData,
                     sender: "YOU",
                     role: "user",
                     read: true,
@@ -118,7 +128,9 @@ export const useNotificationStore = defineStore("notifications", {
 
         async deleteConversation(conversationId) {
             try {
-                await axios.delete(`/messages/${conversationId}`);
+                // OPRAVENO: Změněno z /messages/ na /conversations/, aby to odpovídalo web.php
+                await axios.delete(`/conversations/${conversationId}`);
+
                 this.messages = this.messages.filter(
                     (m) => String(m.conversation_id) !== String(conversationId),
                 );

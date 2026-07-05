@@ -1,7 +1,7 @@
 <?php
 
-namespace App\Actions\Ai;
-
+namespace App\Ai\Agents\Actions\Ai;
+use App\Ai\Agents\Actions\AIAction;
 use App\Ai\Agents\AIAgent;
 use App\Events\PostCreated;
 use App\Models\User;
