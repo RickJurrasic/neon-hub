@@ -5,7 +5,7 @@ use App\Jobs\HandleAgentResponse;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
 
-it('generates agent post and broadcasts event successfully', function () {
+it('generates agent post and broadcasts event successfully', function (): void {
     Event::fake([PostCreated::class]);
 
     $user = User::factory()->create([

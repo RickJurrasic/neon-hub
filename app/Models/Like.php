@@ -4,10 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+#[\Illuminate\Database\Eloquent\Attributes\Fillable(['user_id', 'post_id'])]
 class Like extends Model
 {
-    protected $fillable = ['user_id', 'post_id'];
-
     public function post()
     {
         return $this->belongsTo(Post::class);

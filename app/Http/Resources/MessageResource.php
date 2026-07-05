@@ -9,6 +9,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class MessageResource extends JsonResource
 {
     // Přidán parametr Request $request, aby byla dodržena dědičnost z Laravelu
+    #[\Override]
     public function toArray(Request $request): array
     {
         return [

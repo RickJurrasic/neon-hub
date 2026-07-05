@@ -50,7 +50,7 @@ class ExecuteLikePostAction implements AiAction
             'id' => Str::uuid(),
             'type' => 'App\\Notifications\\PostLiked',
             'notifiable_id' => $post->user_id,
-            'notifiable_type' => 'App\\Models\\User',
+            'notifiable_type' => \App\Models\User::class,
             'data' => json_encode([
                 'type' => 'like',
                 'post_id' => $post->id,

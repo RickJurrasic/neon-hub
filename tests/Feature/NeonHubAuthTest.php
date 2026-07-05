@@ -5,7 +5,7 @@ use App\Models\User;
 use function Pest\Laravel\actingAs;
 use function Pest\Laravel\assertAuthenticated;
 
-test('guest can access neon core and automatically get an authenticated session', function () {
+test('guest can access neon core and automatically get an authenticated session', function (): void {
     // Vytvoříme testovacího uživatele
     $user = User::factory()->create([
         'name' => 'Radim Passer',
@@ -19,7 +19,7 @@ test('guest can access neon core and automatically get an authenticated session'
     assertAuthenticated();
 });
 
-test('inertia page shares authenticated user data with neon components', function () {
+test('inertia page shares authenticated user data with neon components', function (): void {
     $user = User::factory()->create([
         'name' => 'Radim Passer',
     ]);

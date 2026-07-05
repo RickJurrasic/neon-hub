@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [NeonHubController::class, 'index'])->name('neon.hub');
 
-Route::middleware('auth')->group(function () {
+Route::middleware('auth')->group(function (): void {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -33,7 +33,7 @@ Route::middleware('auth')->group(function () {
                 return response()->json(['error' => 'Uživatel není přihlášen.'], 401);
             }
 
-            dispatch(function () use ($userId) {
+            dispatch(function () use ($userId): void {
                 $sentinel = User::where('name', 'like', '%Sentinel%')
                     ->orWhere('handle', 'like', '%sentinel%')
                     ->first();
@@ -69,9 +69,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/core-engine/telemetry', [CoreEngineController::class, 'getTelemetry']);
 });
 
-Route::get('/dashboard', function () {
-    return inertia('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', fn() => inertia('Dashboard'))->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::patch('/friendships/{id}', [FriendshipController::class, 'update'])->name('friendships.update');
 Route::delete('/friendships/{id}', [FriendshipController::class, 'destroy']);

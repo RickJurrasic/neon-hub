@@ -5,7 +5,7 @@ use App\Models\Post;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
 
-test('majitel příspěvku obdrží notifikaci, když cizí uživatel přidá komentář', function () {
+test('majitel příspěvku obdrží notifikaci, když cizí uživatel přidá komentář', function (): void {
     // 1. Fakeujeme eventy, aby se skutečně neposílaly přes Reverb
     Event::fake([NewActivityAlert::class]);
 
@@ -28,12 +28,10 @@ test('majitel příspěvku obdrží notifikaci, když cizí uživatel přidá ko
     ]);
 
     // 5. Ověření: Event NewActivityAlert byl odeslán majiteli
-    Event::assertDispatched(NewActivityAlert::class, function ($event) use ($owner) {
-        return $event->userId === $owner->id;
-    });
+    Event::assertDispatched(NewActivityAlert::class, fn($event) => $event->userId === $owner->id);
 });
 
-test('majitel příspěvku neobdrží notifikaci, pokud okomentuje svůj vlastní příspěvek', function () {
+test('majitel příspěvku neobdrží notifikaci, pokud okomentuje svůj vlastní příspěvek', function (): void {
     Event::fake([NewActivityAlert::class]);
 
     $owner = User::factory()->create();

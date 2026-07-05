@@ -19,14 +19,14 @@ return Application::configure(basePath: dirname(__DIR__))
         channels: __DIR__.'/../routes/channels.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware) {
+    ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
             AutoLoginDemoUser::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
     })
-    ->withSchedule(function (Schedule $schedule) {
+    ->withSchedule(function (Schedule $schedule): void {
         Log::info('Scheduler: Initializing AI profiles scheduler.');
 
         $aiUsers = User::where('is_ai', true)->get();
@@ -39,7 +39,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Scheduler běží každou minutu, ale vybírá náhodného bota
         // A každý bot má svou náhodnou prodlevu 15-45 sekund mezi voláními
-        $schedule->call(function () use ($aiUsers) {
+        $schedule->call(function () use ($aiUsers): void {
             // Vybereme náhodného bota
             $user = $aiUsers->random();
 
@@ -73,6 +73,6 @@ return Application::configure(basePath: dirname(__DIR__))
 
         Log::info('Scheduler: AI profiles scheduler initialized for '.$aiUsers->count().' bots.');
     })
-    ->withExceptions(function (Exceptions $exceptions) {
+    ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();

@@ -4,7 +4,7 @@ use App\Events\MessageReceived;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
 
-test('system dispatches message event to the correct receiver', function () {
+test('system dispatches message event to the correct receiver', function (): void {
     Event::fake();
 
     $user = User::factory()->create();
@@ -15,8 +15,6 @@ test('system dispatches message event to the correct receiver', function () {
         'sender' => 'TEST_BOT',
     ]));
 
-    Event::assertDispatched(MessageReceived::class, function ($event) use ($user) {
-        return $event->userId === $user->id &&
-               isset($event->data['text']);
-    });
+    Event::assertDispatched(MessageReceived::class, fn($event) => $event->userId === $user->id &&
+           isset($event->data['text']));
 });

@@ -9,9 +9,9 @@ use App\Services\Telemetry\QueueMonitor;
 class TelemetryService
 {
     public function __construct(
-        private PulseCollector $pulse,
-        private QueueMonitor $queue,
-        private ActivityStream $stream
+        private readonly PulseCollector $pulse,
+        private readonly QueueMonitor $queue,
+        private readonly ActivityStream $stream
     ) {
     }
 

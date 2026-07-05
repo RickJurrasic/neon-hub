@@ -5,10 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+#[\Illuminate\Database\Eloquent\Attributes\Fillable(['sender_id', 'recipient_id', 'status', 'message'])]
 class Friendship extends Model
 {
-    protected $fillable = ['sender_id', 'recipient_id', 'status', 'message'];
-
     // Kdo poslal žádost
     public function sender(): BelongsTo
     {

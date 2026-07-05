@@ -14,9 +14,9 @@ class SendFriendRequestAction
     public function execute(int $senderId, int $recipientId): ?Friendship
     {
         // 1. Zkontrolujeme, zda už mezi nimi neexistuje žádný záznam
-        $existing = Friendship::where(function ($query) use ($senderId, $recipientId) {
+        $existing = Friendship::where(function ($query) use ($senderId, $recipientId): void {
             $query->where('sender_id', $senderId)->where('recipient_id', $recipientId);
-        })->orWhere(function ($query) use ($senderId, $recipientId) {
+        })->orWhere(function ($query) use ($senderId, $recipientId): void {
             $query->where('sender_id', $recipientId)->where('recipient_id', $senderId);
         })->first();
 

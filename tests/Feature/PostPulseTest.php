@@ -7,12 +7,12 @@ use function Pest\Laravel\actingAs;
 use function Pest\Laravel\assertDatabaseHas;
 use function Pest\Laravel\post;
 
-beforeEach(function () {
+beforeEach(function (): void {
     // Vytvoříme uživatele a přihlásíme ho
     $this->user = User::factory()->create();
 });
 
-test('neon hub index returns posts with standard integer IDs', function () {
+test('neon hub index returns posts with standard integer IDs', function (): void {
     // Vytvoříme testovací post spojený s autorem
     $post = Post::factory()->create([
         'user_id' => $this->user->id,
@@ -29,7 +29,7 @@ test('neon hub index returns posts with standard integer IDs', function () {
         );
 });
 
-test('authenticated user can pulse a post using integer id', function () {
+test('authenticated user can pulse a post using integer id', function (): void {
     $post = Post::factory()->create();
 
     actingAs($this->user)

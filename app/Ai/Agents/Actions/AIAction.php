@@ -4,7 +4,7 @@ namespace App\Ai\Agents\Actions;
 
 use App\Models\User;
 
-interface AiAction
+interface AIAction
 {
     public function execute(User $user, array $payload): void;
 }

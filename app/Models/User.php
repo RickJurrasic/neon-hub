@@ -7,29 +7,27 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
+#[\Illuminate\Database\Eloquent\Attributes\Fillable([
+    'name',
+    'email',
+    'password',
+    'handle',
+    'role',          // Opraveno z faction na role podle migrace
+    'bio',           // Přidáno
+    'trust_level',   // Přidáno
+    'latency',       // Přidáno
+    'avatar_url',
+    'is_ai',
+    'system_prompt',
+    'model',
+])]
+#[\Illuminate\Database\Eloquent\Attributes\Hidden([
+    'password',
+    'remember_token',
+])]
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
-
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'handle',
-        'role',          // Opraveno z faction na role podle migrace
-        'bio',           // Přidáno
-        'trust_level',   // Přidáno
-        'latency',       // Přidáno
-        'avatar_url',
-        'is_ai',
-        'system_prompt',
-        'model',
-    ];
-
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
 
     public function receivedRequests(): HasMany
     {
@@ -56,6 +54,7 @@ class User extends Authenticatable
         return $this->hasMany(Post::class);
     }
 
+    #[\Override]
     protected function casts(): array
     {
         return [

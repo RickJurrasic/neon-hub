@@ -6,12 +6,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 // Tento blok se spustí před každým testem v tomto souboru
-beforeEach(function () {
+beforeEach(function (): void {
     // Vytvoříme testovacího uživatele pomocí factory
     $this->user = User::factory()->create();
 });
 
-it('returns a successful telemetry response with correct structure', function () {
+it('returns a successful telemetry response with correct structure', function (): void {
     // Act: Přihlásíme uživatele pomocí actingAs() před odesláním requestu
     $response = $this->actingAs($this->user)->getJson('/api/core-engine/telemetry');
 
@@ -33,7 +33,7 @@ it('returns a successful telemetry response with correct structure', function ()
     $response->assertJson(['status' => 'ONLINE']);
 });
 
-it('includes pending jobs count in metrics as an integer', function () {
+it('includes pending jobs count in metrics as an integer', function (): void {
     // Act: Opět posíláme požadavek jako přihlášený uživatel
     $response = $this->actingAs($this->user)->getJson('/api/core-engine/telemetry');
 

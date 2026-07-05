@@ -4,7 +4,7 @@ use App\Ai\Agents\AIAgent;
 use Laravel\Ai\Responses\AgentResponse;
 
 // 1. UNIT TEST: Zůstává stejný, je to správný přístup
-it('can prompt the sentinel agent', function () {
+it('can prompt the sentinel agent', function (): void {
     $mockResponse = Mockery::mock(AgentResponse::class);
     $mockResponse->text = 'Odpověď od Sentinela';
 
@@ -20,7 +20,7 @@ it('can prompt the sentinel agent', function () {
 });
 
 // 2. UNIT TEST: Mocknutí prompt odpovědi pro SENTINEL persona
-it('can handle sentinel persona', function () {
+it('can handle sentinel persona', function (): void {
     $mockResponse = Mockery::mock(AgentResponse::class);
     $mockResponse->text = 'System status: nominal. Ready for operations.';
 
@@ -36,7 +36,7 @@ it('can handle sentinel persona', function () {
 });
 
 // 3. UNIT TEST: Mocknutí prompt odpovědi pro CYPHER persona
-it('can handle cypher persona', function () {
+it('can handle cypher persona', function (): void {
     $mockResponse = Mockery::mock(AgentResponse::class);
     $mockResponse->text = 'yeah, i\'m here. what\'s the score?';
 

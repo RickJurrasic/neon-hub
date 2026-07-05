@@ -5,14 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+#[\Illuminate\Database\Eloquent\Attributes\Fillable([
+    'post_id',
+    'user_id',
+    'content',
+])]
 class Comment extends Model
 {
-    protected $fillable = [
-        'post_id',
-        'user_id',
-        'content',
-    ];
-
     // Komentář patří nějakému postu
     public function post(): BelongsTo
     {

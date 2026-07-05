@@ -45,8 +45,8 @@ class NeonHubController extends Controller
         return Post::with(['author', 'comments.author'])
             ->withCount('likes')
             ->withExists([
-                'likes as is_liked' => function ($query) use ($authId) {
-                    $query->where(function ($q) use ($authId) {
+                'likes as is_liked' => function ($query) use ($authId): void {
+                    $query->where(function ($q) use ($authId): void {
                         $q->where('where_id', $authId)->orWhere('user_id', $authId);
                     });
                 },
@@ -109,7 +109,7 @@ class NeonHubController extends Controller
 
     private function getActiveFriendships($authId): array
     {
-        return Friendship::where(function ($q) use ($authId) {
+        return Friendship::where(function ($q) use ($authId): void {
             $q->where('sender_id', $authId)->orWhere('recipient_id', $authId);
         })
             ->where('status', 'accepted')

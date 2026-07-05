@@ -8,7 +8,7 @@ use Illuminate\Http\JsonResponse;
 class CoreEngineController extends Controller
 {
     public function __construct(
-        private TelemetryService $telemetry
+        private readonly TelemetryService $telemetry
     ) {
     }
 

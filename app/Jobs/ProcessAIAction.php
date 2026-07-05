@@ -21,17 +21,8 @@ class ProcessAIAction implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    protected int $userId;
-
-    protected string $actionType;
-
-    protected array $payload;
-
-    public function __construct(int $userId, string $actionType, array $payload = [])
+    public function __construct(protected int $userId, protected string $actionType, protected array $payload = [])
     {
-        $this->userId = $userId;
-        $this->actionType = $actionType;
-        $this->payload = $payload;
     }
 
     public function handle(): void

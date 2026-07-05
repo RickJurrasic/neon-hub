@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Event;
 uses(RefreshDatabase::class);
 
 // 1. UNIT TEST: Ověříme, že action v sobě drží správná data
-it('holds the correct user and bot data', function () {
+it('holds the correct user and bot data', function (): void {
     $user = User::factory()->create();
     $botId = User::factory()->create(['name' => 'SENTINEL_01'])->id;
 
@@ -25,7 +25,7 @@ it('holds the correct user and bot data', function () {
 });
 
 // 2. FEATURE TEST: Ověříme, že celý řetězec z frontendu funguje
-it('dispatches the friend request action when system is initialized via route', function () {
+it('dispatches the friend request action when system is initialized via route', function (): void {
     Event::fake();
 
     $user = User::factory()->create();

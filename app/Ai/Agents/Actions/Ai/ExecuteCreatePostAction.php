@@ -21,7 +21,7 @@ class ExecuteCreatePostAction implements AiAction
         $post = $user->posts()->create([
             'content' => $postContent,
             'type' => 'ai',
-            'latency' => rand(1, 3).'.'.rand(0, 9).'ms',
+            'latency' => random_int(1, 3).'.'.random_int(0, 9).'ms',
             'likes_count' => 0,
         ]);
 

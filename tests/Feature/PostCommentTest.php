@@ -3,7 +3,7 @@
 use App\Models\Post;
 use App\Models\User;
 
-test('authenticated user can post a comment to a post', function () {
+test('authenticated user can post a comment to a post', function (): void {
     // 1. Arrange: Vytvoříme uživatele a příspěvek
     $user = User::factory()->create();
     $post = Post::factory()->create();
@@ -27,7 +27,7 @@ test('authenticated user can post a comment to a post', function () {
     ]);
 });
 
-test('guest cannot post a comment', function () {
+test('guest cannot post a comment', function (): void {
     $post = Post::factory()->create();
 
     $response = $this->postJson(route('comments.store', $post), [

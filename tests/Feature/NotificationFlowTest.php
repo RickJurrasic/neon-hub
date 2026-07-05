@@ -11,7 +11,7 @@ use Tests\TestCase;
 class NotificationFlowTest extends TestCase
 {
     /** @test */
-    public function it_broadcasts_correct_message_structure_to_frontend()
+    public function it_broadcasts_correct_message_structure_to_frontend(): void
     {
         Event::fake();
 
@@ -30,13 +30,11 @@ class NotificationFlowTest extends TestCase
         event(new MessageReceived($user->id, $messageData));
 
         // Ověření, že event byl dispatchnut s očekávanými daty
-        Event::assertDispatched(MessageReceived::class, function ($event) use ($user, $messageData) {
-            return $event->userId === $user->id && $event->data === $messageData;
-        });
+        Event::assertDispatched(MessageReceived::class, fn($event) => $event->userId === $user->id && $event->data === $messageData);
     }
 
     /** @test */
-    public function it_verifies_unread_alert_logic_via_database()
+    public function it_verifies_unread_alert_logic_via_database(): void
     {
         $user = User::factory()->create();
 

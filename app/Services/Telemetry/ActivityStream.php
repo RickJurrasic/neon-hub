@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Queue;
 
 class ActivityStream
 {
-    public function __construct(private TableLogCollector $collector)
+    public function __construct(private readonly TableLogCollector $collector)
     {
     }
 

@@ -2,7 +2,7 @@
 
 use App\Events\MessageReceived;
 
-it('broadcasts the correct payload structure', function () {
+it('broadcasts the correct payload structure', function (): void {
     $userId = 1;
     $data = [
         'id' => 'test-uuid',
@@ -21,7 +21,7 @@ it('broadcasts the correct payload structure', function () {
         ->and($payload['data']['sender'])->toBe('Sentinel');
 });
 
-it('broadcasts on the correct private channel', function () {
+it('broadcasts on the correct private channel', function (): void {
     $userId = 99;
     $event = new MessageReceived($userId, []);
 

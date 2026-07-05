@@ -13,17 +13,11 @@ class PostCreated implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public array $post;
-
-    public int $userId;
-
     /**
      * Předáme zformátovaný post a ID uživatele, kterému má Reverb zprávu doručit.
      */
-    public function __construct(array $post, int $userId)
+    public function __construct(public array $post, public int $userId)
     {
-        $this->post = $post;
-        $this->userId = $userId;
     }
 
     /**

@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Event;
 use Laravel\Ai\Responses\AgentResponse;
 use Mockery;
 
-it('responds to user message, persists to database and dispatches event', function () {
+it('responds to user message, persists to database and dispatches event', function (): void {
     Event::fake([MessageReceived::class]);
     $user = User::factory()->create();
     $conversationId = 'conv_123';
@@ -44,7 +44,5 @@ it('responds to user message, persists to database and dispatches event', functi
         'content' => $aiMockResponse,
     ]);
 
-    Event::assertDispatched(MessageReceived::class, function ($event) use ($user, $aiMockResponse) {
-        return $event->userId === $user->id && $event->data['text'] === $aiMockResponse;
-    });
+    Event::assertDispatched(MessageReceived::class, fn($event) => $event->userId === $user->id && $event->data['text'] === $aiMockResponse);
 });

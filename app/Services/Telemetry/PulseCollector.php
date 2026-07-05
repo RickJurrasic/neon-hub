@@ -14,6 +14,6 @@ class PulseCollector
         }
         $row = DB::table('pulse_aggregates')->where('type', $type)->latest('date')->first();
 
-        return $row ? (json_decode($row->value, true)['count'] ?? 0) : 0;
+        return $row ? (json_decode((string) $row->value, true)['count'] ?? 0) : 0;
     }
 }

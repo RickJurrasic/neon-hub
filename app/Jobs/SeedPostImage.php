@@ -13,11 +13,8 @@ class SeedPostImage implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    protected string $postType;
-
-    public function __construct(string $postType = 'AI_FEED')
+    public function __construct(protected string $postType = 'AI_FEED')
     {
-        $this->postType = $postType;
     }
 
     public function handle(): ?string

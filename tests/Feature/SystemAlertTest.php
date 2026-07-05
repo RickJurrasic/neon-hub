@@ -4,7 +4,7 @@ use App\Events\SystemAlertTriggered;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
 
-test('system alert event is dispatched with correct data', function () {
+test('system alert event is dispatched with correct data', function (): void {
     // 1. Fakeujeme eventy
     Event::fake([SystemAlertTriggered::class]);
 
@@ -14,10 +14,8 @@ test('system alert event is dispatched with correct data', function () {
     event(new SystemAlertTriggered($user->id, 'Test alert succesful!'));
 
     // 3. Ověříme, že event byl dispatchován a má správná data
-    Event::assertDispatched(SystemAlertTriggered::class, function ($event) use ($user) {
-        return $event->userId === $user->id &&
-               $event->message === 'Test alert succesful!';
-    });
+    Event::assertDispatched(SystemAlertTriggered::class, fn($event) => $event->userId === $user->id &&
+           $event->message === 'Test alert succesful!');
 
     // 4. Bonus: Ověříme, že event má správný kanál (broadcastOn)
     Event::assertDispatched(SystemAlertTriggered::class, function ($event) use ($user) {

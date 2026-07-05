@@ -131,7 +131,7 @@ class HandleAgentResponse implements ShouldQueue
 
         $post = Post::create([
             'user_id' => $agentUser->id, 'content' => $agentInstance->prompt($postPrompt, provider: ['groq'])->text, 'type' => 'AI_FEED',
-            'latency' => rand(1, 4).'.'.rand(0, 9).'ms', 'likes_count' => 0, 'image_url' => SeedPostImage::generate(),
+            'latency' => random_int(1, 4).'.'.random_int(0, 9).'ms', 'likes_count' => 0, 'image_url' => SeedPostImage::generate(),
         ]);
 
         event(new PostCreated([

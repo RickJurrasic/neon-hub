@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "82759a3c0c013b53a028f28b5d4134e5",
+    "content-hash": "e60152c12a13a8b3348f4ec7bda257ae",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -775,6 +775,42 @@
                 }
             ],
             "time": "2025-10-31T18:51:33+00:00"
+        },
+        {
+            "name": "driftingly/rector-laravel",
+            "version": "2.5.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/driftingly/rector-laravel.git",
+                "reference": "0dbdd842dfdbc821cfe5f47ca7326e2502b2a107"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/driftingly/rector-laravel/zipball/0dbdd842dfdbc821cfe5f47ca7326e2502b2a107",
+                "reference": "0dbdd842dfdbc821cfe5f47ca7326e2502b2a107",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^7.4 || ^8.0",
+                "rector/rector": "^2.2.7",
+                "webmozart/assert": "^1.11 || ^2.0"
+            },
+            "type": "rector-extension",
+            "autoload": {
+                "psr-4": {
+                    "RectorLaravel\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Rector upgrades rules for Laravel Framework",
+            "support": {
+                "issues": "https://github.com/driftingly/rector-laravel/issues",
+                "source": "https://github.com/driftingly/rector-laravel/tree/2.5.0"
+            },
+            "time": "2026-06-02T16:22:14+00:00"
         },
         {
             "name": "egulias/email-validator",
@@ -3570,6 +3606,70 @@
             "time": "2025-12-27T19:41:33+00:00"
         },
         {
+            "name": "phpstan/phpstan",
+            "version": "2.2.5",
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/phpstan/phpstan/zipball/909c1e5fef7989ac0d0c1c5c42e32a5c4f6198a0",
+                "reference": "909c1e5fef7989ac0d0c1c5c42e32a5c4f6198a0",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^7.4|^8.0"
+            },
+            "conflict": {
+                "phpstan/phpstan-shim": "*"
+            },
+            "bin": [
+                "phpstan",
+                "phpstan.phar"
+            ],
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "bootstrap.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Ondřej Mirtes"
+                },
+                {
+                    "name": "Markus Staab"
+                },
+                {
+                    "name": "Vincent Langlet"
+                }
+            ],
+            "description": "PHPStan - PHP Static Analysis Tool",
+            "keywords": [
+                "dev",
+                "static analysis"
+            ],
+            "support": {
+                "docs": "https://phpstan.org/user-guide/getting-started",
+                "forum": "https://github.com/phpstan/phpstan/discussions",
+                "issues": "https://github.com/phpstan/phpstan/issues",
+                "security": "https://github.com/phpstan/phpstan/security/policy",
+                "source": "https://github.com/phpstan/phpstan-src"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/ondrejmirtes",
+                    "type": "github"
+                },
+                {
+                    "url": "https://github.com/phpstan",
+                    "type": "github"
+                }
+            ],
+            "time": "2026-07-05T06:31:06+00:00"
+        },
+        {
             "name": "psr/clock",
             "version": "1.0.0",
             "source": {
@@ -4906,6 +5006,66 @@
                 }
             ],
             "time": "2024-06-11T12:45:25+00:00"
+        },
+        {
+            "name": "rector/rector",
+            "version": "2.5.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/rectorphp/rector.git",
+                "reference": "3d3577ad88d70d9f8dccd0a4c2f75bf13d6268e6"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/rectorphp/rector/zipball/3d3577ad88d70d9f8dccd0a4c2f75bf13d6268e6",
+                "reference": "3d3577ad88d70d9f8dccd0a4c2f75bf13d6268e6",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^7.4|^8.0",
+                "phpstan/phpstan": "^2.2.2"
+            },
+            "conflict": {
+                "rector/rector-doctrine": "*",
+                "rector/rector-downgrade-php": "*",
+                "rector/rector-phpunit": "*",
+                "rector/rector-symfony": "*"
+            },
+            "suggest": {
+                "ext-dom": "To manipulate phpunit.xml via the custom-rule command"
+            },
+            "bin": [
+                "bin/rector"
+            ],
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "bootstrap.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Instant Upgrade and Automated Refactoring of any PHP code",
+            "homepage": "https://getrector.com/",
+            "keywords": [
+                "automation",
+                "dev",
+                "migration",
+                "refactoring"
+            ],
+            "support": {
+                "issues": "https://github.com/rectorphp/rector/issues",
+                "source": "https://github.com/rectorphp/rector/tree/2.5.3"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/tomasvotruba",
+                    "type": "github"
+                }
+            ],
+            "time": "2026-07-05T01:32:08+00:00"
         },
         {
             "name": "symfony/clock",
@@ -7739,6 +7899,72 @@
                 }
             ],
             "time": "2026-04-26T05:33:54+00:00"
+        },
+        {
+            "name": "webmozart/assert",
+            "version": "2.4.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/webmozarts/assert.git",
+                "reference": "2ccb7c2e821038c03a3e6e1700c570c158c55f70"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/webmozarts/assert/zipball/2ccb7c2e821038c03a3e6e1700c570c158c55f70",
+                "reference": "2ccb7c2e821038c03a3e6e1700c570c158c55f70",
+                "shasum": ""
+            },
+            "require": {
+                "ext-ctype": "*",
+                "ext-date": "*",
+                "ext-filter": "*",
+                "php": "^8.2"
+            },
+            "suggest": {
+                "ext-intl": "",
+                "ext-simplexml": "",
+                "ext-spl": ""
+            },
+            "type": "library",
+            "extra": {
+                "psalm": {
+                    "pluginClass": "Webmozart\\Assert\\PsalmPlugin"
+                },
+                "branch-alias": {
+                    "dev-master": "2.0-dev",
+                    "dev-feature/2-0": "2.0-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Webmozart\\Assert\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Bernhard Schussek",
+                    "email": "bschussek@gmail.com"
+                },
+                {
+                    "name": "Woody Gilk",
+                    "email": "woody.gilk@gmail.com"
+                }
+            ],
+            "description": "Assertions to validate method input/output with nice error messages.",
+            "keywords": [
+                "assert",
+                "check",
+                "validate"
+            ],
+            "support": {
+                "issues": "https://github.com/webmozarts/assert/issues",
+                "source": "https://github.com/webmozarts/assert/tree/2.4.1"
+            },
+            "time": "2026-06-15T15:31:57+00:00"
         }
     ],
     "packages-dev": [
@@ -12964,72 +13190,6 @@
                 }
             ],
             "time": "2025-12-08T11:19:18+00:00"
-        },
-        {
-            "name": "webmozart/assert",
-            "version": "2.4.1",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/webmozarts/assert.git",
-                "reference": "2ccb7c2e821038c03a3e6e1700c570c158c55f70"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/webmozarts/assert/zipball/2ccb7c2e821038c03a3e6e1700c570c158c55f70",
-                "reference": "2ccb7c2e821038c03a3e6e1700c570c158c55f70",
-                "shasum": ""
-            },
-            "require": {
-                "ext-ctype": "*",
-                "ext-date": "*",
-                "ext-filter": "*",
-                "php": "^8.2"
-            },
-            "suggest": {
-                "ext-intl": "",
-                "ext-simplexml": "",
-                "ext-spl": ""
-            },
-            "type": "library",
-            "extra": {
-                "psalm": {
-                    "pluginClass": "Webmozart\\Assert\\PsalmPlugin"
-                },
-                "branch-alias": {
-                    "dev-master": "2.0-dev",
-                    "dev-feature/2-0": "2.0-dev"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Webmozart\\Assert\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Bernhard Schussek",
-                    "email": "bschussek@gmail.com"
-                },
-                {
-                    "name": "Woody Gilk",
-                    "email": "woody.gilk@gmail.com"
-                }
-            ],
-            "description": "Assertions to validate method input/output with nice error messages.",
-            "keywords": [
-                "assert",
-                "check",
-                "validate"
-            ],
-            "support": {
-                "issues": "https://github.com/webmozarts/assert/issues",
-                "source": "https://github.com/webmozarts/assert/tree/2.4.1"
-            },
-            "time": "2026-06-15T15:31:57+00:00"
         }
     ],
     "aliases": [],
