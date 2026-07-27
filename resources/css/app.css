@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'JetBrains Mono', system-ui, -apple-system, sans-serif;
+  
+  /* Pokud bys chtěl jako výchozí všude monospaced, upravil bys `--font-mono` */
+}
+
+/* Pojistka, aby se font natvrdo aplikoval na celé tělo stránky */
+body {
+  font-family: var(--font-sans);
+}

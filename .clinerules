@@ -1,0 +1,16 @@
+# NeonHub Architecture Rules
+
+- Project: Laravel 13, Vue 3, Inertia, Tailwind 4.
+- Architecture: Event-Driven, Action pattern (app/Actions).
+- AI Logic: Focus on app/Ai/Agents/ and app/Jobs/.
+- Auth: Use standard Laravel Auth controllers.
+
+# Navigation Rules
+- Always refer to PROJECT_STRUCTURE.md in the root to locate files.
+- Do not read the entire codebase. Locate specific files by path.
+- Preferred AI logic style: Strategy pattern (AgentManager).
+
+# Code Style
+- Use PHP 8.4+ features (typed properties, constructor promotion).
+- Controllers must be slim. Move business logic to app/Actions.
+- Test-First approach: Always use Pest (tests/Feature/ or tests/Unit/).

@@ -1,0 +1,7 @@
+{
+    "preset": "laravel",
+    "rules": {
+        "new_with_braces": true,
+        "new_with_parentheses": true
+    }
+}
