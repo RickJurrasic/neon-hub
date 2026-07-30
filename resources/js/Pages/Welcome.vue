@@ -2,6 +2,9 @@
 import { ref, watch } from 'vue';
 import { useNotificationStore } from '@/Stores/useNotificationStore';
 import { usePage } from '@inertiajs/vue3';
+import NeonSocialCore from '../Components/NeonSocialCore.vue';
+import NeonGate from '../Components/NeonGate.vue';
+import NeonOverlay from '../Components/NeonOverlay.vue';
 
 const isOpened = ref(false);
 const store = useNotificationStore();
@@ -27,7 +30,7 @@ watch(isOpened, (newVal) => {
 </script>
 
 <template>
-    <div class="relative h-screen w-full bg-[#02040a] overflow-hidden font-sans text-slate-200">
+    <div class="relative h-screen w-full bg-black overflow-hidden font-sans text-slate-200">
         <NeonSocialCore :isOpened="isOpened" :initialState="page.props.initialState" />
         <NeonGate :isOpened="isOpened" />
         <NeonOverlay :isOpened="isOpened" @open="openSystem" />

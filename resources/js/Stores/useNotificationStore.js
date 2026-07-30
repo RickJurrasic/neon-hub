@@ -171,31 +171,32 @@ export const useNotificationStore = defineStore("notifications", {
         },
 
         addMessage(message) {
-            if (!message) return;
+    if (!message) return;
 
-            const msg = message.data || message.message || message;
-            const isOwnMessage = msg.role === "user" || msg.sender === "YOU";
+    const msg = message.data || message.message || message;
+    const isOwnMessage = msg.role === "user" || msg.sender === "YOU";
 
-            const normalized = {
-                id: msg.id || Date.now(),
-                conversation_id: msg.conversation_id || msg.conversationId,
-                text: msg.text || msg.content || "",
-                sender: msg.agent_name || msg.sender || "SYSTEM_BOT",
-                agent_name: msg.agent_name || "",
-                read: isOwnMessage
-                    ? true
-                    : msg.read === true ||
-                      msg.read === 1 ||
-                      msg.read === "1" ||
-                      false,
-                time: msg.time || new Date().toLocaleTimeString(),
-                created_at: msg.created_at || new Date().toISOString(),
-            };
+    const normalized = {
+        id: msg.id || Date.now(),
+        conversation_id: msg.conversation_id || msg.conversationId,
+        text: msg.text || msg.content || "",
+        // FIX: Ensure own messages retain "YOU" even if agent_name exists on messageData
+        sender: isOwnMessage ? "YOU" : (msg.agent_name || msg.sender || "SYSTEM_BOT"),
+        agent_name: msg.agent_name || "",
+        read: isOwnMessage
+            ? true
+            : msg.read === true ||
+              msg.read === 1 ||
+              msg.read === "1" ||
+              false,
+        time: msg.time || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        created_at: msg.created_at || new Date().toISOString(),
+    };
 
-            if (!this.messages.some((m) => m.id === normalized.id)) {
-                this.messages.push(normalized);
-            }
-        },
+    if (!this.messages.some((m) => String(m.id) === String(normalized.id))) {
+        this.messages.push(normalized);
+    }
+},
 
         addFriendRequest(request) {
             this.friendRequests.push({
@@ -390,9 +391,9 @@ export const useNotificationStore = defineStore("notifications", {
                 .listen("FriendshipAccepted", (e) =>
                     this.updateFriendRequestStatus(e.friendshipId, "accepted"),
                 )
-                .listen("MessageReceived", (e) =>
-                    this.addMessage(e.data || e.message),
-                )
+                .listen(".MessageReceived", (e) =>
+    this.addMessage(e.data || e.message),
+)
                 .listen(".NewActivityAlert", (e) => {
                     this.addAlert({ title: "SYSTEM_ALERT", msg: e.message });
                 });

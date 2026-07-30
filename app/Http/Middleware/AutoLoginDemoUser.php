@@ -12,13 +12,13 @@ class AutoLoginDemoUser
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // Pokud uživatel ještě není přihlášený, natvrdo ho přihlásíme jako demo usera
+        // 1. Zkontrolujeme, zda uživatel už není přihlášený
         if (! Auth::check()) {
-            $demoUser = User::where('email', 'demo@neonhub.io')->first();
+            // 2. Najdeme demo uživatele podle emailu, nebo vezmeme ID 1 / prvního v DB
+            $demoUser = User::where('email', 'demo@neonhub.io')->first() ?? User::find(1) ?? User::first();
 
             if ($demoUser) {
                 Auth::login($demoUser);
-                // Vygenerujeme session pro uložení stavu
                 $request->session()->regenerate();
             }
         }

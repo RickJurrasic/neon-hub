@@ -16,11 +16,13 @@ it('generates agent post and broadcasts event successfully', function (): void {
         'name' => 'SENTINEL_01',
     ]);
 
-    (new HandleAgentResponse(
+    $job = new HandleAgentResponse(
         userId: $user->id,
         conversationId: null,
         agentName: 'SENTINEL_01',
-    ))->handle();
+    );
+
+    app()->call([$job, 'handle']);
 
     $this->assertDatabaseHas('posts', [
         'user_id' => $agent->id,

@@ -7,39 +7,71 @@ use App\Events\MessageReceived;
 use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 class RespondToUserMessage implements ShouldQueue
 {
-    use Queueable;
+    use Queueable, InteractsWithQueue, SerializesModels;
+
+    /**
+     * Počet pokusů o opakování jobu při selhání LLM API.
+     */
+    public int $tries = 3;
+
+    /**
+     * Proleva mezi opakovanými pokusy (v sekundách).
+     */
+    public int $backoff = 5;
+
+    /**
+     * Maximální doba běhu jobu (v sekundách).
+     */
+    public int $timeout = 30;
 
     public function __construct(
-        public int $userId,
-        public string $conversationId,
-        public string $agentName = 'SENTINEL_01'
-    ) {
-    }
+        public readonly int $userId,
+        public readonly string $conversationId,
+        public readonly string $agentName = 'SENTINEL_01'
+    ) {}
 
-    public function handle(): void
+    public function handle(AIAgent $agent): void
     {
         $user = User::find($this->userId);
+
         if (! $user) {
+            Log::warning("RespondToUserMessage skipped: User {$this->userId} not found.");
+
             return;
         }
 
-        $aiResponse = $this->generateAiResponse();
+        $aiResponse = $this->generateAiResponse($agent);
+
+        if (empty($aiResponse)) {
+            Log::warning("RespondToUserMessage aborted: Empty AI response generated for User {$this->userId}.");
+
+            return;
+        }
 
         $this->saveAndBroadcast($user->id, $aiResponse);
     }
 
-    private function generateAiResponse(): string
+    private function generateAiResponse(AIAgent $agent): string
     {
-        return app(AIAgent::class)
+        $response = $agent
             ->withPersona($this->agentName)
             ->loadConversation($this->conversationId)
-            ->prompt('Respond to the users message. Be friendly, under 20 words.', provider: ['groq'])
-            ->text;
+            ->prompt('Respond to the users message. Be friendly, under 20 words.', provider: ['groq']);
+
+        return Str::of($response->text ?? '')
+            ->trim()
+            ->replace(['"', "'"], '')
+            ->toString();
     }
 
     private function saveAndBroadcast(int $userId, string $aiResponse): void
@@ -49,9 +81,11 @@ class RespondToUserMessage implements ShouldQueue
 
         $this->saveMessageToDatabase($newMessageId, $aiResponse, $userId, $now);
         $this->broadcastMessageEvent($newMessageId, $aiResponse, $userId, $now);
+
+        Log::info("RespondToUserMessage: Response sent from agent [{$this->agentName}] to User [{$userId}]");
     }
 
-    private function saveMessageToDatabase(string $id, string $content, int $userId, $now): void
+    private function saveMessageToDatabase(string $id, string $content, int $userId, Carbon $now): void
     {
         DB::table('agent_conversation_messages')->insert([
             'id' => $id,
@@ -70,7 +104,7 @@ class RespondToUserMessage implements ShouldQueue
         ]);
     }
 
-    private function broadcastMessageEvent(string $id, string $content, int $userId, $now): void
+    private function broadcastMessageEvent(string $id, string $content, int $userId, Carbon $now): void
     {
         event(new MessageReceived($userId, [
             'id' => $id,
@@ -84,5 +118,13 @@ class RespondToUserMessage implements ShouldQueue
             'read' => false,
             'role' => 'assistant',
         ]));
+    }
+
+    /**
+     * Ošetření trvalého selhání jobu.
+     */
+    public function failed(Throwable $exception): void
+    {
+        Log::error("RespondToUserMessage failed permanently for User {$this->userId}: {$exception->getMessage()}");
     }
 }

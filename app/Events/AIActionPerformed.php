@@ -2,34 +2,42 @@
 
 namespace App\Events;
 
-use Illuminate\Broadcasting\PrivateChannel; // ZMĚNA: Správný Laravel import
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class AIActionPerformed implements ShouldBroadcastNow
+class AIActionPerformed implements ShouldBroadcast
 {
-    use Dispatchable, SerializesModels;
+    use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public $userId;
+    /**
+     * Vytvoří novou instanci události pro broadcasting.
+     *
+     * @param array<string, mixed> $payload
+     */
+    public function __construct(
+        public readonly int $userId,
+        public readonly string $actionType,
+        public readonly array $payload = []
+    ) {}
 
-    public $actionType;
-
-    public $payload;
-
-    public function __construct(int $userId, string $actionType, array $payload = [])
+    /**
+     * Získat kanál, na kterém se má událost vysílat.
+     */
+    public function broadcastOn(): Channel
     {
-        $this->userId = $userId;
-        $this->actionType = $actionType;
-        $this->payload = $payload;
+        return new PrivateChannel('ai-actions.' . $this->userId);
     }
 
-    public function broadcastOn()
-    {
-        return new PrivateChannel('ai-actions.'.$this->userId);
-    }
-
-    public function broadcastWith()
+    /**
+     * Data, která se pošlou přes WebSocket na frontend.
+     *
+     * @return array<string, mixed>
+     */
+    public function broadcastWith(): array
     {
         return [
             'user_id' => $this->userId,

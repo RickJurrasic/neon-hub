@@ -4,23 +4,30 @@ namespace App\Events;
 
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class PostLiked implements ShouldBroadcastNow
+class PostLiked implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
+    /**
+     * Vytvoří novou instanci události pro lajknutí příspěvku.
+     */
     public function __construct(
-        public int $postId,
-        public int $likesCount,
-        public ?int $userId,
-        public ?string $userName,
-        public bool $isLiked,
-    ) {
-    }
+        public readonly int $postId,
+        public readonly int $likesCount,
+        public readonly ?int $userId,
+        public readonly ?string $userName,
+        public readonly bool $isLiked,
+    ) {}
 
+    /**
+     * Payload předávaný přes WebSocket na frontend.
+     *
+     * @return array<string, mixed>
+     */
     public function broadcastWith(): array
     {
         return [
@@ -32,11 +39,19 @@ class PostLiked implements ShouldBroadcastNow
         ];
     }
 
+    /**
+     * Kanály pro broadcasting.
+     *
+     * @return array<int, Channel>
+     */
     public function broadcastOn(): array
     {
         return [new Channel('posts')];
     }
 
+    /**
+     * Název události pro frontend listener (Laravel Echo).
+     */
     public function broadcastAs(): string
     {
         return 'PostLiked';

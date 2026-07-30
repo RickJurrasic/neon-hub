@@ -2,30 +2,55 @@
 
 namespace App\Events;
 
-use Illuminate\Broadcasting\InteractsWithSockets; // Změna: PrivateChannel
+use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class SystemAlertTriggered implements ShouldBroadcastNow
+class SystemAlertTriggered implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public function __construct(public int $userId, public string $message)
-    {
-    }
+    /**
+     * Vytvoří novou instanci systémové výstrahy.
+     */
+    public function __construct(
+        public readonly int $userId,
+        public readonly string $message
+    ) {}
 
+    /**
+     * Získat privátní kanál konkrétního uživatele.
+     *
+     * @return array<int, Channel>
+     */
     public function broadcastOn(): array
     {
-        // Tohle se musí shodovat s window.Echo.private(...) ve frontend servisu
         return [
-            new PrivateChannel('App.Models.User.'.$this->userId),
+            new PrivateChannel('App.Models.User.' . $this->userId),
         ];
     }
 
+    /**
+     * Payload předávaný přes WebSocket na frontend.
+     *
+     * @return array<string, mixed>
+     */
+    public function broadcastWith(): array
+    {
+        return [
+            'userId' => $this->userId,
+            'message' => $this->message,
+        ];
+    }
+
+    /**
+     * Název události pro frontend listener (Laravel Echo).
+     */
     public function broadcastAs(): string
     {
-        return 'SystemAlertTriggered'; // Teď máš jistotu, jak se event jmenuje
+        return 'SystemAlertTriggered';
     }
 }

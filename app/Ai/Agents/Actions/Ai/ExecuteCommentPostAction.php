@@ -5,44 +5,63 @@ namespace App\Ai\Agents\Actions\Ai;
 use App\Ai\Agents\Actions\AIAction;
 use App\Ai\Agents\AIAgent;
 use App\Events\CommentCreated;
+use App\Models\Comment;
 use App\Models\Post;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
-class ExecuteCommentPostAction implements AiAction
+class ExecuteCommentPostAction implements AIAction
 {
     public function execute(User $user, array $payload): void
     {
-        $post = Post::inRandomOrder()->first();
+        // 1. Pokud je v payloadu post_id, použijeme ho, jinak vybereme náhodný
+        $postId = $payload['post_id'] ?? null;
+        
+        $post = $postId 
+            ? Post::find($postId) 
+            : Post::inRandomOrder()->first();
+
         if (! $post) {
             return;
         }
 
+        // 2. Vygenerujeme komentář pomocí AI
         $agent = (new AIAgent())->withPersona($user->name);
-        $commentContent = $agent->prompt(
+        
+        $response = $agent->prompt(
             "Write a short, single-sentence comment reacting to this post: \"{$post->content}\". Match your persona. Speak in English. Do not include quotes.",
             provider: ['groq']
-        )->text;
+        );
 
-        $commentId = DB::table('comments')->insertGetId([
+        // Očistíme text od případných nechtěných uvozovek nebo mezer
+        $commentContent = Str::of($response->text ?? '')
+            ->trim()
+            ->replace(['"', "'"], '')
+            ->toString();
+
+        if (empty($commentContent)) {
+            return;
+        }
+
+        // 3. Uložíme komentář přes Eloquent relaci
+        /** @var Comment $comment */
+        $comment = $post->comments()->create([
             'user_id' => $user->id,
-            'post_id' => $post->id,
             'content' => $commentContent,
-            'created_at' => now(),
-            'updated_at' => now(),
         ]);
 
-        if (Schema::hasColumn('posts', 'comments_count')) {
+        // Inkrementujeme počet komentářů, pokud sloupec v modelu existuje
+        if (array_key_exists('comments_count', $post->getAttributes())) {
             $post->increment('comments_count');
         }
 
+        // 4. Odbavíme událost pro frontend (Reverb WebSocket)
         event(new CommentCreated($post->id, [
-            'id' => $commentId,
+            'id' => $comment->id,
             'post_id' => $post->id,
-            'content' => $commentContent,
+            'content' => $comment->content,
             'author' => $user->name ?? 'BOT',
-            'created_at' => now()->toIso8601String(),
+            'created_at' => $comment->created_at->toIso8601String(),
         ], $post->user_id, $user->id));
     }
 }

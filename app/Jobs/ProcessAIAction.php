@@ -9,97 +9,136 @@ use App\Ai\Agents\Actions\Ai\ExecuteLikePostAction;
 use App\Ai\Agents\Actions\Ai\ExecuteSendMessageAction;
 use App\Events\AIActionPerformed;
 use App\Models\User;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ProcessAIAction implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Queueable, InteractsWithQueue, SerializesModels;
 
-    public function __construct(protected int $userId, protected string $actionType, protected array $payload = [])
-    {
-    }
+    /**
+     * Počet pokusů o opakování jobu při selhání.
+     */
+    public int $tries = 3;
+
+    /**
+     * Proleva mezi opakovanými pokusy (v sekundách).
+     */
+    public int $backoff = 5;
+
+    /**
+     * Maximální doba běhu jobu (v sekundách).
+     */
+    public int $timeout = 60;
+
+    /**
+     * Mapa dostupných AI akcí a jejich vykonávacích tříd.
+     */
+    private const ACTION_MAP = [
+        'friend_request' => ExecuteFriendRequestAction::class,
+        'send_message' => ExecuteSendMessageAction::class,
+        'create_post' => ExecuteCreatePostAction::class,
+        'like_post' => ExecuteLikePostAction::class,
+        'comment_post' => ExecuteCommentPostAction::class,
+    ];
+
+    public function __construct(
+        public readonly int $userId,
+        public readonly string $actionType,
+        public readonly array $payload = []
+    ) {}
 
     public function handle(): void
     {
         $user = User::find($this->userId);
+
         if (! $user) {
+            Log::warning("ProcessAIAction skipped: User {$this->userId} not found.");
+
             return;
         }
 
+        // Simulace přirozené prodlevy před vykonáním akce (0.5 - 2.0 s)
         usleep(mt_rand(500000, 2000000));
 
-        if ($this->isRateLimited($user)) {
-            Log::info("AI Profile [{$user->name}] is rate limited. Skipping action: {$this->actionType}");
+        if ($this->isRateLimited($user->id)) {
+            Log::info("ProcessAIAction skipped: AI Profile [{$user->name}] is rate limited for action '{$this->actionType}'.");
 
             return;
         }
 
-        $this->logEventStatus($user->id, 'processing');
-        $this->executeAndLog($user);
+        $eventId = $this->createEventLog($user->id);
+
+        $this->executeAndLog($user, $eventId);
     }
 
-    protected function isRateLimited(User $user): bool
+    private function isRateLimited(int $userId): bool
     {
         return DB::table('ai_profile_events')
-            ->where('user_id', $user->id)
+            ->where('user_id', $userId)
             ->where('executed_at', '>=', now()->subMinute())
             ->count() >= 3;
     }
 
-    protected function executeAction(User $user): void
+    private function executeAndLog(User $user, int $eventId): void
     {
-        $actions = [
-            'friend_request' => ExecuteFriendRequestAction::class,
-            'send_message' => ExecuteSendMessageAction::class,
-            'create_post' => ExecuteCreatePostAction::class,
-            'like_post' => ExecuteLikePostAction::class,
-            'comment_post' => ExecuteCommentPostAction::class,
-        ];
-
-        $actionClass = $actions[$this->actionType] ?? null;
+        $actionClass = self::ACTION_MAP[$this->actionType] ?? null;
 
         if (! $actionClass) {
-            Log::warning("Unknown AI action type: {$this->actionType}");
+            Log::warning("ProcessAIAction: Unknown action type '{$this->actionType}' for User {$user->id}");
+            $this->updateEventStatus($eventId, 'failed');
 
             return;
         }
 
-        app($actionClass)->execute($user, $this->payload);
-    }
-
-    private function executeAndLog(User $user): void
-    {
         try {
-            $this->executeAction($user);
-            $this->logEventStatus($user->id, 'completed');
-            event(new AIActionPerformed($user->id, $this->actionType, $this->payload));
-        } catch (\Exception $e) {
-            Log::error("AI Action Error [{$user->name}] - {$this->actionType}: ".$e->getMessage());
-            $this->logEventStatus($user->id, 'failed');
-        }
-    }
+            app($actionClass)->execute($user, $this->payload);
 
-    private function logEventStatus(int $userId, string $status): void
-    {
-        if ($status === 'processing') {
-            DB::table('ai_profile_events')->insert([
-                'user_id' => $userId, 'action_type' => $this->actionType, 'executed_at' => now(),
-                'status' => 'processing', 'created_at' => now(), 'updated_at' => now(),
+            $this->updateEventStatus($eventId, 'completed');
+
+            event(new AIActionPerformed($user->id, $this->actionType, $this->payload));
+        } catch (Throwable $e) {
+            Log::error("ProcessAIAction Error [{$user->name}] - {$this->actionType}: {$e->getMessage()}", [
+                'exception' => $e,
+                'payload' => $this->payload,
             ]);
 
-            return;
+            $this->updateEventStatus($eventId, 'failed');
         }
+    }
 
+    private function createEventLog(int $userId): int
+    {
+        return DB::table('ai_profile_events')->insertGetId([
+            'user_id' => $userId,
+            'action_type' => $this->actionType,
+            'status' => 'processing',
+            'executed_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function updateEventStatus(int $eventId, string $status): void
+    {
         DB::table('ai_profile_events')
-            ->where('user_id', $userId)
-            ->where('action_type', $this->actionType)
-            ->where('status', 'processing')
-            ->update(['status' => $status, 'updated_at' => now()]);
+            ->where('id', $eventId)
+            ->update([
+                'status' => $status,
+                'updated_at' => now(),
+            ]);
+    }
+
+    /**
+     * Ošetření trvalého selhání jobu.
+     */
+    public function failed(Throwable $exception): void
+    {
+        Log::error("ProcessAIAction failed permanently for User {$this->userId} [{$this->actionType}]: {$exception->getMessage()}");
     }
 }

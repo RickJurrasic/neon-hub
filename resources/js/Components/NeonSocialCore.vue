@@ -83,10 +83,14 @@ watch(() => props.isOpened, (newVal) => {
                 <NeonNav @open-cv="activeTab = 'cv'" class="animate-in fade-in duration-700" />
 
                 <NeonSocialActions class="hidden xl:block" :active-tab="activeTab" @change-view="handleViewChange" />
-                <NeonSocialActions class="block xl:hidden" :is-mobile="true" :active-tab="activeTab"
-                    @change-view="handleViewChange" />
+                <NeonSocialActions 
+    class="block xl:hidden fixed bottom-4 left-4 right-4 max-w-sm md:max-w-xl mx-auto z-40 flex justify-center" 
+    :is-mobile="true" 
+    :active-tab="activeTab" 
+    @change-view="handleViewChange" 
+/>
                 <NeonTechDashboard :isOpened="isOpened" :mode="dashboardMode"
-                    class="hidden xl:block animate-in fade-in duration-700" />
+    class="hidden xl:block mt-8 animate-in fade-in duration-700" />
             </template>
 
             <div class="h-full w-full flex justify-center items-stretch md:px-0">

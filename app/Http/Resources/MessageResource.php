@@ -2,13 +2,11 @@
 
 namespace App\Http\Resources;
 
-use Carbon\Carbon;
-use Illuminate\Http\Request; // Přidáno
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class MessageResource extends JsonResource
 {
-    // Přidán parametr Request $request, aby byla dodržena dědičnost z Laravelu
     #[\Override]
     public function toArray(Request $request): array
     {
@@ -19,8 +17,8 @@ class MessageResource extends JsonResource
             'agent_name' => $this->agent ? str_replace('App\\Ai\\Agents\\', '', $this->agent) : null,
             'text' => $this->text,
             'sender' => $this->determineSender(),
-            'time' => Carbon::parse($this->created_at)->toTimeString(),
-            'created_at' => Carbon::parse($this->created_at)->toIso8601String(),
+            'time' => $this->created_at?->toTimeString(),
+            'created_at' => $this->created_at?->toIso8601String(),
             'read' => true,
             'role' => $this->role,
         ];
@@ -32,7 +30,6 @@ class MessageResource extends JsonResource
             return 'YOU';
         }
 
-        // Pokud používáme objekt, který nemá bot_real_name, fallback na SYSTEM_BOT
         return $this->bot_real_name ?? 'SYSTEM_BOT';
     }
 }

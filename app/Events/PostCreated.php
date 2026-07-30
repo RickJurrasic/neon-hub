@@ -14,25 +14,31 @@ class PostCreated implements ShouldBroadcast
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     /**
-     * Předáme zformátovaný post a ID uživatele, kterému má Reverb zprávu doručit.
+     * Vytvoří novou instanci události pro nový příspěvek.
+     *
+     * @param array<string, mixed> $post Zformátovaný příspěvek.
+     * @param int $userId ID cílového uživatele pro privátní kanál.
      */
-    public function __construct(public array $post, public int $userId)
-    {
-    }
+    public function __construct(
+        public readonly array $post,
+        public readonly int $userId
+    ) {}
 
     /**
-     * Kanál se musí přesně shodovat s tím, co ti poslouchá Vue v useNotificationStore.js
+     * Kanály pro broadcasting (privátní kanál uživatele a veřejný feed).
+     *
+     * @return array<int, Channel>
      */
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('App.Models.User.'.$this->userId),
-            new Channel('posts'), // Veřejný kanal pro feed
+            new PrivateChannel('App.Models.User.' . $this->userId),
+            new Channel('posts'),
         ];
     }
 
     /**
-     * Název události, kterou Echo odchytává v metodě .listen()
+     * Název události pro frontend listener (Laravel Echo).
      */
     public function broadcastAs(): string
     {
@@ -40,7 +46,9 @@ class PostCreated implements ShouldBroadcast
     }
 
     /**
-     * Broadcast payload s profilem (JSON serializace)
+     * Payload předávaný přes WebSocket.
+     *
+     * @return array<string, mixed>
      */
     public function broadcastWith(): array
     {

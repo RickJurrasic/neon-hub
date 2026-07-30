@@ -20,7 +20,6 @@ it('responds to user message, persists to database and dispatches event', functi
     $responseMock = Mockery::mock(AgentResponse::class);
 
     // 2. Nastavíme mocku, aby vracel náš text
-    // Předpokládám, že tvůj kód přistupuje k výsledku přes $response->text
     $responseMock->text = $aiMockResponse;
 
     // 3. Vytvoříme mock AIAgenta
@@ -34,9 +33,9 @@ it('responds to user message, persists to database and dispatches event', functi
     // 5. Vložíme mock do containeru
     $this->instance(AIAgent::class, $agentMock);
 
-    // Act: Spustíme job
+    // Act: Spustíme job přes kontejner, aby se správně injektoval AIAgent mock
     $job = new RespondToUserMessage($user->id, $conversationId);
-    $job->handle();
+    app()->call([$job, 'handle']);
 
     // Assert: Ověříme výsledky
     $this->assertDatabaseHas('agent_conversation_messages', [

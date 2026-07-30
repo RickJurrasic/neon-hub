@@ -28,7 +28,7 @@ defineEmits(['open']);
                 <div class="rotating-border absolute inset-[-100%] opacity-60"></div>
 
                 <div
-                    class="relative bg-[#050914]/90 backdrop-blur-3xl p-4 md:p-12 rounded-[1.7rem] md:rounded-[2.4rem] border border-white/5 shadow-2xl shadow-purple-900/10">
+                    class="relative bg-[#050914]/90 p-4 md:p-12 rounded-[1.7rem] md:rounded-[2.4rem] border border-white/5 shadow-2xl shadow-purple-900/10">
 
                     <h2
                         class="text-purple-400 font-bold text-[7px] md:text-[9px] uppercase tracking-[0.4em] md:tracking-[1em] mb-6 md:mb-10 text-center opacity-70">
