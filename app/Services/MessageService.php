@@ -13,14 +13,14 @@ class MessageService
         protected SendMessageAction $sendMessageAction
     ) {}
 
-    public function getIndexMessages(): Collection
+    /**
+     * Načtení zpráv přes čistý Eloquent. Opraveno where_id na user_id.
+     */
+    public function getIndexMessages(int $userId)
     {
-        return DB::table('agent_conversation_messages as m')
-            ->join('agent_conversations as c', 'm.conversation_id', '=', 'c.id')
-            ->join('users as u', 'c.user_id', '=', 'u.id')
-            ->where('m.user_id', auth()->id())
-            ->orderBy('m.created_at', 'desc')
-            ->select(['m.*', 'u.name as bot_real_name', 'm.content as text'])
+        return AgentConversation::with(['messages', 'sender'])
+            ->where('user_id', $userId)
+            ->latest()
             ->get();
     }
 
@@ -54,18 +54,17 @@ class MessageService
         ];
     }
 
-    public function destroyConversation(int|string $conversationId): bool
+    /**
+     * Smaže konverzaci včetně zpráv. 
+     * Transakce zajistí, že pokud něco selže, databáze se nepoškodí.
+     */
+    public function destroyConversation(int $conversationId): void
     {
-        $conversationExists = DB::table('agent_conversations')->where('id', $conversationId)->exists();
-
-        if (! $conversationExists) {
-            return false;
-        }
-
-        DB::table('agent_conversation_messages')->where('conversation_id', $conversationId)->delete();
-        DB::table('agent_conversations')->where('id', $conversationId)->delete();
-
-        return true;
+        DB::transaction(function () use ($conversationId) {
+            $conversation = AgentConversation::findOrFail($conversationId);
+            $conversation->messages()->delete();
+            $conversation->delete();
+        });
     }
 
     public function findConversationContext(string $messageId): ?array

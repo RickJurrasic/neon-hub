@@ -27,9 +27,9 @@ class ProcessAIAction implements ShouldQueue
     public int $tries = 3;
 
     /**
-     * Proleva mezi opakovanými pokusy (v sekundách).
+     * Proleva mezi opakovanými pokusy (v sekundách) nebo pole pro backoff.
      */
-    public int $backoff = 5;
+    public array $backoff = [15, 30, 60];
 
     /**
      * Maximální doba běhu jobu (v sekundách).
@@ -59,16 +59,15 @@ class ProcessAIAction implements ShouldQueue
 
         if (! $user) {
             Log::warning("ProcessAIAction skipped: User {$this->userId} not found.");
-
             return;
         }
 
-        // Simulace přirozené prodlevy před vykonáním akce (0.5 - 2.0 s)
-        usleep(mt_rand(500000, 2000000));
-
+        // Pokud je uživatel/AI v daném momentu rate limited,
+        // místo blokování přes usleep() vrátíme job zpět do fronty s odloženou platností (např. za 20 sekund).
         if ($this->isRateLimited($user->id)) {
-            Log::info("ProcessAIAction skipped: AI Profile [{$user->name}] is rate limited for action '{$this->actionType}'.");
-
+            Log::info("ProcessAIAction rate limited: AI Profile [{$user->name}] for action '{$this->actionType}'. Releasing back to queue.");
+            
+            $this->release(20);
             return;
         }
 
@@ -109,6 +108,9 @@ class ProcessAIAction implements ShouldQueue
             ]);
 
             $this->updateEventStatus($eventId, 'failed');
+            
+            // Re-throw, aby Laravel věděl, že job selhal a měl případně pokus opakovat
+            throw $e;
         }
     }
 
