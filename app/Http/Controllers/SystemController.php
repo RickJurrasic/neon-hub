@@ -14,11 +14,13 @@ class SystemController extends Controller
     public function initializeNode(): JsonResponse
     {
         try {
-            $userId = auth()->id();
+            $rawUserId = auth()->id();
 
-            if (! $userId) {
+            if (! $rawUserId) {
                 return response()->json(['error' => 'Uživatel není přihlášen.'], 401);
             }
+
+            $userId = (int) $rawUserId;
 
             dispatch(function () use ($userId): void {
                 $sentinel = User::where('name', 'like', '%Sentinel%')
@@ -26,7 +28,7 @@ class SystemController extends Controller
                     ->first();
 
                 if ($sentinel) {
-                    app(SendFriendRequestAction::class)->execute((int) $sentinel->id, (int) $userId);
+                    app(SendFriendRequestAction::class)->execute((int) $sentinel->id, $userId);
                 } else {
                     Log::warning('Sentinel bot nebyl v databázi nalezen pro inicializaci.');
                 }

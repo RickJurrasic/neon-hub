@@ -58,7 +58,7 @@ class AIAgent implements Agent, Conversational, HasTools
             ? $botOrName
             : User::where('name', $botOrName)->first(['name', 'bio']);
 
-        $botName = $bot?->name ?? (is_string($botOrName) ? $botOrName : 'UNKNOWN_ENTITY');
+        $botName = $bot->name ?? (is_string($botOrName) ? $botOrName : 'UNKNOWN_ENTITY');
 
         if ($bot && filled($bot->bio)) {
             $this->personaInstructions = "You are {$bot->name}. {$bot->bio} Maintain a sharp, professional, yet friendly and helpful cyberpunk tone. Respond in English.";

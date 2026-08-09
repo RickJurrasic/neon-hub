@@ -2,12 +2,17 @@
 
 namespace App\Services;
 
+use App\Models\Comment;
 use App\Models\Friendship;
 use App\Models\Post;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
 
 class NeonHubService
 {
+    /**
+     * @return array<string, mixed>
+     */
     public function getInitialState(int $authId): array
     {
         return [
@@ -17,6 +22,9 @@ class NeonHubService
         ];
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
     public function getPostsData(int $authId): array
     {
         return Post::with(['author', 'comments.author'])
@@ -30,11 +38,17 @@ class NeonHubService
             ])
             ->latest()
             ->get()
-            ->map(fn ($post) => $this->transformPost($post, $authId))
+            ->map(function ($post) use ($authId) {
+                /** @var Post $post */
+                return $this->transformPost($post, $authId);
+            })
             ->toArray();
     }
 
-    private function transformPost($post, int $authId): array
+    /**
+     * @return array<string, mixed>
+     */
+    private function transformPost(Post $post, int $authId): array
     {
         return [
             'id' => $post->id,
@@ -51,18 +65,25 @@ class NeonHubService
         ];
     }
 
-    private function transformComments($comments, int $authId): array
+    /**
+     * @param Collection<int, Comment> $comments
+     * @return array<int, array<string, mixed>>
+     */
+    private function transformComments(Collection $comments, int $authId): array
     {
         return $comments->map(fn ($comment) => [
             'id' => $comment->id,
             'author' => $comment->author->name ?? 'ANONYMOUS',
             'text' => $comment->content,
-            'timestamp' => $comment->created_at->format('H:i'),
+            'timestamp' => $comment->created_at?->format('H:i') ?? '00:00',
             'can_edit' => $comment->user_id === $authId,
         ])->toArray();
     }
 
-    private function getFriendshipData($authId): array
+    /**
+     * @return array<string, mixed>
+     */
+    private function getFriendshipData(int $authId): array
     {
         return [
             'requests' => $this->getPendingRequests($authId),
@@ -70,7 +91,10 @@ class NeonHubService
         ];
     }
 
-    private function getPendingRequests($authId): array
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function getPendingRequests(int $authId): array
     {
         return Friendship::where('recipient_id', $authId)
             ->where('status', 'pending')
@@ -84,7 +108,10 @@ class NeonHubService
             ->toArray();
     }
 
-    private function getActiveFriendships($authId): array
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function getActiveFriendships(int $authId): array
     {
         return Friendship::where(function ($q) use ($authId): void {
             $q->where('sender_id', $authId)->orWhere('recipient_id', $authId);
@@ -97,9 +124,14 @@ class NeonHubService
             ->toArray();
     }
 
-    private function transformActiveFriendship($friendship, $authId): ?array
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function transformActiveFriendship(Friendship $friendship, int $authId): ?array
     {
         $friendId = $friendship->sender_id === $authId ? $friendship->recipient_id : $friendship->sender_id;
+        
+        /** @var User|null $friend */
         $friend = User::find($friendId);
 
         if (! $friend) {

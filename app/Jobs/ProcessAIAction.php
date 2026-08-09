@@ -28,6 +28,8 @@ class ProcessAIAction implements ShouldQueue
 
     /**
      * Proleva mezi opakovanými pokusy (v sekundách) nebo pole pro backoff.
+     *
+     * @var array<int, int>
      */
     public array $backoff = [15, 30, 60];
 
@@ -38,8 +40,10 @@ class ProcessAIAction implements ShouldQueue
 
     /**
      * Mapa dostupných AI akcí a jejich vykonávacích tříd.
+     *
+     * @var array<string, class-string>
      */
-    private const ACTION_MAP = [
+    private const array ACTION_MAP = [
         'friend_request' => ExecuteFriendRequestAction::class,
         'send_message' => ExecuteSendMessageAction::class,
         'create_post' => ExecuteCreatePostAction::class,
@@ -47,6 +51,9 @@ class ProcessAIAction implements ShouldQueue
         'comment_post' => ExecuteCommentPostAction::class,
     ];
 
+    /**
+     * @param array<string, mixed> $payload
+     */
     public function __construct(
         public readonly int $userId,
         public readonly string $actionType,
@@ -63,7 +70,6 @@ class ProcessAIAction implements ShouldQueue
         }
 
         // Pokud je uživatel/AI v daném momentu rate limited,
-        // místo blokování přes usleep() vrátíme job zpět do fronty s odloženou platností (např. za 20 sekund).
         if ($this->isRateLimited($user->id)) {
             Log::info("ProcessAIAction rate limited: AI Profile [{$user->name}] for action '{$this->actionType}'. Releasing back to queue.");
             

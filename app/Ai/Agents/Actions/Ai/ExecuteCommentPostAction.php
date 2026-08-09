@@ -17,6 +17,7 @@ class ExecuteCommentPostAction implements AIAction
         // 1. Pokud je v payloadu post_id, použijeme ho, jinak vybereme náhodný
         $postId = $payload['post_id'] ?? null;
         
+        /** @var Post|null $post */
         $post = $postId 
             ? Post::find($postId) 
             : Post::inRandomOrder()->first();
@@ -61,7 +62,7 @@ class ExecuteCommentPostAction implements AIAction
             'post_id' => $post->id,
             'content' => $comment->content,
             'author' => $user->name ?? 'BOT',
-            'created_at' => $comment->created_at->toIso8601String(),
+            'created_at' => $comment->created_at?->toIso8601String() ?? now()->toIso8601String(),
         ], $post->user_id, $user->id));
     }
 }

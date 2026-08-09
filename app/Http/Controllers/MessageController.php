@@ -16,16 +16,20 @@ class MessageController extends Controller
 
     public function index(): AnonymousResourceCollection
     {
-        $messages = $this->messageService->getIndexMessages();
+        // auth()->id() může vrátit int|string|null, služba chce striktně int (nebo si to vynutíme přetypováním)
+        $userId = (int) auth()->id();
+        $messages = $this->messageService->getIndexMessages($userId);
 
         return MessageResource::collection($messages);
     }
 
     public function store(StoreMessageRequest $request): MessageResource|JsonResponse
     {
+        // Služba podle hlášky očekává na 1. pozici string ($messageId), ale předávalo se int. 
+        // Pokud má být messageId string, přetypujeme ho na (string). (Nebo pokud má být int, upravuje se služba – tady předpokládáme string podle chybové hlášky).
         $messageData = $this->messageService->storeMessage(
-            $request->validated('message_id'),
-            $request->validated('text')
+            (string) $request->validated('message_id'),
+            (string) $request->validated('text')
         );
 
         if (! $messageData) {
@@ -35,13 +39,10 @@ class MessageController extends Controller
         return new MessageResource((object) $messageData);
     }
 
-    public function destroy($conversationId): JsonResponse
+    public function destroy(int|string $conversationId): JsonResponse
     {
-        $deleted = $this->messageService->destroyConversation($conversationId);
-
-        if (! $deleted) {
-            return response()->json(['error' => 'NODE_NOT_FOUND'], 404);
-        }
+        // Metoda akceptuje int|string, ale služba chce striktně int. Převedeme to bezpečně na int.
+        $this->messageService->destroyConversation((int) $conversationId);
 
         return response()->json(['status' => 'NODE_PURGED']);
     }

@@ -12,6 +12,9 @@ class ActivityStream
     {
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
     public function get(): array
     {
         $stream = [];
@@ -33,10 +36,13 @@ class ActivityStream
         return $stream;
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $stream
+     */
     private function appendQueueAlert(array &$stream): void
     {
         try {
-            $pending = (int) (Queue::size() ?? 0);
+            $pending = (int) Queue::size();
             if ($pending > 0) {
                 $stream[] = [
                     'timestamp' => now()->format('H:i:s'),

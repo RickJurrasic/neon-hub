@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Schema;
 
 class TableLogCollector
 {
+    /**
+     * @return array<string, mixed>|null
+     */
     public function collect(string $table): ?array
     {
         if (! Schema::hasTable($table)) {

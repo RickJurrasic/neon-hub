@@ -6,6 +6,7 @@ use App\Actions\SendMessageAction;
 use App\Jobs\HandleAgentResponse;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use stdClass;
 
 class MessageService
 {
@@ -14,16 +15,22 @@ class MessageService
     ) {}
 
     /**
-     * Načtení zpráv přes čistý Eloquent. Opraveno where_id na user_id.
+     * Načtení zpráv přes Query Builder.
+     *
+     * @return Collection<int, stdClass>
      */
-    public function getIndexMessages(int $userId)
+    public function getIndexMessages(int $userId): Collection
     {
-        return AgentConversation::with(['messages', 'sender'])
+        /** @var Collection<int, stdClass> */
+        return DB::table('agent_conversations')
             ->where('user_id', $userId)
             ->latest()
             ->get();
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function storeMessage(string $messageId, string $text): ?array
     {
         $context = $this->findConversationContext($messageId);
@@ -35,14 +42,14 @@ class MessageService
         [$original, $conversation] = $context;
 
         $newMessageId = $this->sendMessageAction->execute(
-            auth()->id(),
-            $conversation->user_id,
+            (int) auth()->id(),
+            (int) $conversation->user_id,
             $text,
-            $original->agent,
+            (string) $original->agent,
             'user'
         );
 
-        HandleAgentResponse::dispatch(auth()->id(), $conversation->id);
+        HandleAgentResponse::dispatch((int) auth()->id(), (string) $conversation->id);
 
         return [
             'id' => $newMessageId,
@@ -56,29 +63,34 @@ class MessageService
 
     /**
      * Smaže konverzaci včetně zpráv. 
-     * Transakce zajistí, že pokud něco selže, databáze se nepoškodí.
      */
     public function destroyConversation(int $conversationId): void
     {
-        DB::transaction(function () use ($conversationId) {
-            $conversation = AgentConversation::findOrFail($conversationId);
-            $conversation->messages()->delete();
-            $conversation->delete();
+        DB::transaction(function () use ($conversationId): void {
+            DB::table('agent_conversation_messages')->where('conversation_id', $conversationId)->delete();
+            DB::table('agent_conversations')->where('id', $conversationId)->delete();
         });
     }
 
+    /**
+     * @return array{0: stdClass, 1: stdClass}|null
+     */
     public function findConversationContext(string $messageId): ?array
     {
+        /** @var stdClass|null $original */
         $original = DB::table('agent_conversation_messages')
             ->where('id', $messageId)
-            ->where('user_id', auth()->id())
+            ->where('user_id', (int) auth()->id())
             ->first();
 
         if (! $original) {
             return null;
         }
 
-        $conversation = DB::table('agent_conversations')->where('id', $original->conversation_id)->first();
+        /** @var stdClass|null $conversation */
+        $conversation = DB::table('agent_conversations')
+            ->where('id', $original->conversation_id)
+            ->first();
 
         if (! $conversation) {
             return null;

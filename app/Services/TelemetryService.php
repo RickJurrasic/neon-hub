@@ -15,6 +15,9 @@ class TelemetryService
     ) {
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getTelemetryData(): array
     {
         return [

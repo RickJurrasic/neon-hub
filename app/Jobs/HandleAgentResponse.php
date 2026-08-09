@@ -105,7 +105,12 @@ class HandleAgentResponse implements ShouldQueue
             ->where('id', $conversationId)
             ->first();
 
-        return $conversation ? User::find($conversation->user_id) : null;
+        if (! $conversation) {
+            return null;
+        }
+
+        /** @var User|null */
+        return User::find($conversation->user_id);
     }
 
     private function ensureConversationId(User $agentUser): string

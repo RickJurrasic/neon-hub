@@ -7,9 +7,12 @@ use App\Models\Post;
 
 class LikeService
 {
+    /**
+     * @return array<string, mixed>
+     */
     public function like(Post $post): array
     {
-        $post->likes()->firstOrCreate(['user_id' => auth()->id()]);
+        $post->likes()->firstOrCreate(['user_id' => (int) auth()->id()]);
         $likesCount = $post->likes()->count();
 
         $this->notifyAndBroadcast($post, $likesCount, true);
@@ -20,9 +23,12 @@ class LikeService
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function unlike(Post $post): array
     {
-        $post->likes()->where('user_id', auth()->id())->delete();
+        $post->likes()->where('user_id', (int) auth()->id())->delete();
         $likesCount = $post->likes()->count();
 
         $this->notifyAndBroadcast($post, $likesCount, false);
@@ -38,7 +44,7 @@ class LikeService
         event(new PostLiked(
             $post->id,
             $likesCount,
-            auth()->id(),
+            (int) auth()->id(),
             auth()->user()?->name,
             $isLiked
         ));

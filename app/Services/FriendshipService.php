@@ -7,13 +7,18 @@ use App\Models\User;
 
 class FriendshipService
 {
+    /**
+     * @return array<string, mixed>
+     */
     public function acceptFriendship(Friendship $friendship): array
     {
         $friendship->update(['status' => 'accepted']);
 
-        $authId = auth()->id();
+        $authId = (int) auth()->id();
         $friendId = $friendship->sender_id === $authId ? $friendship->recipient_id : $friendship->sender_id;
-        $friend = User::find($friendId);
+        
+        /** @var User $friend */
+        $friend = User::findOrFail($friendId);
 
         return [
             'status' => 'success',
@@ -21,6 +26,9 @@ class FriendshipService
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function deleteFriendship(Friendship $friendship): array
     {
         $id = $friendship->id;
@@ -32,6 +40,9 @@ class FriendshipService
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function formatFriendResponse(int $friendshipId, User $user, string $status): array
     {
         return [

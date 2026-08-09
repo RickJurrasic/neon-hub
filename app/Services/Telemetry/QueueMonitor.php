@@ -9,7 +9,7 @@ class QueueMonitor
     public function getSize(): int
     {
         try {
-            return (int) (Queue::size() ?? 0);
+            return (int) Queue::size();
         } catch (\Throwable) {
             return 0;
         }

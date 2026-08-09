@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 
 class HandleAIActionPerformed implements ShouldQueue
 {
-    public function handle(AIActionPerformed $event)
+    public function handle(AIActionPerformed $event): void
     {
         // Broadcast is handled automatically by ShouldBroadcastNow
         // Additional logic can be added here if needed

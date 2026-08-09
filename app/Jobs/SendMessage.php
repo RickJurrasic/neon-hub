@@ -29,6 +29,10 @@ class SendMessage implements ShouldQueue
      */
     public int $timeout = 30;
 
+    /**
+     * @param int $userId
+     * @param array<string, mixed> $data
+     */
     public function __construct(
         public readonly int $userId,
         public readonly array $data

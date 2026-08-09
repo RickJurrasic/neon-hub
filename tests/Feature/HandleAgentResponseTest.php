@@ -22,7 +22,7 @@ it('generates agent post and broadcasts event successfully', function (): void {
         agentName: 'SENTINEL_01',
     );
 
-    app()->call([$job, 'handle']);
+    app()->call($job->handle(...));
 
     $this->assertDatabaseHas('posts', [
         'user_id' => $agent->id,

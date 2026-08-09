@@ -16,6 +16,7 @@ class ExecuteLikePostAction implements AIAction
         // 1. Získáme příspěvek z payloadu nebo vybereme náhodný
         $postId = $payload['post_id'] ?? null;
 
+        /** @var Post|null $post */
         $post = $postId
             ? Post::find($postId)
             : Post::inRandomOrder()->first();
@@ -49,7 +50,9 @@ class ExecuteLikePostAction implements AIAction
             $post->increment('likes');
         }
 
-        $likesCount = $post->fresh()->likes_count ?? $post->likes()->count();
+        /** @var Post $freshPost */
+        $freshPost = $post->fresh() ?? $post;
+        $likesCount = $freshPost->likes_count ?? $freshPost->likes()->count();
         $userName = $user->name ?? 'BOT';
 
         // 4. Odbavíme event pro WebSocket
