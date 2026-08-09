@@ -4,10 +4,25 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Override;
 
+/**
+ * @property int $id
+ * @property string $conversation_id
+ * @property string|null $agent
+ * @property string $text
+ * @property string $role
+ * @property string|null $bot_real_name
+ * @property \Illuminate\Support\Carbon|null $created_at
+ */
 class MessageResource extends JsonResource
 {
-    #[\Override]
+    /**
+     * Transform the resource into an array.
+     *
+     * @return array<string, mixed>
+     */
+    #[Override]
     public function toArray(Request $request): array
     {
         return [

@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Ai\Agents\SentinelAgent;
+use App\Ai\Agents\AIAgent;
 use App\Events\MessageReceived;
 use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -25,14 +25,20 @@ class AutoSendAgentMessage implements ShouldQueue
 
     /**
      * Odmlka mezi opakovanými pokusy (v sekundách).
+     *
+     * @var array<int, int>
      */
-    public int $backoff = 5;
+    public array $backoff = [5, 10, 20];
 
     /**
      * Maximální doba běhu jobu (v sekundách).
      */
     public int $timeout = 30;
 
+    /**
+     * @param int $userId
+     * @param string $agentName
+     */
     public function __construct(
         public readonly int $userId,
         public readonly string $agentName = 'SENTINEL_01'
@@ -63,9 +69,11 @@ class AutoSendAgentMessage implements ShouldQueue
 
     private function generateGreeting(string $userName): string
     {
-        $response = SentinelAgent::make()->prompt(
+        $agent = (new AIAgent())->withPersona($this->agentName);
+
+        $response = $agent->prompt(
             "The user {$userName} just joined NeonHub. Write a very short (max 15 words), terse, technical greeting.",
-            provider: ['gemini', 'gemini_fallback', 'groq']
+            provider: ['groq']
         );
 
         return Str::of($response->text ?? '')
@@ -106,7 +114,7 @@ class AutoSendAgentMessage implements ShouldQueue
             'id' => $newMessageId,
             'conversation_id' => $conversationId,
             'user_id' => $userId,
-            'agent' => SentinelAgent::class,
+            'agent' => AIAgent::class,
             'role' => 'assistant',
             'content' => $aiResponse,
             'attachments' => '[]',
@@ -121,7 +129,7 @@ class AutoSendAgentMessage implements ShouldQueue
         event(new MessageReceived($userId, [
             'id' => $newMessageId,
             'conversation_id' => $conversationId,
-            'agent' => SentinelAgent::class,
+            'agent' => AIAgent::class,
             'agent_name' => $this->agentName,
             'sender' => $this->agentName,
             'text' => $aiResponse,

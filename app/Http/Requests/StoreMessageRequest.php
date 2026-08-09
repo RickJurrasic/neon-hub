@@ -11,10 +11,15 @@ class StoreMessageRequest extends FormRequest
         return true;
     }
 
+    /**
+     * Get the validation rules that apply to the request.
+     *
+     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     */
     public function rules(): array
     {
         return [
-            'message_id' => ['required', 'string'], // případně přidat 'uuid' / 'ulid'
+            'message_id' => ['required', 'string'],
             'text' => ['required', 'string', 'max:2000'],
         ];
     }

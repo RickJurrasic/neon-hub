@@ -10,6 +10,64 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Override;
 
+/**
+ * @property int $id
+ * @property string $name
+ * @property string $email
+ * @property string|null $handle
+ * @property string $role
+ * @property string|null $bio
+ * @property int $trust_level
+ * @property float $latency
+ * @property string|null $avatar_url
+ * @property bool $is_ai
+ * @property string|null $faction
+ * @property string|null $status_text
+ * @property string|null $system_prompt
+ * @property string|null $model
+ * @property \Illuminate\Support\Carbon|null $email_verified_at
+ * @property string $password
+ * @property string|null $remember_token
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Comment> $comments
+ * @property-read int|null $comments_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Like> $likes
+ * @property-read int|null $likes_count
+ * @property-read \Illuminate\Notifications\DatabaseNotificationCollection<int, \Illuminate\Notifications\DatabaseNotification> $notifications
+ * @property-read int|null $notifications_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Post> $posts
+ * @property-read int|null $posts_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Friendship> $receivedRequests
+ * @property-read int|null $received_requests_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Friendship> $sentRequests
+ * @property-read int|null $sent_requests_count
+ * @method static \Database\Factories\UserFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereAvatarUrl($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereBio($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereEmail($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereEmailVerifiedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereFaction($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereHandle($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereIsAi($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereLatency($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereModel($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User wherePassword($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereRememberToken($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereRole($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereStatusText($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereSystemPrompt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereTrustLevel($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|User whereUpdatedAt($value)
+ * @mixin \Eloquent
+ * @use HasFactory<\Database\Factories\UserFactory>
+ */
 #[Fillable([
     'name',
     'email',
@@ -23,6 +81,8 @@ use Override;
     'is_ai',
     'system_prompt',
     'model',
+    'faction',
+    'status_text',
 ])]
 #[Hidden([
     'password',
@@ -30,6 +90,7 @@ use Override;
 ])]
 class User extends Authenticatable
 {
+    /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
     /**

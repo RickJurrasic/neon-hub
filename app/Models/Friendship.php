@@ -4,10 +4,34 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property int $sender_id
+ * @property int $recipient_id
+ * @property string $status
+ * @property string|null $message
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\User $recipient
+ * @property-read \App\Models\User $sender
+ * @method static Builder<static>|Friendship accepted()
+ * @method static Builder<static>|Friendship between(int $userA, int $userB)
+ * @method static Builder<static>|Friendship newModelQuery()
+ * @method static Builder<static>|Friendship newQuery()
+ * @method static Builder<static>|Friendship pending()
+ * @method static Builder<static>|Friendship query()
+ * @method static Builder<static>|Friendship whereCreatedAt($value)
+ * @method static Builder<static>|Friendship whereId($value)
+ * @method static Builder<static>|Friendship whereMessage($value)
+ * @method static Builder<static>|Friendship whereRecipientId($value)
+ * @method static Builder<static>|Friendship whereSenderId($value)
+ * @method static Builder<static>|Friendship whereStatus($value)
+ * @method static Builder<static>|Friendship whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
 #[Fillable([
     'sender_id',
     'recipient_id',
@@ -16,13 +40,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class Friendship extends Model
 {
-    use HasFactory;
-
     /**
      * Definice přetypování atributů (Laravel 11+ / 13 standard).
      *
      * @return array<string, string>
      */
+    #[\Override]
     protected function casts(): array
     {
         return [
@@ -63,9 +86,9 @@ class Friendship extends Model
      */
     public function scopeBetween(Builder $query, int $userA, int $userB): Builder
     {
-        return $query->where(function (Builder $q) use ($userA, $userB) {
+        return $query->where(function (Builder $q) use ($userA, $userB): void {
             $q->where('sender_id', $userA)->where('recipient_id', $userB);
-        })->orWhere(function (Builder $q) use ($userA, $userB) {
+        })->orWhere(function (Builder $q) use ($userA, $userB): void {
             $q->where('sender_id', $userB)->where('recipient_id', $userA);
         });
     }

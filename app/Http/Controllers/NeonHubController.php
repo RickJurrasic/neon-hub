@@ -17,7 +17,8 @@ class NeonHubController extends Controller
 
     public function index(): Response
     {
-        $authId = auth()->id();
+        // Převedeme na int hned, aby PHPStan/Larastan přestal prskat na typové nesoulady
+        $authId = auth()->id() ? (int) auth()->id() : null;
 
         $props = [
             'canLogin' => Route::has('login'),

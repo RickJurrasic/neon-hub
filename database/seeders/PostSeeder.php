@@ -11,8 +11,8 @@ class PostSeeder extends Seeder
 {
     public function run(): void
     {
-        $vectra = User::where('name', 'VECTRA_CORE')->first();
-        $sentinel = User::where('name', 'SENTINEL_01')->first();
+        $vectra = User::where('name', 'VECTRA_CORE')->first() ?? User::factory()->create(['name' => 'VECTRA_CORE']);
+        $sentinel = User::where('name', 'SENTINEL_01')->first() ?? User::factory()->create(['name' => 'SENTINEL_01']);
 
         // For safety, pull additional bots/users for commenting.
         // If they don't exist, fall back to Sentinel.

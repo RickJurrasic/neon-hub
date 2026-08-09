@@ -2,9 +2,19 @@
 
 namespace App\Http\Resources;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Override;
 
+/**
+ * @mixin User
+ * @property string|null $avatar
+ * @property string|null $avatar_url
+ * @property string|null $bio
+ * @property string|null $latency
+ * @property int|null $trust_level
+ */
 class UserResource extends JsonResource
 {
     /**
@@ -12,6 +22,7 @@ class UserResource extends JsonResource
      *
      * @return array<string, mixed>
      */
+    #[Override]
     public function toArray(Request $request): array
     {
         return [

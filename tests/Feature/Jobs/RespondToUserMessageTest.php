@@ -35,7 +35,7 @@ it('responds to user message, persists to database and dispatches event', functi
 
     // Act: Spustíme job přes kontejner, aby se správně injektoval AIAgent mock
     $job = new RespondToUserMessage($user->id, $conversationId);
-    app()->call([$job, 'handle']);
+    app()->call($job->handle(...));
 
     // Assert: Ověříme výsledky
     $this->assertDatabaseHas('agent_conversation_messages', [
