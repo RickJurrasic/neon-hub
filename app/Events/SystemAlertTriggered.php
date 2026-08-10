@@ -29,7 +29,7 @@ class SystemAlertTriggered implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('App.Models.User.' . $this->userId),
+            new PrivateChannel('App.Models.User.'.$this->userId),
         ];
     }
 

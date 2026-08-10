@@ -16,7 +16,7 @@ class AIActionPerformed implements ShouldBroadcast
     /**
      * Vytvoří novou instanci události pro broadcasting.
      *
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     public function __construct(
         public readonly int $userId,
@@ -29,7 +29,7 @@ class AIActionPerformed implements ShouldBroadcast
      */
     public function broadcastOn(): Channel
     {
-        return new PrivateChannel('ai-actions.' . $this->userId);
+        return new PrivateChannel('ai-actions.'.$this->userId);
     }
 
     /**

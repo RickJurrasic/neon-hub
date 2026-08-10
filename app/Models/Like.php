@@ -5,15 +5,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
  * @property int $user_id
  * @property int $post_id
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
- * @property-read \App\Models\Post $post
- * @property-read \App\Models\User $user
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read Post $post
+ * @property-read User $user
+ *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Like newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Like newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Like query()
@@ -22,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Like wherePostId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Like whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Like whereUserId($value)
+ *
  * @mixin \Eloquent
  */
 #[Fillable([

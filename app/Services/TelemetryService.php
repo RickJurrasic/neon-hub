@@ -12,8 +12,7 @@ class TelemetryService
         private readonly PulseCollector $pulse,
         private readonly QueueMonitor $queue,
         private readonly ActivityStream $stream
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>

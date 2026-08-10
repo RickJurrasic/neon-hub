@@ -25,7 +25,7 @@ class MessageController extends Controller
 
     public function store(StoreMessageRequest $request): MessageResource|JsonResponse
     {
-        // Služba podle hlášky očekává na 1. pozici string ($messageId), ale předávalo se int. 
+        // Služba podle hlášky očekává na 1. pozici string ($messageId), ale předávalo se int.
         // Pokud má být messageId string, přetypujeme ho na (string). (Nebo pokud má být int, upravuje se služba – tady předpokládáme string podle chybové hlášky).
         $messageData = $this->messageService->storeMessage(
             (string) $request->validated('message_id'),

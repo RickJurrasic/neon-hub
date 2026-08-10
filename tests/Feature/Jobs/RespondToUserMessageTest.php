@@ -43,5 +43,5 @@ it('responds to user message, persists to database and dispatches event', functi
         'content' => $aiMockResponse,
     ]);
 
-    Event::assertDispatched(MessageReceived::class, fn($event) => $event->userId === $user->id && $event->data['text'] === $aiMockResponse);
+    Event::assertDispatched(MessageReceived::class, fn ($event) => $event->userId === $user->id && $event->data['text'] === $aiMockResponse);
 });

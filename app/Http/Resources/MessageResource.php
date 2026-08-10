@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Carbon;
 use Override;
 
 /**
@@ -13,7 +14,7 @@ use Override;
  * @property string $text
  * @property string $role
  * @property string|null $bot_real_name
- * @property \Illuminate\Support\Carbon|null $created_at
+ * @property Carbon|null $created_at
  */
 class MessageResource extends JsonResource
 {

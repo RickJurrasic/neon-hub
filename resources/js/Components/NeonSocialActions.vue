@@ -26,20 +26,25 @@ const unreadAlertsCount = computed(() =>
 </script>
 
 <template>
-    <component :is="isMobile ? 'div' : 'aside'"
+    <component
+:is="isMobile ? 'div' : 'aside'"
         :class="isMobile ? 'mobile-dock-position z-50 w-[92%] max-w-sm' : 'fixed left-8 top-1/2 -translate-y-1/2 z-50 hidden xl:block'">
-        <div class="neon-panel-wrapper"
+        <div
+class="neon-panel-wrapper"
             :class="isMobile ? 'h-16 w-full rounded-full !p-[1px]' : 'h-[75vh] w-40 rounded-[8rem]'">
             <div class="neon-border-active" :class="{ 'mobile-border-override': isMobile }"></div>
-            <div class="neon-glass-core"
+            <div
+class="neon-glass-core"
                 :class="isMobile ? '!flex-row !items-center justify-around h-full w-full rounded-full px-4 py-2' : 'rounded-[7.8rem] py-16 flex flex-col items-center justify-between h-full'">
-                <h2 v-if="!isMobile"
+                <h2
+v-if="!isMobile"
                     class="text-purple-400 font-bold text-[7px] uppercase tracking-[0.5em] mb-8 opacity-50 vertical-text">
                     Neon_Hub</h2>
                 <div
                     :class="isMobile ? 'flex flex-row w-full h-full justify-around items-center' : 'flex-1 h-full flex flex-col justify-around w-full items-center relative'">
 
-                    <div class="action-item group"
+                    <div
+class="action-item group"
                         :class="{ 'is-active': activeTab === 'feed', 'is-mobile-item': isMobile }"
                         @click="$emit('change-view', 'feed')">
                         <span class="label">SYSTEM</span>
@@ -48,14 +53,16 @@ const unreadAlertsCount = computed(() =>
                         </div>
                     </div>
 
-                    <div class="action-item group"
+                    <div
+class="action-item group"
                         :class="{ 'is-active': activeTab === 'friends' || activeTab === 'profile', 'is-mobile-item': isMobile }"
                         @click="$emit('change-view', 'friends')">
                         <span class="label">FRIENDS</span>
                         <div class="icon-style relative">
                             <UserPlus :size="isMobile ? 22 : 32" :stroke-width="1.5" />
 
-                            <div v-if="unreadRequestsCount > 0"
+                            <div
+v-if="unreadRequestsCount > 0"
                                 class="absolute bg-purple-500 text-white rounded-full flex items-center justify-center font-bold font-mono shadow-[0_0_10px_#a855f7] transition-all"
                                 :class="isMobile ? '-top-1.5 -right-1.5 text-[8px] min-w-[14px] h-[14px] px-0.5' : '-top-2 -right-2 text-[10px] min-w-[18px] h-[18px] px-1'">
                                 {{ unreadRequestsCount }}
@@ -63,14 +70,16 @@ const unreadAlertsCount = computed(() =>
                         </div>
                     </div>
 
-                    <div class="action-item group"
+                    <div
+class="action-item group"
                         :class="{ 'is-active': activeTab === 'messages', 'is-mobile-item': isMobile }"
                         @click="$emit('change-view', 'messages')">
                         <span class="label">MESSAGES</span>
                         <div class="icon-style relative">
                             <MessageSquareCode :size="isMobile ? 22 : 32" :stroke-width="1.5" />
 
-                            <div v-if="unreadMessagesCount > 0"
+                            <div
+v-if="unreadMessagesCount > 0"
                                 class="absolute bg-rose-500 text-white rounded-full flex items-center justify-center font-bold font-mono shadow-[0_0_10px_#f43f5e] transition-all"
                                 :class="isMobile ? '-top-1.5 -right-1.5 text-[8px] min-w-[14px] h-[14px] px-0.5' : '-top-2 -right-2 text-[10px] min-w-[18px] h-[18px] px-1'">
                                 {{ unreadMessagesCount }}
@@ -78,14 +87,16 @@ const unreadAlertsCount = computed(() =>
                         </div>
                     </div>
 
-                    <div class="action-item group"
+                    <div
+class="action-item group"
                         :class="{ 'is-active': activeTab === 'notifications', 'is-mobile-item': isMobile }"
                         @click="$emit('change-view', { view: 'notifications', fromMobile: isMobile })">
                         <span class="label">ALERTS</span>
                         <div class="icon-style relative">
                             <BellDot :size="isMobile ? 22 : 32" :stroke-width="1.5" />
 
-                            <div v-if="unreadAlertsCount > 0"
+                            <div
+v-if="unreadAlertsCount > 0"
                                 class="absolute bg-amber-500 text-white rounded-full flex items-center justify-center font-bold font-mono shadow-[0_0_10px_#f59e0b] transition-all"
                                 :class="isMobile ? '-top-1.5 -right-1.5 text-[8px] min-w-[14px] h-[14px] px-0.5' : '-top-2 -right-2 text-[10px] min-w-[18px] h-[18px] px-1'">
                                 {{ unreadAlertsCount }}

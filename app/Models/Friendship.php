@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -13,10 +14,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $recipient_id
  * @property string $status
  * @property string|null $message
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
- * @property-read \App\Models\User $recipient
- * @property-read \App\Models\User $sender
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read User $recipient
+ * @property-read User $sender
+ *
  * @method static Builder<static>|Friendship accepted()
  * @method static Builder<static>|Friendship between(int $userA, int $userB)
  * @method static Builder<static>|Friendship newModelQuery()
@@ -30,6 +32,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @method static Builder<static>|Friendship whereSenderId($value)
  * @method static Builder<static>|Friendship whereStatus($value)
  * @method static Builder<static>|Friendship whereUpdatedAt($value)
+ *
  * @mixin \Eloquent
  */
 #[Fillable([

@@ -16,7 +16,7 @@ class MessageReceived implements ShouldBroadcast
     /**
      * Vytvoří novou instanci události pro přijatou zprávu v chatu.
      *
-     * @param array<string, mixed> $data Data o zprávě (id, text, conversation_id, sender_id atd.).
+     * @param  array<string, mixed>  $data  Data o zprávě (id, text, conversation_id, sender_id atd.).
      */
     public function __construct(
         public readonly int $userId,
@@ -43,7 +43,7 @@ class MessageReceived implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('App.Models.User.' . $this->userId),
+            new PrivateChannel('App.Models.User.'.$this->userId),
         ];
     }
 

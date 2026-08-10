@@ -3,7 +3,7 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useNotificationStore } from '@/Stores/useNotificationStore'
 
-const emit = defineEmits(['back'])
+defineEmits(['back'])
 
 const store = useNotificationStore()
 const { messages } = storeToRefs(store)
@@ -22,9 +22,6 @@ onMounted(() => {
     store.fetchMessages()
 })
 
-/**
- * INBOX = poslední zpráva z každé konverzace (Nejnovější konverzace nahoře)
- */
 const inboxConversations = computed(() => {
     const map = {}
 
@@ -32,7 +29,6 @@ const inboxConversations = computed(() => {
         const convId = m.conversation_id
         if (!convId) return
 
-        // FIX: Porovnáváme primárně přes kompletní timestamp created_at
         const messageDate = new Date(m.created_at || m.time || 0)
 
         if (!map[convId] || new Date(map[convId].created_at || map[convId].time || 0) < messageDate) {
@@ -49,47 +45,35 @@ const inboxConversations = computed(() => {
         }
     })
 
-    // Seřadíme konverzace v inboxu tak, aby nejnovější podle vytvoření byla nahoře
     return Object.values(map).sort(
         (a, b) => new Date(b.created_at || b.time) - new Date(a.created_at || a.time)
     )
 })
 
-/**
- * CHAT = Chronologické řazení (Nejstarší nahoře -> Nejnovější dole)
- */
 const activeChatMessages = computed(() => {
     if (!activeConversationId.value) return []
 
     return messages.value
         .filter(m => String(m.conversation_id) === String(activeConversationId.value))
         .map(m => {
-            // KLÍČOVÁ OPRAVA: Použijeme ...m, abychom stoprocentně zachovali 'role',
-            // 'content' a všechny ostatní původní parametry z backendu!
             return {
                 ...m,
-                // Pro jistotu sjednotíme text i content, ať šablona najde obojí pod jakýmkoliv názvem
                 text: m.text || m.content || '',
                 content: m.content || m.text || '',
-                // Připravíme si časové razítko pro sort
                 createdAt: m.created_at || m.time
             }
         })
-        // Neprůstřelný chronologický sort (Od nejstarší zprávy nahoře po nejnovější dole)
         .sort((a, b) => {
             const dateA = new Date(a.createdAt).getTime()
             const dateB = new Date(b.createdAt).getTime()
 
-            if (!isNaN(dateA) && !isNaN(dateB)) {
+            if (!Number.isNaN(dateA) && !Number.isNaN(dateB)) {
                 return dateA - dateB
             }
             return 0
         })
 })
 
-/**
- * AUTO SCROLL
- */
 const scrollToBottom = () => {
     nextTick(() => {
         if (scrollContainer.value) {
@@ -98,7 +82,6 @@ const scrollToBottom = () => {
     })
 }
 
-// Sledujeme změny ve zprávách a odpalujeme scroll dolů
 watch(activeChatMessages, () => {
     scrollToBottom()
 }, { deep: true })
@@ -110,7 +93,6 @@ function openChat(conv) {
     currentView.value = 'chat'
     replyText.value = ''
 
-    // Zdvojený pojistný scroll, protože v-else-if v šabloně může chvíli montovat DOM element do stránky
     scrollToBottom()
     setTimeout(scrollToBottom, 50)
 }
@@ -148,10 +130,7 @@ async function submitChatReply() {
 }
 
 async function purgeConversation(conversationId) {
-    // Zavoláme novou akci ve storu (viz krok 2 níže)
     await store.deleteConversation(conversationId)
-
-    // Po úspěšném smazání resetujeme stav, čímž se menu schová
     deletingId.value = null
 }
 </script>
@@ -166,13 +145,14 @@ async function purgeConversation(conversationId) {
                     >> INBOX_DECRYPTED
                 </span>
 
-                <button @click="$emit('back')" class="text-[10px] text-cyan-700 underline active:text-white">
+                <button type="button" class="text-[10px] text-cyan-700 underline active:text-white" @click="$emit('back')">
                     CLOSE_SESSION
                 </button>
             </div>
 
             <div class="space-y-6 overflow-y-auto grow pr-1">
-                <div v-for="conv in inboxConversations" :key="conv.conversation_id"
+                <div
+                    v-for="conv in inboxConversations" :key="conv.conversation_id"
                     class="border-l-2 pl-4 py-2 transition-all duration-300 border-fuchsia-600 bg-fuchsia-600/5">
                     <div class="text-[9px] text-fuchsia-500">
                         <span v-if="conv.sender === 'YOU'">
@@ -192,26 +172,28 @@ async function purgeConversation(conversationId) {
                     </div>
 
                     <div class="flex gap-4 mt-2 pt-1 border-t border-white/10">
-                        <button @click="openChat(conv)" class="text-[10px] text-cyan-500 underline">
+                        <button type="button" class="text-[10px] text-cyan-500 underline" @click="openChat(conv)">
                             [OPEN SECURE CHANNEL]
                         </button>
 
-                        <button @click="deletingId = conv.conversation_id" class="text-[10px] text-red-500 underline">
+                        <button type="button" class="text-[10px] text-red-500 underline" @click="deletingId = conv.conversation_id">
                             [PURGE_NODE]
                         </button>
                     </div>
 
-                    <div v-if="deletingId === conv.conversation_id"
+                    <div
+                        v-if="deletingId === conv.conversation_id"
                         class="mt-3 p-3 border border-red-500/30 bg-red-950/10 rounded-xl text-xs text-red-400 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 transition-all duration-300">
                         <span class="font-mono animate-pulse text-[10px]">
                             >> CRITICAL: WIPE ENTIRE DATA NODE AND HISTORY?
                         </span>
                         <div class="flex gap-4 font-bold text-[10px]">
-                            <button @click="purgeConversation(conv.conversation_id)"
-                                class="text-red-500 underline hover:text-red-400">
+                            <button
+                                type="button" class="text-red-500 underline hover:text-red-400"
+                                @click="purgeConversation(conv.conversation_id)">
                                 [YES_PURGE]
                             </button>
-                            <button @click="deletingId = null" class="text-white/50 underline hover:text-white">
+                            <button type="button" class="text-white/50 underline hover:text-white" @click="deletingId = null">
                                 [NO_ABORT]
                             </button>
                         </div>
@@ -233,42 +215,46 @@ async function purgeConversation(conversationId) {
                     </span>
                 </span>
 
-                <button @click="closeChat" class="text-[10px] text-cyan-600 underline">
+                <button type="button" class="text-[10px] text-cyan-600 underline" @click="closeChat">
                     BACK_TO_INBOX
                 </button>
             </div>
 
-            <!-- Kontejner se zprávami -->
             <div ref="scrollContainer" class="space-y-4 overflow-y-auto grow mb-4 flex flex-col p-1">
-    <div v-for="cMsg in activeChatMessages" :key="cMsg.id"
-        class="border-l-2 pl-3 py-1.5 rounded-r-lg max-w-[90%] transition-all duration-200"
-        :class="(cMsg.sender === 'YOU' || cMsg.role === 'user')
-            ? 'border-cyan-500 bg-cyan-500/5 self-end text-right'
-            : 'border-fuchsia-600 bg-fuchsia-600/5 self-start'">
+                <div
+                    v-for="cMsg in activeChatMessages" :key="cMsg.id"
+                    class="border-l-2 pl-3 py-1.5 rounded-r-lg max-w-[90%] transition-all duration-200"
+                    :class="(cMsg.sender === 'YOU' || cMsg.role === 'user')
+                        ? 'border-cyan-500 bg-cyan-500/5 self-end text-right'
+                        : 'border-fuchsia-600 bg-fuchsia-600/5 self-start'">
 
-        <div class="text-[8px] uppercase"
-             :class="(cMsg.sender === 'YOU' || cMsg.role === 'user') ? 'text-cyan-500' : 'text-fuchsia-500'">
-            {{ (cMsg.sender === 'YOU' || cMsg.role === 'user') ? 'YOU' : cMsg.sender }}
-        </div>
+                    <div
+                        class="text-[8px] uppercase"
+                        :class="(cMsg.sender === 'YOU' || cMsg.role === 'user') ? 'text-cyan-500' : 'text-fuchsia-500'">
+                        {{ (cMsg.sender === 'YOU' || cMsg.role === 'user') ? 'YOU' : cMsg.sender }}
+                    </div>
 
-        <div class="text-xs text-white mt-1 break-words">
-            "{{ cMsg.text }}"
-        </div>
+                    <div class="text-xs text-white mt-1 break-words">
+                        "{{ cMsg.text }}"
+                    </div>
 
-        <div class="text-[7px] text-white/30 mt-1">
-            {{ cMsg.time }}
-        </div>
-    </div>
-</div>
+                    <div class="text-[7px] text-white/30 mt-1">
+                        {{ cMsg.time }}
+                    </div>
+                </div>
+            </div>
 
             <div class="border border-cyan-500/30 p-2 bg-black/90 rounded-xl shrink-0">
                 <div class="flex gap-2">
-                    <input v-model="replyText" type="text" placeholder="Type datastream..."
+                    <label for="chat-reply-input" class="sr-only">Type datastream</label>
+                    <input
+                        id="chat-reply-input" v-model="replyText" type="text" placeholder="Type datastream..."
                         class="bg-black border border-cyan-500/20 rounded-lg px-3 py-2 text-xs text-white w-full focus:outline-none focus:border-cyan-500"
                         @keyup.enter="submitChatReply" />
 
-                    <button @click="submitChatReply"
-                        class="text-[10px] bg-cyan-500 text-black px-5 py-2 rounded-lg font-bold hover:bg-cyan-400 active:scale-95 transition-all">
+                    <button
+                        type="button" class="text-[10px] bg-cyan-500 text-black px-5 py-2 rounded-lg font-bold hover:bg-cyan-400 active:scale-95 transition-all"
+                        @click="submitChatReply">
                         SEND
                     </button>
                 </div>
@@ -282,7 +268,6 @@ async function purgeConversation(conversationId) {
     scroll-behavior: smooth;
 }
 
-/* Stylování scrollbaru pro tvůj sci-fi look */
 div::-webkit-scrollbar {
     width: 4px;
 }

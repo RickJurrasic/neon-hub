@@ -30,7 +30,7 @@ class NotificationFlowTest extends TestCase
         event(new MessageReceived($user->id, $messageData));
 
         // Ověření, že event byl dispatchnut s očekávanými daty
-        Event::assertDispatched(MessageReceived::class, fn($event) => $event->userId === $user->id && $event->data === $messageData);
+        Event::assertDispatched(MessageReceived::class, fn ($event) => $event->userId === $user->id && $event->data === $messageData);
     }
 
     /** @test */

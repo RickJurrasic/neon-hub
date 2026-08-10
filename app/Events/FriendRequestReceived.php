@@ -16,7 +16,7 @@ class FriendRequestReceived implements ShouldBroadcast
     /**
      * Vytvoří novou instanci události pro přijatou žádost o přátelství.
      *
-     * @param array<string, mixed> $data Data o odesílateli / žádosti pro Pinia store.
+     * @param  array<string, mixed>  $data  Data o odesílateli / žádosti pro Pinia store.
      */
     public function __construct(
         public readonly int $userId,
@@ -31,7 +31,7 @@ class FriendRequestReceived implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('App.Models.User.' . $this->userId),
+            new PrivateChannel('App.Models.User.'.$this->userId),
         ];
     }
 

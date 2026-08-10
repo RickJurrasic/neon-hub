@@ -39,7 +39,8 @@ async function submitComment() {
 <template>
     <div class="mt-4 border-t border-cyan-500/10 pt-4 font-mono">
         <div class="space-y-3 max-h-60 overflow-y-auto pr-1 no-scrollbar mb-4">
-            <div v-for="comment in comments" :key="comment.id"
+            <div
+v-for="comment in comments" :key="comment.id"
                 class="border-l border-fuchsia-500/30 bg-fuchsia-500/5 p-2 rounded-r-xl transition-all duration-300">
                 <div class="flex justify-between items-center text-[10px]">
                     <span class="text-fuchsia-400 font-bold">// {{ comment.author }}</span>
@@ -57,11 +58,14 @@ async function submitComment() {
 
         <div class="border border-cyan-500/20 p-1.5 bg-black/40 rounded-xl">
             <div class="flex gap-2">
-                <input v-model="commentText" type="text" placeholder="Write a comment..."
+                <label :for="`comment-input-${postId}`" class="sr-only">Write a comment</label>
+                <input
+:id="`comment-input-${postId}`" v-model="commentText" type="text" placeholder="Write a comment..."
                     class="bg-black border border-cyan-500/10 rounded-lg px-3 py-1.5 text-xs text-white w-full focus:outline-none focus:border-cyan-500 transition-all duration-300"
                     @keyup.enter="submitComment" />
-                <button @click="submitComment"
-                    class="text-[10px] bg-cyan-500 text-black px-4 py-1.5 rounded-lg font-bold hover:bg-cyan-400 active:scale-95 transition-all shrink-0">
+                <button
+type="button" class="text-[10px] bg-cyan-500 text-black px-4 py-1.5 rounded-lg font-bold hover:bg-cyan-400 active:scale-95 transition-all shrink-0"
+                    @click="submitComment">
                     EXECUTE
                 </button>
             </div>

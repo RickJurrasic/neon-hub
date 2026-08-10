@@ -16,7 +16,7 @@ use Throwable;
 
 class AutoSendAgentMessage implements ShouldQueue
 {
-    use Queueable, InteractsWithQueue, SerializesModels;
+    use InteractsWithQueue, Queueable, SerializesModels;
 
     /**
      * Počet pokusů o opakováni jobu při selhání.
@@ -35,10 +35,6 @@ class AutoSendAgentMessage implements ShouldQueue
      */
     public int $timeout = 30;
 
-    /**
-     * @param int $userId
-     * @param string $agentName
-     */
     public function __construct(
         public readonly int $userId,
         public readonly string $agentName = 'SENTINEL_01'

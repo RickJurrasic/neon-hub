@@ -17,7 +17,7 @@ use Throwable;
 
 class RespondToUserMessage implements ShouldQueue
 {
-    use Queueable, InteractsWithQueue, SerializesModels;
+    use InteractsWithQueue, Queueable, SerializesModels;
 
     /**
      * Počet pokusů o opakování jobu při selhání LLM API.

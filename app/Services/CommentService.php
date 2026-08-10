@@ -10,7 +10,7 @@ use App\Models\Post;
 class CommentService
 {
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
     public function createComment(Post $post, array $data): array
@@ -28,7 +28,7 @@ class CommentService
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     public function updateComment(Comment $comment, array $data): Comment
     {
@@ -58,7 +58,7 @@ class CommentService
     }
 
     /**
-     * @param array<string, mixed> $commentData
+     * @param  array<string, mixed>  $commentData
      */
     private function notifyAndBroadcast(Post $post, array $commentData): void
     {

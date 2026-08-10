@@ -62,7 +62,7 @@ class MessageService
     }
 
     /**
-     * Smaže konverzaci včetně zpráv. 
+     * Smaže konverzaci včetně zpráv.
      */
     public function destroyConversation(int $conversationId): void
     {

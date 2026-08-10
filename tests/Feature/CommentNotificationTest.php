@@ -28,7 +28,7 @@ test('majitel příspěvku obdrží notifikaci, když cizí uživatel přidá ko
     ]);
 
     // 5. Ověření: Event NewActivityAlert byl odeslán majiteli
-    Event::assertDispatched(NewActivityAlert::class, fn($event) => $event->userId === $owner->id);
+    Event::assertDispatched(NewActivityAlert::class, fn ($event) => $event->userId === $owner->id);
 });
 
 test('majitel příspěvku neobdrží notifikaci, pokud okomentuje svůj vlastní příspěvek', function (): void {

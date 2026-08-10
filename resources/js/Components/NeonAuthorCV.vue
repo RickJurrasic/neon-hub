@@ -57,8 +57,9 @@ const techStack = [
                     Security Clearance: LEVEL_5_CREATOR // STATUS: ACTIVE_DEVELOPER
                 </p>
             </div>
-            <button @click="$emit('back')"
-                class="border border-fuchsia-500/40 px-3 py-1 rounded-full text-[9px] md:text-[10px] text-fuchsia-400 hover:bg-fuchsia-500/20 hover:border-fuchsia-500 transition-all cursor-pointer select-none">
+            <button
+type="button" class="border border-fuchsia-500/40 px-3 py-1 rounded-full text-[9px] md:text-[10px] text-fuchsia-400 hover:bg-fuchsia-500/20 hover:border-fuchsia-500 transition-all cursor-pointer select-none"
+                @click="$emit('back')">
                 CLOSE [X]
             </button>
         </div>
@@ -80,7 +81,8 @@ const techStack = [
                     <div class="flex items-center gap-3 justify-center md:justify-start">
                         <div class="text-xs font-semibold text-fuchsia-400 uppercase tracking-wider">Technical Support
                             Specialist & Aspiring Full-Stack Developer</div>
-                        <a href="https://github.com/RickJurrasic" target="_blank"
+                        <a
+href="https://github.com/RickJurrasic" target="_blank"
                             class="text-slate-400 hover:text-sky-400">
                             <Github :size="14" />
                         </a>
@@ -111,7 +113,8 @@ const techStack = [
                                     <span class="text-sky-400/80 font-mono">{{ tech.level }}%</span>
                                 </div>
                                 <div class="h-1 bg-[#02040a] rounded-full overflow-hidden border border-white/5">
-                                    <div class="h-full bg-gradient-to-r from-sky-500 to-fuchsia-500 transition-all duration-1000"
+                                    <div
+class="h-full bg-gradient-to-r from-sky-500 to-fuchsia-500 transition-all duration-1000"
                                         :style="{ width: tech.level + '%' }"></div>
                                 </div>
                             </div>
@@ -217,13 +220,15 @@ const techStack = [
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-sky-500/10 shrink-0">
-                <button @click="copyEmail"
-                    class="w-full bg-sky-500/10 border border-sky-500/40 py-2.5 rounded-xl text-[10px] text-sky-400 uppercase font-bold hover:bg-sky-500/20 hover:border-sky-500 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 select-none">
+                <button
+type="button" class="w-full bg-sky-500/10 border border-sky-500/40 py-2.5 rounded-xl text-[10px] text-sky-400 uppercase font-bold hover:bg-sky-500/20 hover:border-sky-500 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 select-none"
+                    @click="copyEmail">
                     <CheckCircle2 v-if="copied" :size="12" class="text-emerald-400" />
                     <Mail v-else :size="12" />
                     {{ copied ? 'Email Copied!' : 'Copy Contact Email' }}
                 </button>
-                <a href="/assets/erik-sternad-cv.pdf" download="Erik_Sternad_CV.pdf"
+                <a
+href="/assets/erik-sternad-cv.pdf" download="Erik_Sternad_CV.pdf"
                     class="w-full bg-gradient-to-r from-fuchsia-600/20 to-sky-600/20 border border-fuchsia-500/40 py-2.5 rounded-xl text-[10px] text-white uppercase font-bold hover:from-fuchsia-600/30 hover:to-sky-600/30 hover:border-fuchsia-500 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 text-center select-none">
                     <Download :size="12" class="text-fuchsia-400" />
                     Download Official CV (PDF)

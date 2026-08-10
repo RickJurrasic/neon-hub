@@ -16,8 +16,8 @@ class PostCreated implements ShouldBroadcast
     /**
      * Vytvoří novou instanci události pro nový příspěvek.
      *
-     * @param array<string, mixed> $post Zformátovaný příspěvek.
-     * @param int $userId ID cílového uživatele pro privátní kanál.
+     * @param  array<string, mixed>  $post  Zformátovaný příspěvek.
+     * @param  int  $userId  ID cílového uživatele pro privátní kanál.
      */
     public function __construct(
         public readonly array $post,
@@ -32,7 +32,7 @@ class PostCreated implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('App.Models.User.' . $this->userId),
+            new PrivateChannel('App.Models.User.'.$this->userId),
             new Channel('posts'),
         ];
     }

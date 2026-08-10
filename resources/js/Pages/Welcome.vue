@@ -31,8 +31,8 @@ watch(isOpened, (newVal) => {
 
 <template>
     <div class="relative h-screen w-full bg-black overflow-hidden font-sans text-slate-200">
-        <NeonSocialCore :isOpened="isOpened" :initialState="page.props.initialState" />
-        <NeonGate :isOpened="isOpened" />
-        <NeonOverlay :isOpened="isOpened" @open="openSystem" />
+        <NeonSocialCore :is-opened="isOpened" :initial-state="page.props.initialState" />
+        <NeonGate :is-opened="isOpened" />
+        <NeonOverlay :is-opened="isOpened" @open="openSystem" />
     </div>
 </template>

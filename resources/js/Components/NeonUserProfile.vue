@@ -48,13 +48,14 @@ const latency = computed(() => entity.value?.latency || '24ms_STABLE');
                     ACCESSING_DATABASE... {{ entity ? 'DONE' : 'NOT_FOUND' }}
                 </p>
             </div>
-            <button @click="$emit('back')"
-                class="border border-purple-500/50 px-2 md:px-3 py-1 text-[9px] md:text-[10px] text-purple-400 hover:bg-purple-500/20 transition-all">
+            <button
+                type="button" class="border border-purple-500/50 px-2 md:px-3 py-1 text-[9px] md:text-[10px] text-purple-400 hover:bg-purple-500/20 transition-all"
+                @click="$emit('back')">
                 CLOSE [X]
             </button>
         </div>
 
-        <div v-if="entity" class="grow space-y-4 relative z-10 overflow-hidden">
+        <div v-if="entity" class="grow space-y-4 relative z-10 overflow-hidden flex flex-col">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
 
                 <div class="col-span-1 flex flex-row md:flex-col gap-3 md:space-y-4 items-center md:items-stretch">
@@ -63,15 +64,17 @@ const latency = computed(() => entity.value?.latency || '24ms_STABLE');
                         <div
                             class="absolute inset-1.5 border border-purple-500/20 group-hover:border-purple-500/80 transition-all z-20 pointer-events-none">
                         </div>
-                        <img v-if="entity.avatar" :src="entity.avatar"
+                        <img
+                            v-if="entity.avatar" :src="entity.avatar" alt="Entity Avatar"
                             class="w-full h-full object-cover relative z-10" />
                         <span v-else class="text-2xl md:text-4xl text-purple-500/40 relative z-10">?</span>
                     </div>
 
                     <div class="bg-white/5 border border-white/10 p-2 w-full">
-                        <div class="text-[8px] text-purple-500">TRUST_LEVEL</div>
+                        <span class="text-[8px] text-purple-500 block">TRUST_LEVEL</span>
                         <div class="h-1 bg-purple-900 mt-1">
-                            <div class="h-full bg-purple-500 shadow-[0_0_10px_#a855f7] transition-all duration-500"
+                            <div
+                                class="h-full bg-purple-500 shadow-[0_0_10px_#a855f7] transition-all duration-500"
                                 :style="{ width: trustLevel + '%' }"></div>
                         </div>
                     </div>
@@ -79,7 +82,7 @@ const latency = computed(() => entity.value?.latency || '24ms_STABLE');
 
                 <div class="col-span-1 md:col-span-2 space-y-3 md:space-y-6">
                     <div>
-                        <label class="text-[8px] md:text-[9px] text-purple-500 block mb-1">IDENTIFICATION_TAG</label>
+                        <span class="text-[8px] md:text-[9px] text-purple-500 block mb-1">IDENTIFICATION_TAG</span>
                         <div
                             class="text-white text-xs md:text-lg tracking-widest bg-white/5 p-1.5 border-l-2 border-purple-500 truncate uppercase">
                             {{ idTag }}
@@ -88,18 +91,18 @@ const latency = computed(() => entity.value?.latency || '24ms_STABLE');
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="text-[8px] md:text-[9px] text-purple-500 block mb-1">LAST_SEEN_LATENCY</label>
+                            <span class="text-[8px] md:text-[9px] text-purple-500 block mb-1">LAST_SEEN_LATENCY</span>
                             <div class="text-[10px] md:text-xs text-white/80">{{ latency }}</div>
                         </div>
                         <div>
-                            <label class="text-[8px] md:text-[9px] text-purple-500 block mb-1">NETWORK_ROLE</label>
+                            <span class="text-[8px] md:text-[9px] text-purple-500 block mb-1">NETWORK_ROLE</span>
                             <div class="text-[10px] md:text-xs text-white/80 uppercase">{{ networkRole }}</div>
                         </div>
                     </div>
 
                     <div class="border border-white/5 p-2 md:p-4 bg-white/[0.02]">
-                        <label
-                            class="text-[8px] md:text-[9px] text-purple-500 block mb-1 md:mb-2 underline">ENCRYPTED_BIO</label>
+                        <span
+                            class="text-[8px] md:text-[9px] text-purple-500 block mb-1 md:mb-2 underline">ENCRYPTED_BIO</span>
                         <p class="text-[9px] md:text-[11px] text-white/60 leading-tight italic whitespace-pre-line">
                             {{ bio }}
                         </p>
@@ -109,10 +112,12 @@ const latency = computed(() => entity.value?.latency || '24ms_STABLE');
 
             <div class="mt-4 flex flex-col md:flex-row gap-2 md:gap-4 shrink-0">
                 <button
+                    type="button"
                     class="w-full bg-purple-600/20 border border-purple-500/50 py-2 text-[9px] md:text-[10px] text-white uppercase hover:bg-purple-600/40 transition-all tracking-tighter truncate">
                     Send_Encrypted_Message
                 </button>
                 <button
+                    type="button"
                     class="w-full border border-red-500/30 py-2 text-[9px] md:text-[10px] text-red-400 uppercase hover:bg-red-500/10 transition-all tracking-tighter truncate">
                     Sever_Connection
                 </button>
@@ -120,6 +125,7 @@ const latency = computed(() => entity.value?.latency || '24ms_STABLE');
         </div>
 
         <div v-else class="text-center py-12 text-red-400 text-xs tracking-widest">
-            >> ERROR: INVALID_ENTITY_ID_ACCESS_DENIED << </div>
+            >> ERROR: INVALID_ENTITY_ID_ACCESS_DENIED &lt;&lt;
         </div>
+    </div>
 </template>

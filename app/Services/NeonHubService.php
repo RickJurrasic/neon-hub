@@ -66,7 +66,7 @@ class NeonHubService
     }
 
     /**
-     * @param Collection<int, Comment> $comments
+     * @param  Collection<int, Comment>  $comments
      * @return array<int, array<string, mixed>>
      */
     private function transformComments(Collection $comments, int $authId): array
@@ -130,7 +130,7 @@ class NeonHubService
     private function transformActiveFriendship(Friendship $friendship, int $authId): ?array
     {
         $friendId = $friendship->sender_id === $authId ? $friendship->recipient_id : $friendship->sender_id;
-        
+
         /** @var User|null $friend */
         $friend = User::find($friendId);
 

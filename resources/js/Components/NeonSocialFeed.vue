@@ -107,18 +107,21 @@ defineExpose({
 </script>
 
 <template>
-    <main ref="mainContainer"
+    <main
+ref="mainContainer"
         class="w-full h-full overflow-y-auto no-scrollbar flex justify-center items-start pt-[14vh] pb-[15vh] scroll-smooth relative">
 
-        <Transition enter-active-class="transition duration-500 ease-out"
+        <Transition
+enter-active-class="transition duration-500 ease-out"
             enter-from-class="transform -translate-y-4 opacity-0 scale-95"
             enter-to-class="transform translate-y-0 opacity-100 scale-100"
             leave-active-class="transition duration-300 ease-in"
             leave-from-class="transform translate-y-0 opacity-100 scale-100"
             leave-to-class="transform -translate-y-4 opacity-0 scale-95">
             <div v-if="incomingPostsCount > 0" class="absolute top-[16vh] z-30 left-1/2 -translate-x-1/2">
-                <button @click="loadIncomingPosts"
-                    class="flex items-center gap-2 bg-[#050914]/90 border border-sky-500/40 text-sky-400 font-mono text-[10px] tracking-[0.2em] uppercase px-4 py-2.5 rounded-full shadow-[0_0_15px_rgba(56,189,248,0.15)] hover:bg-sky-950/40 hover:border-sky-400 transition-all cursor-pointer backdrop-blur-md">
+                <button
+type="button" class="flex items-center gap-2 bg-[#050914]/90 border border-sky-500/40 text-sky-400 font-mono text-[10px] tracking-[0.2em] uppercase px-4 py-2.5 rounded-full shadow-[0_0_15px_rgba(56,189,248,0.15)] hover:bg-sky-950/40 hover:border-sky-400 transition-all cursor-pointer backdrop-blur-md"
+                    @click="loadIncomingPosts">
                     <ArrowUp :size="12" class="animate-bounce" />
                     <span>New posts ({{ incomingPostsCount }})</span>
                 </button>
@@ -127,12 +130,14 @@ defineExpose({
 
         <div class="w-full max-w-3xl mx-auto px-4 md:px-8 flex flex-col items-stretch gap-6 md:gap-10 pb-12">
 
-            <div v-if="visiblePosts.length === 0"
+            <div
+v-if="visiblePosts.length === 0"
                 class="w-full text-center py-12 font-mono text-slate-500 text-xs tracking-[0.2em]">
                 >> NO_ACTIVE_LOGS_IN_FEED
             </div>
 
-            <NeonSocialPost v-for="post in visiblePosts" :key="post.id" :id="'post-' + post.id" :post="post"
+            <NeonSocialPost
+v-for="post in visiblePosts" :id="'post-' + post.id" :key="post.id" :post="post"
                 class="w-full" />
 
         </div>

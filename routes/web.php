@@ -14,7 +14,7 @@ Route::get('/', [NeonHubController::class, 'index'])->name('neon.hub');
 
 // Zabezpečené trasy pro přihlášené uživatele
 Route::middleware('auth')->group(function (): void {
-    
+
     // Posts & Comments
     Route::post('/posts/{post}/like', [LikeController::class, 'store'])->name('posts.like');
     Route::delete('/posts/{post}/like', [LikeController::class, 'destroy'])->name('posts.unlike');
@@ -36,4 +36,4 @@ Route::middleware('auth')->group(function (): void {
 });
 
 // Dashboard
-Route::get('/dashboard', fn() => inertia('Dashboard'))->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', fn () => inertia('Dashboard'))->middleware(['auth', 'verified'])->name('dashboard');
