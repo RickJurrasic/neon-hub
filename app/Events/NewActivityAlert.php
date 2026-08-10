@@ -26,7 +26,7 @@ class NewActivityAlert implements ShouldBroadcast
      */
     public function broadcastOn(): Channel
     {
-        return new PrivateChannel('App.Models.User.' . $this->userId);
+        return new PrivateChannel('App.Models.User.'.$this->userId);
     }
 
     /**

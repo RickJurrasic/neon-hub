@@ -20,7 +20,8 @@ const toggleComments = () => {
 </script>
 
 <template>
-    <article class="neon-panel-wrapper w-full rounded-[1.5rem] min-h-[100px] opacity-100 scale-100 translate-y-0"
+    <article
+class="neon-panel-wrapper w-full rounded-[1.5rem] min-h-[100px] opacity-100 scale-100 translate-y-0"
         style="overflow-anchor: none;">
 
         <div class="relative w-full">
@@ -49,7 +50,8 @@ const toggleComments = () => {
                     </p>
                 </div>
 
-                <div v-if="post.image"
+                <div
+v-if="post.image"
                     class="w-full mt-4 relative overflow-hidden rounded-lg border border-sky-500/10 bg-black/40 group">
                     <div
                         class="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[size:100%_4px,3px_100%] z-10 pointer-events-none opacity-40">
@@ -64,7 +66,8 @@ const toggleComments = () => {
                         <span>VISUAL_ATTACHMENT // {{ post.image_meta || 'SECURE_LINK' }}</span>
                     </div>
 
-                    <img :src="post.image" alt="Visual Payload"
+                    <img
+:src="post.image" alt="Visual Payload"
                         class="w-full h-auto max-h-[35vh] object-cover transition-all duration-700 opacity-100 md:opacity-85 md:group-hover:opacity-100 md:scale-100 md:group-hover:scale-[1.01] filter grayscale-0 md:grayscale md:group-hover:grayscale-0" />
                 </div>
 
@@ -72,9 +75,11 @@ const toggleComments = () => {
                     class="w-full mt-4 md:mt-5 pt-4 border-t border-white/5 flex justify-between items-center text-slate-500">
                     <div class="flex gap-5 md:gap-8">
 
-                        <button @click="notificationStore.toggleLike(post)"
-                            class="group flex items-center gap-2 font-mono text-[10px] hover:text-sky-400 transition-colors uppercase tracking-widest outline-none">
-                            <Heart :size="13" :class="[
+                        <button
+type="button" class="group flex items-center gap-2 font-mono text-[10px] hover:text-sky-400 transition-colors uppercase tracking-widest outline-none"
+                            @click="notificationStore.toggleLike(post)">
+                            <Heart
+:size="13" :class="[
                                 post.is_liked
                                     ? 'text-sky-400 fill-sky-400/20 drop-shadow-[0_0_8px_#3b82f6] scale-110'
                                     : 'group-hover:scale-110 transition-transform'
@@ -83,9 +88,11 @@ const toggleComments = () => {
                             <span class="text-sky-500/50 font-bold">({{ post.likes_count || 0 }})</span>
                         </button>
 
-                        <button @click="toggleComments"
-                            class="group flex items-center gap-2 font-mono text-[10px] hover:text-fuchsia-400 transition-colors uppercase tracking-widest outline-none">
-                            <MessageSquare :size="13" :class="{ 'text-fuchsia-400 scale-110': showComments }"
+                        <button
+type="button" class="group flex items-center gap-2 font-mono text-[10px] hover:text-fuchsia-400 transition-colors uppercase tracking-widest outline-none"
+                            @click="toggleComments">
+                            <MessageSquare
+:size="13" :class="{ 'text-fuchsia-400 scale-110': showComments }"
                                 class="group-hover:scale-110 transition-transform" />
                             <span>Comms</span>
                             <span class="text-fuchsia-500/50 font-bold">({{ post.comments_count || 0 }})</span>
@@ -97,7 +104,8 @@ const toggleComments = () => {
                     </div>
                 </div>
 
-                <Transition enter-active-class="transition duration-300 ease-out"
+                <Transition
+enter-active-class="transition duration-300 ease-out"
                     enter-from-class="transform scale-98 opacity-0 -translate-y-1"
                     enter-to-class="transform scale-100 opacity-100 translate-y-0"
                     leave-active-class="transition duration-200 ease-in"

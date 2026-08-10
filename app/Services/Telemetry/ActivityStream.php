@@ -8,9 +8,7 @@ use Illuminate\Support\Facades\Queue;
 
 class ActivityStream
 {
-    public function __construct(private readonly TableLogCollector $collector)
-    {
-    }
+    public function __construct(private readonly TableLogCollector $collector) {}
 
     /**
      * @return array<int, array<string, mixed>>
@@ -37,7 +35,7 @@ class ActivityStream
     }
 
     /**
-     * @param array<int, array<string, mixed>> $stream
+     * @param  array<int, array<string, mixed>>  $stream
      */
     private function appendQueueAlert(array &$stream): void
     {

@@ -9,7 +9,7 @@ interface AIAction
     /**
      * Spustí konkrétní AI akci pro daného uživatele/bota.
      *
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     public function execute(User $user, array $payload): void;
 }

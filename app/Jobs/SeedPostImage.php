@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 
 class SeedPostImage implements ShouldQueue
 {
-    use Queueable, InteractsWithQueue, SerializesModels;
+    use InteractsWithQueue, Queueable, SerializesModels;
 
     public function __construct(
         public readonly string $postType = 'AI_FEED'
@@ -26,6 +26,6 @@ class SeedPostImage implements ShouldQueue
      */
     public static function generate(): string
     {
-        return 'https://picsum.photos/800/600?' . Str::random(10);
+        return 'https://picsum.photos/800/600?'.Str::random(10);
     }
 }

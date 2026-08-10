@@ -5,15 +5,22 @@ import { Cpu, ShieldAlert, Terminal, Activity, Database, Server } from '@lucide/
 import { useNotificationStore } from '@/Stores/useNotificationStore';
 import axios from 'axios';
 
-const props = defineProps({ isOpened: Boolean, mode: String });
-const store = useNotificationStore();
+const props = defineProps({
+    isOpened: {
+        type: Boolean,
+        default: false,
+    },
+    mode: {
+        type: String,
+        default: 'diagnostics',
+    },
+});
 
-// Reaktivní reference z Pinia pro Alert sekci
+const store = useNotificationStore();
 const { alerts } = storeToRefs(store);
 
 const isAlertMode = computed(() => props.mode === 'alerts');
 
-// --- TELEMETRIE (LARAVEL PULSE & AGENT STREAM) ---
 const telemetry = ref(null);
 const isLoading = ref(true);
 let pollingInterval = null;
@@ -31,7 +38,6 @@ const fetchTelemetry = async () => {
 
 onMounted(() => {
     fetchTelemetry();
-    // Polling: Každých 5 sekund stáhneme čerstvý stav ze serveru
     pollingInterval = setInterval(fetchTelemetry, 5000);
 });
 
@@ -43,14 +49,17 @@ onUnmounted(() => {
 <template>
     <aside class="xl:fixed xl:right-8 xl:top-1/2 xl:-translate-y-1/2 xl:z-50 flex items-center justify-center">
         <div class="neon-panel-wrapper xl:h-[85vh] h-full xl:w-72 w-full max-w-none rounded-[3rem]">
-            <div class="neon-border-active"
+            <div
+                class="neon-border-active"
                 :class="{ '!border-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.3)]': isAlertMode }"></div>
             <div class="neon-glass-core rounded-[3rem] py-12 flex flex-col h-full overflow-hidden relative">
 
                 <div class="flex items-center gap-3 border-b border-white/5 pb-4 mb-6 w-full px-6">
-                    <component :is="isAlertMode ? ShieldAlert : Cpu" class="animate-pulse"
+                    <component
+                        :is="isAlertMode ? ShieldAlert : Cpu" class="animate-pulse"
                         :class="isAlertMode ? 'text-rose-500' : 'text-sky-400'" :size="18" />
-                    <h3 class="text-[10px] font-black uppercase tracking-[0.3em]"
+                    <h3
+                        class="text-[10px] font-black uppercase tracking-[0.3em]"
                         :class="isAlertMode ? 'text-rose-400' : 'text-white/70'">
                         {{ isAlertMode ? 'Alert_Center' : 'Core_Engine_v.1.3' }}
                     </h3>
@@ -70,14 +79,19 @@ onUnmounted(() => {
 
                                 <div
                                     class="flex-1 bg-black/40 border border-white/5 rounded-xl p-3 overflow-y-auto custom-scroll font-mono text-[9px] space-y-2">
-                                    <div v-if="telemetry" v-for="(log, idx) in telemetry.activity_stream" :key="idx"
-                                        class="leading-relaxed">
-                                        <span class="text-white/20">[{{ log.timestamp }}]</span>
-                                        <span class="ml-1"
-                                            :class="log.type === 'warning' ? 'text-amber-400' : 'text-cyan-400'">{{
-                                            log.system }}:</span>
-                                        <span class="text-white/70 ml-1">{{ log.message }}</span>
-                                    </div>
+                                    <template v-if="telemetry && telemetry.activity_stream">
+                                        <div
+                                            v-for="(log, idx) in telemetry.activity_stream" :key="idx"
+                                            class="leading-relaxed">
+                                            <span class="text-white/20">[{{ log.timestamp }}]</span>
+                                            <span
+                                                class="ml-1"
+                                                :class="log.type === 'warning' ? 'text-amber-400' : 'text-cyan-400'">
+                                                {{ log.system }}:
+                                            </span>
+                                            <span class="text-white/70 ml-1">{{ log.message }}</span>
+                                        </div>
+                                    </template>
                                     <div v-else class="text-white/20 animate-pulse">Awaiting secure uplink...</div>
                                 </div>
                             </div>
@@ -93,18 +107,21 @@ onUnmounted(() => {
                                     <div
                                         class="p-2 border border-white/5 bg-white/[0.02] rounded-lg flex justify-between items-center">
                                         <span class="text-white/40 uppercase">Node_Status</span>
-                                        <span class="text-emerald-400 font-bold tracking-wider animate-pulse">{{
-                                            telemetry.status }}</span>
+                                        <span class="text-emerald-400 font-bold tracking-wider animate-pulse">
+                                            {{ telemetry.status }}
+                                        </span>
                                     </div>
 
                                     <div class="p-2 border border-white/5 bg-white/[0.02] rounded-lg space-y-1">
                                         <div class="flex justify-between items-center text-white/40">
                                             <span class="uppercase">Memory_Usage</span>
-                                            <span class="text-yellow-400 font-bold">{{ telemetry.metrics.memory_usage_mb
-                                                }} MB</span>
+                                            <span class="text-yellow-400 font-bold">
+                                                {{ telemetry.metrics.memory_usage_mb }} MB
+                                            </span>
                                         </div>
                                         <div class="w-full bg-white/5 h-1 rounded-full overflow-hidden">
-                                            <div class="bg-yellow-400 h-full transition-all duration-500"
+                                            <div
+                                                class="bg-yellow-400 h-full transition-all duration-500"
                                                 :style="{ width: Math.min((telemetry.metrics.memory_usage_mb / 128) * 100, 100) + '%' }">
                                             </div>
                                         </div>
@@ -146,12 +163,15 @@ onUnmounted(() => {
 
                         <div v-else key="alerts" class="flex flex-col h-full">
                             <div class="space-y-3 overflow-y-auto pr-1 custom-scroll">
-                                <div v-for="notif in alerts" :key="notif.id"
+                                <div
+                                    v-for="notif in alerts" :key="notif.id"
                                     class="p-3 border border-white/5 bg-white/5 rounded-xl">
                                     <div class="flex justify-between mb-1">
-                                        <span class="text-[7px] font-black uppercase"
-                                            :class="notif.type === 'alert' ? 'text-rose-500' : 'text-sky-500'">{{
-                                                notif.title }}</span>
+                                        <span
+                                            class="text-[7px] font-black uppercase"
+                                            :class="notif.type === 'alert' ? 'text-rose-500' : 'text-sky-500'">
+                                            {{ notif.title }}
+                                        </span>
                                         <span class="text-[7px] text-white/20 font-mono">{{ notif.time }}</span>
                                     </div>
                                     <p class="text-[9px] text-white/60">{{ notif.msg }}</p>

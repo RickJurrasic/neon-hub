@@ -12,7 +12,7 @@ use Throwable;
 
 class SendMessage implements ShouldQueue
 {
-    use Queueable, InteractsWithQueue, SerializesModels;
+    use InteractsWithQueue, Queueable, SerializesModels;
 
     /**
      * Počet pokusů o opakování jobu při selhání.
@@ -30,8 +30,7 @@ class SendMessage implements ShouldQueue
     public int $timeout = 30;
 
     /**
-     * @param int $userId
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     public function __construct(
         public readonly int $userId,

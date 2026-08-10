@@ -16,10 +16,10 @@ class ExecuteCommentPostAction implements AIAction
     {
         // 1. Pokud je v payloadu post_id, použijeme ho, jinak vybereme náhodný
         $postId = $payload['post_id'] ?? null;
-        
+
         /** @var Post|null $post */
-        $post = $postId 
-            ? Post::find($postId) 
+        $post = $postId
+            ? Post::find($postId)
             : Post::inRandomOrder()->first();
 
         if (! $post) {
@@ -28,7 +28,7 @@ class ExecuteCommentPostAction implements AIAction
 
         // 2. Vygenerujeme komentář pomocí AI
         $agent = (new AIAgent())->withPersona($user->name);
-        
+
         $response = $agent->prompt(
             "Write a short, single-sentence comment reacting to this post: \"{$post->content}\". Match your persona. Speak in English. Do not include quotes.",
             provider: ['groq']

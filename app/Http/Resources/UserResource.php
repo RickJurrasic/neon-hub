@@ -9,6 +9,7 @@ use Override;
 
 /**
  * @mixin User
+ *
  * @property string|null $avatar
  * @property string|null $avatar_url
  * @property string|null $bio

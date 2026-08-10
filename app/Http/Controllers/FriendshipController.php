@@ -7,8 +7,8 @@ use App\Http\Requests\StoreFriendshipRequest;
 use App\Models\Friendship;
 use App\Models\User;
 use App\Services\FriendshipService;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Http\JsonResponse;
 
 class FriendshipController extends Controller
 {

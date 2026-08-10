@@ -48,7 +48,8 @@ const cancelEdit = () => {
                     {{ comment.author }}
                 </span>
 
-                <span v-if="comment.can_edit"
+                <span
+v-if="comment.can_edit"
                     class="font-mono text-[8px] bg-sky-500/10 text-sky-400 px-1.5 py-0.5 rounded border border-sky-500/20 uppercase tracking-widest font-black">
                     YOU
                 </span>
@@ -59,14 +60,15 @@ const cancelEdit = () => {
                     T+{{ comment.timestamp }}
                 </span>
 
-                <button v-if="comment.can_edit && !isEditing" @click="isEditing = true"
-                    class="opacity-0 group-hover/comment:opacity-100 text-slate-600 hover:text-fuchsia-400 transition-all p-0.5 outline-none cursor-pointer">
+                <button
+v-if="comment.can_edit && !isEditing" type="button" class="opacity-0 group-hover/comment:opacity-100 text-slate-600 hover:text-fuchsia-400 transition-all p-0.5 outline-none cursor-pointer"
+                    @click="isEditing = true">
                     <Pencil :size="11" />
                 </button>
             </div>
         </div>
 
-        <div
+       <div
             class="text-left pl-2 border-l border-sky-500/20 group-hover/comment:border-fuchsia-500/40 transition-colors">
 
             <p v-if="!isEditing" class="text-slate-300 text-sm font-light leading-relaxed">
@@ -74,15 +76,20 @@ const cancelEdit = () => {
             </p>
 
             <div v-else class="flex items-center gap-2 mt-1 w-full animate-in fade-in duration-200">
-                <input v-model="editedText" type="text" @keyup.enter="handleUpdate" @keyup.esc="cancelEdit"
-                    class="grow bg-[#050914] border border-fuchsia-500/30 rounded-[0.5rem] px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-fuchsia-500 transition-all font-light font-mono"
-                    autofocus />
-                <button @click="handleUpdate"
-                    class="p-1 text-emerald-400 hover:text-emerald-300 transition-colors outline-none cursor-pointer">
+                <!-- Skrytý label a id pro splnění WCAG / SonarQube -->
+                <label :for="`edit-comment-${comment.id}`" class="sr-only">Edit comment text</label>
+                <input
+:id="`edit-comment-${comment.id}`" v-model="editedText" type="text" class="grow bg-[#050914] border border-fuchsia-500/30 rounded-[0.5rem] px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-fuchsia-500 transition-all font-light font-mono" autofocus
+                    @keyup.enter="handleUpdate"
+                    @keyup.esc="cancelEdit" />
+                <button
+type="button" class="p-1 text-emerald-400 hover:text-emerald-300 transition-colors outline-none cursor-pointer"
+                    @click="handleUpdate">
                     <Check :size="14" />
                 </button>
-                <button @click="cancelEdit"
-                    class="p-1 text-rose-400 hover:text-rose-300 transition-colors outline-none cursor-pointer">
+                <button
+type="button" class="p-1 text-rose-400 hover:text-rose-300 transition-colors outline-none cursor-pointer"
+                    @click="cancelEdit">
                     <X :size="14" />
                 </button>
             </div>

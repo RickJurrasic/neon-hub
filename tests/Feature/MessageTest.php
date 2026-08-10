@@ -15,6 +15,6 @@ test('system dispatches message event to the correct receiver', function (): voi
         'sender' => 'TEST_BOT',
     ]));
 
-    Event::assertDispatched(MessageReceived::class, fn($event) => $event->userId === $user->id &&
+    Event::assertDispatched(MessageReceived::class, fn ($event) => $event->userId === $user->id &&
            isset($event->data['text']));
 });

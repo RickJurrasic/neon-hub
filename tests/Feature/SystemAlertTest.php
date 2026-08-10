@@ -14,7 +14,7 @@ test('system alert event is dispatched with correct data', function (): void {
     event(new SystemAlertTriggered($user->id, 'Test alert succesful!'));
 
     // 3. Ověříme, že event byl dispatchován a má správná data
-    Event::assertDispatched(SystemAlertTriggered::class, fn($event) => $event->userId === $user->id &&
+    Event::assertDispatched(SystemAlertTriggered::class, fn ($event) => $event->userId === $user->id &&
            $event->message === 'Test alert succesful!');
 
     // 4. Bonus: Ověříme, že event má správný kanál (broadcastOn)

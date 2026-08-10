@@ -15,7 +15,7 @@ class CommentCreated implements ShouldBroadcast
     /**
      * Vytvoří novou instanci události pro vytvořený komentář.
      *
-     * @param array<string, mixed> $comment
+     * @param  array<string, mixed>  $comment
      */
     public function __construct(
         public readonly int $postId,

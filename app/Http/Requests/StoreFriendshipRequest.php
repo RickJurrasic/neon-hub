@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\User;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreFriendshipRequest extends FormRequest
@@ -15,7 +16,7 @@ class StoreFriendshipRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -24,9 +25,9 @@ class StoreFriendshipRequest extends FormRequest
 
         return [
             'recipient_id' => [
-                'required', 
-                'exists:users,id', 
-                'different:' . $user->id,
+                'required',
+                'exists:users,id',
+                'different:'.$user->id,
             ],
         ];
     }

@@ -70,7 +70,7 @@ class ExecuteLikePostAction implements AIAction
                     'post_id' => $post->id,
                     'user_id' => $user->id,
                     'user_name' => $userName,
-                    'message' => $userName . ' liked your post.',
+                    'message' => $userName.' liked your post.',
                 ]),
                 'created_at' => now(),
                 'updated_at' => now(),

@@ -9,8 +9,7 @@ class CoreEngineController extends Controller
 {
     public function __construct(
         private readonly TelemetryService $telemetry
-    ) {
-    }
+    ) {}
 
     public function getTelemetry(): JsonResponse
     {

@@ -19,7 +19,7 @@ use Throwable;
 
 class ProcessAIAction implements ShouldQueue
 {
-    use Queueable, InteractsWithQueue, SerializesModels;
+    use InteractsWithQueue, Queueable, SerializesModels;
 
     /**
      * Počet pokusů o opakování jobu při selhání.
@@ -52,7 +52,7 @@ class ProcessAIAction implements ShouldQueue
     ];
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     public function __construct(
         public readonly int $userId,
@@ -66,14 +66,16 @@ class ProcessAIAction implements ShouldQueue
 
         if (! $user) {
             Log::warning("ProcessAIAction skipped: User {$this->userId} not found.");
+
             return;
         }
 
         // Pokud je uživatel/AI v daném momentu rate limited,
         if ($this->isRateLimited($user->id)) {
             Log::info("ProcessAIAction rate limited: AI Profile [{$user->name}] for action '{$this->actionType}'. Releasing back to queue.");
-            
+
             $this->release(20);
+
             return;
         }
 
@@ -114,7 +116,7 @@ class ProcessAIAction implements ShouldQueue
             ]);
 
             $this->updateEventStatus($eventId, 'failed');
-            
+
             // Re-throw, aby Laravel věděl, že job selhal a měl případně pokus opakovat
             throw $e;
         }

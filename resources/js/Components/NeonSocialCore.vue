@@ -75,12 +75,13 @@ watch(() => props.isOpened, (newVal) => {
 <template>
     <div id="neon-scanline-layer" class="pointer-events-none z-50"></div>
 
-    <div class="absolute inset-0 h-[100dvh] w-full transition-all duration-[1200ms] ease-out overflow-hidden"
+    <div
+class="absolute inset-0 h-[100dvh] w-full transition-all duration-[1200ms] ease-out overflow-hidden"
         :class="[isOpened ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none']">
 
         <template v-if="stage1">
             <template v-if="stage2">
-                <NeonNav @open-cv="activeTab = 'cv'" class="animate-in fade-in duration-700" />
+                <NeonNav class="animate-in fade-in duration-700" @open-cv="activeTab = 'cv'" />
 
                 <NeonSocialActions class="hidden xl:block" :active-tab="activeTab" @change-view="handleViewChange" />
                 <NeonSocialActions 
@@ -89,7 +90,8 @@ watch(() => props.isOpened, (newVal) => {
     :active-tab="activeTab" 
     @change-view="handleViewChange" 
 />
-                <NeonTechDashboard :isOpened="isOpened" :mode="dashboardMode"
+                <NeonTechDashboard
+:is-opened="isOpened" :mode="dashboardMode"
     class="hidden xl:block mt-8 animate-in fade-in duration-700" />
             </template>
 
@@ -97,44 +99,56 @@ watch(() => props.isOpened, (newVal) => {
                 <template v-if="stage3">
                     <transition name="depth-zoom" mode="out-in">
 
-                        <div v-if="activeTab === 'feed' || activeTab === 'notifications'" key="feed"
+                        <div
+v-if="activeTab === 'feed' || activeTab === 'notifications'" key="feed"
                             class="w-full flex flex-col items-stretch grow justify-center max-w-4xl mx-auto h-full relative">
 
-                            <NeonSocialFeed class="animate-in zoom-in-95 fade-in duration-700 w-full h-full"
+                            <NeonSocialFeed
+class="animate-in zoom-in-95 fade-in duration-700 w-full h-full"
                                 :class="{ 'hidden xl:block': activeTab === 'notifications' }" />
 
-                            <div v-if="activeTab === 'notifications'"
+                            <div
+v-if="activeTab === 'notifications'"
                                 class="absolute inset-0 flex xl:hidden items-center justify-center p-6 pb-28 animate-in zoom-in-95 fade-in duration-300 z-10">
                                 <div
                                     class="w-full max-w-[290px] md:max-w-md h-full max-h-[62vh] flex items-center justify-center">
-                                    <NeonTechDashboard :isOpened="isOpened" :mode="dashboardMode"
+                                    <NeonTechDashboard
+:is-opened="isOpened" :mode="dashboardMode"
                                         class="w-full h-full" />
                                 </div>
                             </div>
                         </div>
 
-                        <div v-else-if="activeTab === 'messages'" key="messages"
+                        <div
+v-else-if="activeTab === 'messages'" key="messages"
                             class="w-full h-full overflow-y-auto no-scrollbar pt-[12vh] pb-[12vh] px-4 flex justify-center items-start md:items-center max-w-2xl mx-auto grow">
-                            <NeonMessages @back="activeTab = 'feed'"
-                                class="w-full animate-in zoom-in-95 fade-in duration-700" />
+                            <NeonMessages
+class="w-full animate-in zoom-in-95 fade-in duration-700"
+                                @back="activeTab = 'feed'" />
                         </div>
 
-                        <div v-else-if="activeTab === 'friends'" key="friends"
+                        <div
+v-else-if="activeTab === 'friends'" key="friends"
                             class="w-full h-full overflow-y-auto no-scrollbar pt-[12vh] pb-[12vh] px-4 flex justify-center items-start md:items-center max-w-2xl mx-auto grow">
-                            <NeonFriends @back="activeTab = 'feed'" @view-profile="openEntityProfile"
-                                class="w-full animate-in zoom-in-95 fade-in duration-700" />
+                            <NeonFriends
+class="w-full animate-in zoom-in-95 fade-in duration-700" @back="activeTab = 'feed'"
+                                @view-profile="openEntityProfile" />
                         </div>
 
-                        <div v-else-if="activeTab === 'profile'" key="profile"
+                        <div
+v-else-if="activeTab === 'profile'" key="profile"
                             class="w-full h-full overflow-y-auto no-scrollbar pt-[12vh] pb-[12vh] px-4 flex justify-center items-center max-w-4xl mx-auto grow">
-                            <NeonUserProfile :entityId="selectedEntityId" @back="activeTab = 'friends'"
-                                class="w-full animate-in zoom-in-95 fade-in duration-700" />
+                            <NeonUserProfile
+:entity-id="selectedEntityId" class="w-full animate-in zoom-in-95 fade-in duration-700"
+                                @back="activeTab = 'friends'" />
                         </div>
 
-                        <div v-else-if="activeTab === 'cv'" key="cv"
+                        <div
+v-else-if="activeTab === 'cv'" key="cv"
                             class="w-full h-full overflow-y-auto no-scrollbar pt-[12vh] pb-[12vh] px-4 flex justify-center items-center max-w-4xl mx-auto grow">
-                            <NeonAuthorCV @back="activeTab = 'feed'"
-                                class="w-full animate-in zoom-in-95 fade-in duration-700" />
+                            <NeonAuthorCV
+class="w-full animate-in zoom-in-95 fade-in duration-700"
+                                @back="activeTab = 'feed'" />
                         </div>
 
                     </transition>

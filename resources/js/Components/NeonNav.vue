@@ -26,7 +26,8 @@ defineEmits(['open-cv']);
 
                 <div class="flex flex-1 justify-center items-center px-1 md:px-10 lg:px-20 min-w-0">
 
-                    <div class="hidden md:flex items-center gap-3.5 bg-slate-950/80 border border-sky-500/30 px-5 py-1.5 rounded-full shadow-[0_0_15px_rgba(56,189,248,0.12)] hover:border-fuchsia-500/60 hover:shadow-[0_0_25px_rgba(192,43,155,0.3)] transition-all duration-300 cursor-pointer group active:scale-98"
+                    <div
+class="hidden md:flex items-center gap-3.5 bg-slate-950/80 border border-sky-500/30 px-5 py-1.5 rounded-full shadow-[0_0_15px_rgba(56,189,248,0.12)] hover:border-fuchsia-500/60 hover:shadow-[0_0_25px_rgba(192,43,155,0.3)] transition-all duration-300 cursor-pointer group active:scale-98"
                         @click="$emit('open-cv')">
                         <div class="flex items-center gap-2.5">
                             <span class="relative flex h-1.5 w-1.5 shrink-0">
@@ -52,6 +53,7 @@ defineEmits(['open-cv']);
                     </div>
 
                     <button
+                        type="button"
                         class="flex md:hidden items-center gap-1.5 bg-slate-950/90 border border-sky-500/40 px-2.5 py-1 rounded-full shadow-[0_0_10px_rgba(56,189,248,0.15)] active:scale-95 transition-all cursor-pointer text-white"
                         @click="$emit('open-cv')">
                         <FileUser :size="11" class="text-sky-400" />
@@ -94,7 +96,8 @@ defineEmits(['open-cv']);
                             </div>
                         </div>
 
-                        <div v-if="$page.props.auth?.user?.faction"
+                        <div
+v-if="$page.props.auth?.user?.faction"
                             class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-[#050914] bg-amber-400 shadow-[0_0_6px_#f59e0b]">
                         </div>
                     </div>

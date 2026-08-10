@@ -40,7 +40,7 @@ class AIAgent implements Agent, Conversational, HasTools
     /**
      * Nastaví historii zpráv ručně.
      *
-     * @param array<Message> $history
+     * @param  array<Message>  $history
      */
     public function withHistory(array $history): self
     {

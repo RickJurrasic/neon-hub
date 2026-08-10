@@ -6,8 +6,8 @@ use App\Jobs\HandleAgentResponse;
 use App\Services\NeonHubService;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
-use Inertia\Response;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class NeonHubController extends Controller
 {

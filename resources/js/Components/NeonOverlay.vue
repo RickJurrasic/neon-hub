@@ -14,12 +14,14 @@ defineEmits(['open']);
 </script>
 
 <template>
-    <div v-if="!isOpened"
+    <div
+v-if="!isOpened"
         class="fixed inset-0 flex flex-col z-[110] overflow-hidden items-center justify-between bg-black/20">
 
         <div class="h-[12vh] md:h-[30vh] shrink-0"></div>
 
-        <div class="flex-1 flex items-center justify-center w-full px-5 md:px-6 py-4 shrink-0"
+        <div
+class="flex-1 flex items-center justify-center w-full px-5 md:px-6 py-4 shrink-0"
             :class="isOpened ? 'pointer-events-none' : 'pointer-events-auto'">
 
             <div
@@ -36,7 +38,8 @@ defineEmits(['open']);
                     </h2>
 
                     <div class="space-y-4 md:space-y-8">
-                        <div v-for="(item, i) in MANIFEST_ITEMS" :key="i"
+                        <div
+v-for="(item, i) in MANIFEST_ITEMS" :key="i"
                             class="flex flex-col md:flex-row items-center md:items-start gap-1.5 md:gap-6 border-t border-white/5 pt-4 md:pt-8 first:border-0 first:pt-0 text-center md:text-left">
 
                             <span class="text-sky-500/50 font-mono text-[9px] md:text-sm shrink-0 md:w-4">
@@ -58,8 +61,9 @@ defineEmits(['open']);
         <div
             class="flex flex-col items-center justify-end gap-5 md:gap-10 pb-4 md:pb-12 shrink-0 pointer-events-auto w-full z-10">
 
-            <button type="button" @click="$emit('open')"
-                class="group relative px-12 py-4 md:px-16 md:py-6 bg-sky-500 text-black font-black uppercase tracking-[0.4em] md:tracking-[0.6em] text-[10px] md:text-xs shadow-[0_0_40px_rgba(56,189,248,0.2)] active:scale-95 transition-all outline-none">
+            <button
+type="button" class="group relative px-12 py-4 md:px-16 md:py-6 bg-sky-500 text-black font-black uppercase tracking-[0.4em] md:tracking-[0.6em] text-[10px] md:text-xs shadow-[0_0_40px_rgba(56,189,248,0.2)] active:scale-95 transition-all outline-none"
+                @click="$emit('open')">
                 ENTER SYSTEM
                 <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
             </button>

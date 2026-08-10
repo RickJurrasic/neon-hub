@@ -3,20 +3,18 @@
 declare(strict_types=1);
 
 use Rector\Config\RectorConfig;
-use RectorLaravel\Set\LaravelSetList;
 use Rector\Set\ValueObject\SetList;
-use Rector\TypeDeclaration\Rector\ClassMethod\AddReturnTypeDeclarationRector;
-use Rector\TypeDeclaration\Rector\FunctionLike\AddParamTypeDeclarationRector;
+use RectorLaravel\Set\LaravelSetList;
 
 return RectorConfig::configure()
     ->withPaths([
-        __DIR__ . '/app',
-        __DIR__ . '/bootstrap',
-        __DIR__ . '/config',
-        __DIR__ . '/public',
-        __DIR__ . '/resources',
-        __DIR__ . '/routes',
-        __DIR__ . '/tests',
+        __DIR__.'/app',
+        __DIR__.'/bootstrap',
+        __DIR__.'/config',
+        __DIR__.'/public',
+        __DIR__.'/resources',
+        __DIR__.'/routes',
+        __DIR__.'/tests',
     ])
     ->withPhpSets(php85: true)
     // Tyto metody samy o sobě aktivují příslušné sady pravidel

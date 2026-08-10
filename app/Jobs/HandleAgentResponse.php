@@ -7,6 +7,7 @@ use App\Events\MessageReceived;
 use App\Events\NewActivityAlert;
 use App\Events\PostCreated;
 use App\Models\Post;
+use App\Models\SeedPostImage;
 use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -19,7 +20,7 @@ use Throwable;
 
 class HandleAgentResponse implements ShouldQueue
 {
-    use Queueable, InteractsWithQueue, SerializesModels;
+    use InteractsWithQueue, Queueable, SerializesModels;
 
     /**
      * Počet pokusů o opakování jobu při selhání LLM API.
@@ -222,14 +223,14 @@ class HandleAgentResponse implements ShouldQueue
         }
 
         $imageUrl = class_exists('\App\Models\SeedPostImage')
-            ? \App\Models\SeedPostImage::generate()
+            ? SeedPostImage::generate()
             : null;
 
         $post = Post::create([
             'user_id' => $agentUser->id,
             'content' => $postContent,
             'type' => 'AI_FEED',
-            'latency' => random_int(1, 4) . '.' . random_int(0, 9) . 'ms',
+            'latency' => random_int(1, 4).'.'.random_int(0, 9).'ms',
             'likes_count' => 0,
             'image_url' => $imageUrl,
         ]);

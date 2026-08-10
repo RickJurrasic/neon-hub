@@ -16,7 +16,7 @@ class FriendshipService
 
         $authId = (int) auth()->id();
         $friendId = $friendship->sender_id === $authId ? $friendship->recipient_id : $friendship->sender_id;
-        
+
         /** @var User $friend */
         $friend = User::findOrFail($friendId);
 
