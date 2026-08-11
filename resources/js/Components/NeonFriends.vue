@@ -2,7 +2,6 @@
 import { ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useNotificationStore } from '@/Stores/useNotificationStore';
-import axios from 'axios';
 
 defineEmits(['back', 'view-profile']);
 
@@ -13,22 +12,23 @@ const decliningRequestId = ref(null);
 const unlinkingFriendId = ref(null);
 
 const acceptRequest = async (id) => {
-    try {
-        await axios.patch(`/friendships/${id}`, { status: 'accepted' });
-        store.updateFriendRequestStatus(id, 'accepted');
-    } catch (e) { console.error("Accept failed", e); }
+    const success = await store.acceptFriendRequest(id);
+    if (!success) console.error("Accept failed");
 };
 
 const declineRequest = async (id) => {
-    try {
-        await axios.delete(`/friendships/${id}`);
-        store.removeFriendRequest(id);
+    const success = await store.declineFriendRequest(id);
+    if (success) {
         decliningRequestId.value = null;
-    } catch (e) { console.error("Decline failed", e); }
+    } else {
+        console.error("Decline failed");
+    }
 };
 
 const removeLink = async (id) => {
     try {
+        // Pokud máš v store i akci pro smazání aktivního přítele, zavolej ji. 
+        // Případně pokud pro to používáš přímý endpoint, zkontroluj jeho URL (často bývá /friendships/{id}).
         await axios.delete(`/friendships/${id}`);
         store.removeFriend(id);
         unlinkingFriendId.value = null;
@@ -37,6 +37,7 @@ const removeLink = async (id) => {
 </script>
 
 <template>
+
     <div
         class="w-[82vw] max-w-xs md:w-full md:max-w-md bg-black/60 border border-purple-500/30 p-6 font-mono backdrop-blur-xl rounded-[2rem] flex flex-col max-h-[75vh]">
 

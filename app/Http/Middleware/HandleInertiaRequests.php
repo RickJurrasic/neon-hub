@@ -4,6 +4,8 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Illuminate\Support\Facades\DB;
+use App\Models\Post;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -37,11 +39,16 @@ class HandleInertiaRequests extends Middleware
                     'bio' => $user->bio,
                 ] : null,
             ],
-            // Přidání flash zpráv z session pro notification toasty
+            // Flash zprávy ze session
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
+            // Základní data pro NeonHub systém, která přežijí refresh
+            'messages' => $user 
+                ? DB::table('agent_conversation_messages')->where('user_id', $user->id)->orderBy('created_at', 'asc')->get() 
+                : [],
+            'posts' => Post::latest()->get(),
         ]);
     }
 }

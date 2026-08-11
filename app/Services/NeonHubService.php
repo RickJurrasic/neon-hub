@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\Comment;
 use App\Models\Friendship;
 use App\Models\Post;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 class NeonHubService
 {
@@ -17,11 +17,42 @@ class NeonHubService
     {
         return [
             'friendships' => $this->getFriendshipData($authId),
-            'messages' => [],
+            'messages' => $this->getMessagesData($authId),
             'posts' => $this->getPostsData($authId),
         ];
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+   public function getMessagesData(int $authId): array
+    {
+        return DB::table('agent_conversation_messages')
+            ->where('agent_conversation_messages.user_id', $authId)
+            ->leftJoin('agent_conversations', 'agent_conversation_messages.conversation_id', '=', 'agent_conversations.id')
+            ->leftJoin('users as agents', 'agent_conversations.user_id', '=', 'agents.id')
+            ->select([
+                'agent_conversation_messages.*',
+                'agents.name as agent_name',
+            ])
+            ->orderBy('agent_conversation_messages.created_at', 'asc')
+            ->get()
+            ->map(function ($msg) {
+                $isAssistant = $msg->role === 'assistant';
+                
+                return [
+                    'id' => $msg->id,
+                    'conversation_id' => $msg->conversation_id,
+                    'sender' => $isAssistant ? ($msg->agent_name ?? 'SYSTEM') : 'User',
+                    'text' => $msg->content ?? '',
+                    'time' => $msg->created_at ? \Carbon\Carbon::parse($msg->created_at)->toTimeString() : '00:00',
+                    'timestamp' => $msg->created_at ? \Carbon\Carbon::parse($msg->created_at)->format('H:i') : '00:00',
+                    'created_at' => $msg->created_at,
+                    'role' => $msg->role,
+                ];
+            })
+            ->toArray();
+    }
     /**
      * @return array<int, array<string, mixed>>
      */
