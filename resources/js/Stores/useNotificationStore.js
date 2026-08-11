@@ -74,7 +74,6 @@ export const useNotificationStore = defineStore("notifications", {
             try {
                 const response = await axios.get(route("messages.index"));
 
-                // OPRAVENO: Laravel MessageResource balí kolekci do objektu "data"
                 const messagesArray = Array.isArray(response.data)
                     ? response.data
                     : response.data.data || [];
@@ -96,7 +95,6 @@ export const useNotificationStore = defineStore("notifications", {
                     text: text,
                 });
 
-                // OPRAVENO: Pokud i jednotlivá zpráva chodí přes Resource wrapper
                 const messageData = response.data.data || response.data;
 
                 const myMessage = {
@@ -128,7 +126,6 @@ export const useNotificationStore = defineStore("notifications", {
 
         async deleteConversation(conversationId) {
             try {
-                // OPRAVENO: Změněno z /messages/ na /conversations/, aby to odpovídalo web.php
                 await axios.delete(`/conversations/${conversationId}`);
 
                 this.messages = this.messages.filter(
@@ -142,14 +139,47 @@ export const useNotificationStore = defineStore("notifications", {
             }
         },
 
+        // --- AKCE PRO PŘÁTELSTVÍ ---
+        async acceptFriendRequest(id) {
+            try {
+                // Laravel očekává PATCH /friendships/{id} na model Friendship
+                await axios.patch(`/friendships/${id}`, { status: "accepted" });
+                this.updateFriendRequestStatus(id, "accepted");
+                return true;
+            } catch (error) {
+                console.error("Failed to accept friend request:", error);
+                return false;
+            }
+        },
+
+        async declineFriendRequest(id) {
+            try {
+                // Smazání přes DELETE /friendships/{id} na model Friendship
+                await axios.delete(`/friendships/${id}`);
+                this.removeFriendRequest(id);
+                return true;
+            } catch (error) {
+                console.error("Failed to decline friend request:", error);
+                return false;
+            }
+        },
+        // ---------------------------------
+
         hydrateSystem(stateData) {
             if (!stateData) return;
 
-            this.friendRequests = (stateData.friendships?.requests || []).map(
-                (r) => ({ ...r, read: !!r.read }),
+            const requestsData = stateData.friendships?.requests || stateData.friendRequests || [];
+            this.friendRequests = requestsData.map(
+                (r) => ({
+                    ...r,
+                    id: r.pivot?.id || r.friendship_id || r.id,
+                    user_id: r.sender_id || r.user_id || r.id,
+                    read: !!r.read,
+                }),
             );
 
-            this.friends = (stateData.friendships?.active || []).map(
+            const activeData = stateData.friendships?.active || stateData.friends || [];
+            this.friends = activeData.map(
                 (friend) => ({
                     ...friend,
                     id: friend.pivot?.id || friend.friendship_id || friend.id,
@@ -171,37 +201,37 @@ export const useNotificationStore = defineStore("notifications", {
         },
 
         addMessage(message) {
-    if (!message) return;
+            if (!message) return;
 
-    const msg = message.data || message.message || message;
-    const isOwnMessage = msg.role === "user" || msg.sender === "YOU";
+            const msg = message.data || message.message || message;
+            const isOwnMessage = msg.role === "user" || msg.sender === "YOU";
 
-    const normalized = {
-        id: msg.id || Date.now(),
-        conversation_id: msg.conversation_id || msg.conversationId,
-        text: msg.text || msg.content || "",
-        // FIX: Ensure own messages retain "YOU" even if agent_name exists on messageData
-        sender: isOwnMessage ? "YOU" : (msg.agent_name || msg.sender || "SYSTEM_BOT"),
-        agent_name: msg.agent_name || "",
-        read: isOwnMessage
-            ? true
-            : msg.read === true ||
-              msg.read === 1 ||
-              msg.read === "1" ||
-              false,
-        time: msg.time || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        created_at: msg.created_at || new Date().toISOString(),
-    };
+            const normalized = {
+                id: msg.id || Date.now(),
+                conversation_id: msg.conversation_id || msg.conversationId,
+                text: msg.text || msg.content || "",
+                sender: isOwnMessage ? "YOU" : (msg.agent_name || msg.sender || "SYSTEM_BOT"),
+                agent_name: msg.agent_name || "",
+                read: isOwnMessage
+                    ? true
+                    : msg.read === true ||
+                      msg.read === 1 ||
+                      msg.read === "1" ||
+                      false,
+                time: msg.time || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                created_at: msg.created_at || new Date().toISOString(),
+            };
 
-    if (!this.messages.some((m) => String(m.id) === String(normalized.id))) {
-        this.messages.push(normalized);
-    }
-},
+            if (!this.messages.some((m) => String(m.id) === String(normalized.id))) {
+                this.messages.push(normalized);
+            }
+        },
 
         addFriendRequest(request) {
             this.friendRequests.push({
                 ...request,
-                id: request.id || Date.now(),
+                id: request.pivot?.id || request.friendship_id || request.id || Date.now(),
+                user_id: request.sender_id || request.user_id || request.id,
                 read: false,
                 status: "pending",
             });
@@ -217,7 +247,12 @@ export const useNotificationStore = defineStore("notifications", {
         },
 
         addFriend(friend) {
-            this.friends.push({ ...friend, status: "accepted" });
+            this.friends.push({ 
+                ...friend, 
+                id: friend.pivot?.id || friend.friendship_id || friend.id,
+                user_id: friend.user_id || friend.id,
+                status: "accepted" 
+            });
         },
 
         addPost(post) {
@@ -262,15 +297,11 @@ export const useNotificationStore = defineStore("notifications", {
             const commenterName =
                 comment.author?.name || comment.author || "BOT";
 
-            // Najít jméno autora příspěvku z posts array
             const post = this.posts.find(
                 (p) => String(p.id) === String(postId),
             );
             const postAuthorName = post?.author?.name || post?.author || "user";
 
-            // Rozlišit AI vs USER action
-            // User id 1 je "Recruiter_Phantom" - user action
-            // Ostatní jsou AI
             const isUserAction = userId === 1 || userId === this.currentUserId;
             const actionPrefix = isUserAction
                 ? "USER_ACTION: COMMENT"
@@ -278,7 +309,6 @@ export const useNotificationStore = defineStore("notifications", {
 
             const customMessage = `${commenterName} commented on a post of user ${postAuthorName}`;
 
-            // Vždy přidat alert (nejen pro cizí posty)
             this.addAlert({
                 id: Date.now(),
                 type: "comment",
@@ -303,8 +333,6 @@ export const useNotificationStore = defineStore("notifications", {
                 : `${name} unliked the post of user ${targetAuthor}`;
 
             const alertType = isLiked ? "like" : "unlike";
-            // Rozlišit AI vs USER action
-            // User id 1 je "Recruiter_Phantom" - user action
             const isUserAction = userId != null && Number(userId) === 1;
             const actionPrefix = isUserAction
                 ? "USER_ACTION: LIKE"
@@ -385,15 +413,15 @@ export const useNotificationStore = defineStore("notifications", {
             this.currentUserId = userId;
 
             window.Echo.private(`App.Models.User.${userId}`)
-                .listen("FriendRequestReceived", (e) =>
-                    this.addFriendRequest(e.data),
+                .listen(".FriendRequestReceived", (e) =>
+                    this.addFriendRequest(e.data || e.request || e.friendship || e),
                 )
-                .listen("FriendshipAccepted", (e) =>
+                .listen(".FriendshipAccepted", (e) =>
                     this.updateFriendRequestStatus(e.friendshipId, "accepted"),
                 )
                 .listen(".MessageReceived", (e) =>
-    this.addMessage(e.data || e.message),
-)
+                    this.addMessage(e.data || e.message),
+                )
                 .listen(".NewActivityAlert", (e) => {
                     this.addAlert({ title: "SYSTEM_ALERT", msg: e.message });
                 });
@@ -407,6 +435,9 @@ export const useNotificationStore = defineStore("notifications", {
 
                     if (post) post.likes_count = e.likesCount;
 
+                    const isUserAction =
+                        e.userId != null && Number(e.userId) === 1;
+
                     this.addLikeNotification(
                         e.postId,
                         e.userId,
@@ -417,7 +448,6 @@ export const useNotificationStore = defineStore("notifications", {
                 })
                 .listen(".CommentCreated", (e) => {
                     this.addCommentToPost(e.postId, e.comment);
-                    // userId je ID uživatele kdo komentoval
                     const isUserAction = e.userId === 1;
                     this.addCommentNotification(
                         e.comment,

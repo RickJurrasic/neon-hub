@@ -54,10 +54,10 @@ const openEntityProfile = (id) => {
     activeTab.value = 'profile';
 };
 
-// --- WATCHER (VRÁCENO ZPĚT - ŘÍZENÍ BRÁNY A HYDRATACE) ---
+// --- WATCHER ---
 watch(() => props.isOpened, (newVal) => {
     if (newVal) {
-        // Jakmile uživatel projde mechanickou bránou, okamžitě hydratujeme Pinia store z DB dat
+        // 1. Rychlá hydratace z aktuálních props (pokud už tam něco je)
         if (props.initialState) {
             store.hydrateSystem(props.initialState);
         }

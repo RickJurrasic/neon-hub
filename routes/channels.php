@@ -1,8 +1,14 @@
 <?php
 
 use Illuminate\Support\Facades\Broadcast;
+use Illuminate\Support\Facades\Log;
 
-Broadcast::channel('App.Models.User.{userId}', fn ($user, $userId) => (int) $user->id === (int) $userId);
+Broadcast::channel('App.Models.User.{userId}', function ($user, $userId) {
+    Log::info('Broadcasting Auth Check:', [
+        'authenticated_user_id' => $user ? $user->id : 'NULL',
+        'requested_channel_userId' => $userId,
+        'match' => $user ? ($user->id == $userId) : false
+    ]);
 
-// Pro AI akce
-Broadcast::channel('ai-actions.{userId}', fn ($user, $userId) => (int) $user->id === (int) $userId);
+    return $user && (int) $user->id === (int) $userId;
+});

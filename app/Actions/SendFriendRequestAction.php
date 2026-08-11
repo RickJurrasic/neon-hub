@@ -3,7 +3,6 @@
 namespace App\Actions;
 
 use App\Events\FriendRequestReceived;
-use App\Http\Resources\UserResource;
 use App\Models\Friendship;
 use App\Models\User;
 
@@ -26,15 +25,24 @@ class SendFriendRequestAction
             'status' => 'pending',
         ]);
 
-        // 3. Načtení odesílatele a odbavení eventu přes UserResource
+        // 3. Načtení odesílatele
+        /** @var User $sender */
         $sender = User::findOrFail($senderId);
 
+        // 4. Odeslání eventu se strukturou, která přesně odpovídá NeonHubService
         event(new FriendRequestReceived(
             $recipientId,
-            array_merge(
-                (new UserResource($sender))->resolve(),
-                ['friendship_id' => $friendship->id, 'status' => 'pending']
-            )
+            [
+                'id' => $friendship->id,             // ID přátelství (klíčové pro PATCH/DELETE)
+                'user_id' => $sender->id,            // ID uživatele (klíčové pro profil)
+                'name' => $sender->name,
+                'role' => $sender->role ?? 'EXTERNAL_NODE',
+                'bio' => $sender->bio ?? '"Šifrované bio prázdné."',
+                'trust_level' => $sender->trust_level ?? 50,
+                'latency' => $sender->latency ?? '24ms_STABLE',
+                'avatar' => $sender->avatar_url,
+                'status' => $friendship->status,
+            ]
         ));
 
         return $friendship;

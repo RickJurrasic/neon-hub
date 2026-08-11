@@ -22,8 +22,9 @@ Route::middleware('auth')->group(function (): void {
     Route::patch('/comments/{comment}', [CommentController::class, 'update'])->name('comments.update');
 
     // Friendships (Přesunuto do auth skupiny)
-    Route::patch('/friendships/{id}', [FriendshipController::class, 'update'])->name('friendships.update');
-    Route::delete('/friendships/{id}', [FriendshipController::class, 'destroy'])->name('friendships.destroy');
+    Route::post('/friendships', [FriendshipController::class, 'store'])->name('friendships.store');
+    Route::patch('/friendships/{friendship}', [FriendshipController::class, 'update'])->name('friendships.update');
+    Route::delete('/friendships/{friendship}', [FriendshipController::class, 'destroy'])->name('friendships.destroy');
 
     // Messages & Telemetry
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
