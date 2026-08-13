@@ -54,7 +54,7 @@ class HandleAgentResponse implements ShouldQueue
             return;
         }
 
-        $activeConversationId = $this->conversationId ?? $this->ensureConversationId($agentUser);
+        $activeConversationId = $this->conversationId ?? $this->ensureConversationId($user, $agentUser);
 
         if ($this->isLastMessageFromAssistant($activeConversationId)) {
             Log::info("HandleAgentResponse skipped: Last message in conversation {$activeConversationId} was already from assistant.");
@@ -97,7 +97,7 @@ class HandleAgentResponse implements ShouldQueue
             return User::where('name', $this->agentName)->first();
         }
 
-        return User::where('id', '>', 1)->inRandomOrder()->first();
+        return User::where('is_ai', true)->inRandomOrder()->first();
     }
 
     private function getAgentFromConversation(string $conversationId): ?User
@@ -111,13 +111,14 @@ class HandleAgentResponse implements ShouldQueue
         }
 
         /** @var User|null */
-        return User::find($conversation->user_id);
+        return User::find($conversation->agent_user_id ?? $conversation->user_id);
     }
 
-    private function ensureConversationId(User $agentUser): string
+    private function ensureConversationId(User $user, User $agentUser): string
     {
         $existingId = DB::table('agent_conversations')
-            ->where('user_id', $agentUser->id)
+            ->where('user_id', $user->id)
+            ->where('agent_user_id', $agentUser->id)
             ->value('id');
 
         if ($existingId) {
@@ -128,7 +129,8 @@ class HandleAgentResponse implements ShouldQueue
 
         DB::table('agent_conversations')->insert([
             'id' => $newId,
-            'user_id' => $agentUser->id,
+            'user_id' => $user->id,
+            'agent_user_id' => $agentUser->id,
             'title' => 'SYSTEM_GREETING',
             'created_at' => now(),
             'updated_at' => now(),

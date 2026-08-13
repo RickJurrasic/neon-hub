@@ -22,7 +22,8 @@ class ExecuteSendMessageAction implements AIAction
         $agent = (new AIAgent())->withPersona($user->name);
 
         $conversation = DB::table('agent_conversations')
-            ->where('user_id', $user->id)
+            ->where('agent_user_id', $user->id)
+            ->where('user_id', $recipientId)
             ->first();
 
         $conversationId = $conversation?->id;

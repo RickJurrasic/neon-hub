@@ -17,10 +17,12 @@ return new class() extends AiMigration
         Schema::create($conversationsTable, function (Blueprint $table) {
             $table->string('id', 36)->primary();
             $table->foreignId('user_id')->nullable();
+            $table->foreignId('agent_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('title');
             $table->timestamps();
 
             $table->index(['user_id', 'updated_at']);
+            $table->index('agent_user_id');
         });
 
         Schema::create($messagesTable, function (Blueprint $table) {

@@ -9,7 +9,17 @@ use Illuminate\Support\Str;
 class SendMessageAction
 {
     /**
-     * Odeslat zprávu v agentní konverzaci a vyvolat událost pro WebSocket.
+     * Persist a message in an agent conversation and broadcast it.
+     *
+     * Ownership contract (Laravel AI SDK convention):
+     *  - agent_conversations.user_id        = the human owner (inbox / delete gate)
+     *  - agent_conversations.agent_user_id  = the AI/bot identity this conv is routed to
+     *  - agent_conversation_messages.user_id = the human owner (same for user & assistant roles)
+     *
+     * Previously this hardcoded recruiterId = 1 and created conversations
+     * owned by the bot (user_id = $botId), which made them invisible to the
+     * human inbox and un-deletable through the owner-gated
+     * conversations.destroy route. Both defects are fixed below.
      */
     public function execute(
         int $senderId,
@@ -19,10 +29,17 @@ class SendMessageAction
         string $role = 'assistant'
     ): string {
         $now = now();
-        $recruiterId = 1;
 
+        // For an assistant (outgoing bot) message the human is the recipient;
+        // for a user (incoming human) message the human is the sender.
+        $humanId = $role === 'assistant' ? $recipientId : $senderId;
         $botId = $role === 'assistant' ? $senderId : $recipientId;
-        $conversationId = $this->ensureConversationExists($botId);
+
+        $conversationId = $this->ensureConversationExists(
+            $humanId,
+            $role === 'assistant' ? $botId : null
+        );
+
         $agentClass = $this->resolveAgentClass($agentName, $conversationId);
         $cleanAgentName = $this->formatAgentName($agentClass);
 
@@ -31,7 +48,7 @@ class SendMessageAction
         DB::table('agent_conversation_messages')->insert([
             'id' => $messageId,
             'conversation_id' => $conversationId,
-            'user_id' => $recruiterId,
+            'user_id' => $humanId,
             'agent' => $agentClass,
             'role' => $role,
             'content' => $content,
@@ -44,7 +61,7 @@ class SendMessageAction
             'updated_at' => $now,
         ]);
 
-        event(new MessageReceived($recruiterId, [
+        event(new MessageReceived($humanId, [
             'id' => $messageId,
             'conversation_id' => $conversationId,
             'sender_id' => $senderId,
@@ -62,27 +79,31 @@ class SendMessageAction
     }
 
     /**
-     * Zjistí ID existující konverzace nebo vytvoří novou.
+     * Resolve the human-owned conversation, optionally scoped to a specific bot.
+     * Creates a human-owned conversation (bot on agent_user_id) when missing.
      */
-    private function ensureConversationExists(int $botId): string
+    private function ensureConversationExists(int $humanId, ?int $botId = null): string
     {
-        $conversationId = DB::table('agent_conversations')
-            ->where('user_id', $botId)
-            ->value('id');
+        $query = DB::table('agent_conversations')
+            ->where('user_id', $humanId);
 
-        return $conversationId ?? $this->createNewConversation($botId);
+        if ($botId !== null) {
+            $query->where('agent_user_id', $botId);
+        }
+
+        $conversationId = $query->value('id');
+
+        return $conversationId ?? $this->createNewConversation($humanId, $botId);
     }
 
-    /**
-     * Vytvoří novou konverzaci pro daného bota.
-     */
-    private function createNewConversation(int $botId): string
+    private function createNewConversation(int $humanId, ?int $botId = null): string
     {
         $newId = (string) Str::uuid();
 
         DB::table('agent_conversations')->insert([
             'id' => $newId,
-            'user_id' => $botId,
+            'user_id' => $humanId,
+            'agent_user_id' => $botId,
             'title' => 'SECURE_CHANNEL',
             'created_at' => now(),
             'updated_at' => now(),
@@ -91,9 +112,6 @@ class SendMessageAction
         return $newId;
     }
 
-    /**
-     * Vyřeší plný název třídy AI agenta.
-     */
     private function resolveAgentClass(?string $agentName, string $conversationId): ?string
     {
         if (! $agentName) {
@@ -112,9 +130,6 @@ class SendMessageAction
         return "App\\Ai\\Agents\\{$formattedName}Agent";
     }
 
-    /**
-     * Převede FQCN třídu na krátký název (např. App\Ai\Agents\SentinelAgent -> SentinelAgent).
-     */
     private function formatAgentName(?string $agentClass): ?string
     {
         if (! $agentClass) {
