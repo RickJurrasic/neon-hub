@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Actions\SendMessageAction;
 use App\Jobs\HandleAgentResponse;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use stdClass;
@@ -64,11 +65,28 @@ class MessageService
     /**
      * Smaže konverzaci včetně zpráv.
      */
-    public function destroyConversation(int $conversationId): void
+    public function destroyConversation(string $conversationId): void
     {
-        DB::transaction(function () use ($conversationId): void {
-            DB::table('agent_conversation_messages')->where('conversation_id', $conversationId)->delete();
-            DB::table('agent_conversations')->where('id', $conversationId)->delete();
+        $userId = (int) auth()->id();
+
+        $owned = DB::table('agent_conversations')
+            ->where('id', $conversationId)
+            ->where('user_id', $userId)
+            ->exists();
+
+        if (! $owned) {
+            throw new AuthorizationException();
+        }
+
+        DB::transaction(function () use ($conversationId, $userId): void {
+            DB::table('agent_conversation_messages')
+                ->where('conversation_id', $conversationId)
+                ->delete();
+
+            DB::table('agent_conversations')
+                ->where('id', $conversationId)
+                ->where('user_id', $userId)
+                ->delete();
         });
     }
 

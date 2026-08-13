@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DeleteConversationRequest;
 use App\Http\Requests\StoreMessageRequest;
 use App\Http\Resources\MessageResource;
 use App\Services\MessageService;
@@ -39,10 +40,10 @@ class MessageController extends Controller
         return new MessageResource((object) $messageData);
     }
 
-    public function destroy(int|string $conversationId): JsonResponse
+    public function destroy(DeleteConversationRequest $request, string $conversationId): JsonResponse
     {
-        // Metoda akceptuje int|string, ale služba chce striktně int. Převedeme to bezpečně na int.
-        $this->messageService->destroyConversation((int) $conversationId);
+        // Authorization (owner-only) is enforced by DeleteConversationRequest::authorize(); conversation id is a string UUID, no int cast.
+        $this->messageService->destroyConversation($conversationId);
 
         return response()->json(['status' => 'NODE_PURGED']);
     }
