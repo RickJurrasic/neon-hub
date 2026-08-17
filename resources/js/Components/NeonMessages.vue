@@ -247,15 +247,20 @@ async function purgeConversation(conversationId) {
             <div class="border border-cyan-500/30 p-2 bg-black/90 rounded-xl shrink-0">
                 <div class="flex gap-2">
                     <label for="chat-reply-input" class="sr-only">Type datastream</label>
-                    <input
+                                        <input
                         id="chat-reply-input" v-model="replyText" type="text" placeholder="Type datastream..."
                         class="bg-black border border-cyan-500/20 rounded-lg px-3 py-2 text-xs text-white w-full focus:outline-none focus:border-cyan-500"
+                        :disabled="store.isRateLimited"
                         @keyup.enter="submitChatReply" />
 
                     <button
-                        type="button" class="text-[10px] bg-cyan-500 text-black px-5 py-2 rounded-lg font-bold hover:bg-cyan-400 active:scale-95 transition-all"
+                        type="button"
+                        class="text-[10px] bg-cyan-500 text-black px-5 py-2 rounded-lg font-bold transition-all"
+                        :class="store.isRateLimited ? 'opacity-40 cursor-not-allowed' : 'hover:bg-cyan-400 active:scale-95'"
+                        :disabled="store.isRateLimited"
                         @click="submitChatReply">
-                        SEND
+                        <span v-if="store.isRateLimited">COOLDOWN ({{ store.rateLimitRetry }}s)</span>
+                        <span v-else>SEND</span>
                     </button>
                 </div>
             </div>

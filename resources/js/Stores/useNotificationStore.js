@@ -10,8 +10,11 @@ export const useNotificationStore = defineStore("notifications", {
         posts: [],
         likeNotifications: [],
         commentNotifications: [],
-        isListening: false,
+                isListening: false,
         currentUserId: null,
+        isRateLimited: false,
+        rateLimitRetry: 0,
+        rateLimitTimer: null,
     }),
 
     getters: {
@@ -88,6 +91,15 @@ export const useNotificationStore = defineStore("notifications", {
             }
         },
 
+                clearRateLimit() {
+            this.isRateLimited = false;
+            this.rateLimitRetry = 0;
+            if (this.rateLimitTimer) {
+                clearInterval(this.rateLimitTimer);
+                this.rateLimitTimer = null;
+            }
+        },
+
         async sendReply(messageId, text) {
             try {
                 const response = await axios.post("/messages", {
@@ -104,9 +116,34 @@ export const useNotificationStore = defineStore("notifications", {
                     read: true,
                 };
                 this.addMessage(myMessage);
+                this.clearRateLimit();
                 return true;
             } catch (error) {
-                console.error("Failed to forward response:", error);
+                if (error?.response?.status === 429) {
+                    const retryAfter =
+                        parseInt(error.response.headers?.["retry-after"] ?? "0", 10) || 0;
+
+                    this.isRateLimited = true;
+                    this.rateLimitRetry = retryAfter;
+
+                    if (this.rateLimitTimer) clearInterval(this.rateLimitTimer);
+                    this.rateLimitTimer = setInterval(() => {
+                        this.rateLimitRetry = Math.max(0, this.rateLimitRetry - 1);
+                        if (this.rateLimitRetry <= 0) {
+                            this.isRateLimited = false;
+                            clearInterval(this.rateLimitTimer);
+                            this.rateLimitTimer = null;
+                        }
+                    }, 1000);
+
+                    console.warn(
+                        "AI_RATE_LIMITED: interactive budget exhausted, retrying in " +
+                            retryAfter + "s."
+                    );
+                } else {
+                    console.error("Failed to forward response:", error);
+                }
+
                 return false;
             }
         },
@@ -302,7 +339,7 @@ export const useNotificationStore = defineStore("notifications", {
             );
             const postAuthorName = post?.author?.name || post?.author || "user";
 
-            const isUserAction = userId === 1 || userId === this.currentUserId;
+            const isUserAction = Number(userId) === Number(this.currentUserId);
             const actionPrefix = isUserAction
                 ? "USER_ACTION: COMMENT"
                 : "AI_ACTION: COMMENT";
@@ -333,7 +370,7 @@ export const useNotificationStore = defineStore("notifications", {
                 : `${name} unliked the post of user ${targetAuthor}`;
 
             const alertType = isLiked ? "like" : "unlike";
-            const isUserAction = userId != null && Number(userId) === 1;
+            const isUserAction = userId != null && Number(userId) === Number(this.currentUserId);
             const actionPrefix = isUserAction
                 ? "USER_ACTION: LIKE"
                 : "AI_ACTION: LIKE";
@@ -431,12 +468,12 @@ export const useNotificationStore = defineStore("notifications", {
                 .listen(".PostLiked", (e) => {
                     const post = this.posts.find(
                         (p) => String(p.id) === String(e.postId),
-                    );
 
+                    );
                     if (post) post.likes_count = e.likesCount;
 
                     const isUserAction =
-                        e.userId != null && Number(e.userId) === 1;
+                        e.userId != null && Number(e.userId) === Number(this.currentUserId);
 
                     this.addLikeNotification(
                         e.postId,
@@ -444,11 +481,12 @@ export const useNotificationStore = defineStore("notifications", {
                         e.userName,
                         post?.author?.name || post?.author || "user",
                         e.isLiked,
+
                     );
                 })
                 .listen(".CommentCreated", (e) => {
                     this.addCommentToPost(e.postId, e.comment);
-                    const isUserAction = e.userId === 1;
+                    const isUserAction = Number(e.userId) === Number(this.currentUserId);
                     this.addCommentNotification(
                         e.comment,
                         e.postId,

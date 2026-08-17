@@ -72,6 +72,17 @@ class HandleAgentResponse implements ShouldQueue
 
         $aiChatResponse = $this->generateChatResponse($agentInstance, $user, $lastMessage, $activeConversationId);
 
+        // The agent was resolved above, but the conversation may have been
+        // purged (MessageService::destroyConversation) while this job was
+        // queued or during the LLM call. Re-check immediately before writing
+        // so we never orphan an assistant message into a deleted conversation
+        // or fire a stale MessageReceived to a purged channel.
+        if (! $this->conversationExists($activeConversationId)) {
+            Log::info("HandleAgentResponse skipped: Conversation {$activeConversationId} no longer exists (purged).");
+
+            return;
+        }
+
         if (filled($aiChatResponse)) {
             $this->saveAndBroadcastMessage($agentUser, $user, $activeConversationId, $aiChatResponse);
         }
@@ -85,6 +96,19 @@ class HandleAgentResponse implements ShouldQueue
             ->where('conversation_id', $conversationId)
             ->orderBy('created_at', 'desc')
             ->value('role') === 'assistant';
+    }
+
+    /**
+     * Whether the conversation still exists (i.e. has not been purged by
+     * MessageService::destroyConversation while this job was queued or
+     * executing). Guards the write path so a queued job cannot re-insert
+     * an orphaned assistant message or broadcast to a purged channel.
+     */
+    private function conversationExists(string $conversationId): bool
+    {
+        return DB::table('agent_conversations')
+            ->where('id', $conversationId)
+            ->exists();
     }
 
     private function resolveAgentUser(): ?User

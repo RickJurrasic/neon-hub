@@ -2,10 +2,10 @@
 
 namespace App\Http\Middleware;
 
-use Illuminate\Http\Request;
-use Inertia\Middleware;
-use Illuminate\Support\Facades\DB;
 use App\Models\Post;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -45,8 +45,8 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
             ],
             // Základní data pro NeonHub systém, která přežijí refresh
-            'messages' => $user 
-                ? DB::table('agent_conversation_messages')->where('user_id', $user->id)->orderBy('created_at', 'asc')->get() 
+            'messages' => $user
+                ? DB::table('agent_conversation_messages')->where('user_id', $user->id)->orderBy('created_at', 'asc')->get()
                 : [],
             'posts' => Post::latest()->get(),
         ]);
