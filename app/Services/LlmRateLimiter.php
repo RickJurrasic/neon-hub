@@ -8,8 +8,9 @@ use Illuminate\Support\Str;
 
 class LlmRateLimiter
 {
-    public const STARTUP     = 'startup';
+        public const STARTUP     = 'startup';
     public const INTERACTIVE = 'interactive';
+    public const ENTER_SYSTEM = 'enter_system';
 
     /**
      * Cache key for a user + bucket.
@@ -49,7 +50,7 @@ class LlmRateLimiter
         return ! $user->is_ai && Str::startsWith((string) ($user->handle ?? ''), 'demo-');
     }
 
-    public function max(string $bucket, User $user): int
+        public function max(string $bucket, User $user): int
     {
         $limits = config('neon.llm_limits', [
             'window_seconds' => 60,
@@ -59,7 +60,13 @@ class LlmRateLimiter
 
         $tier = $this->isDemo($user) ? 'demo' : 'registered';
 
-        return (int) ($limits[$tier][$bucket] ?? $limits['registered'][$bucket] ?? 6);
+        // Bucket-level lookup (matches config structure: 'enter_system' => ['demo' => 1, 'registered' => 2]).
+        // Falls back to tier-level lookup (legacy buckets like 'startup'/'interactive' are tiered)
+        // and finally to a sane default.
+                return (int) ($limits[$bucket][$tier]
+            ?? $limits[$tier][$bucket]
+            ?? $limits[$bucket]['registered']
+            ?? 6);
     }
 
     public function windowSeconds(): int

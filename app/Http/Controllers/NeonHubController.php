@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Jobs\HandleAgentResponse;
 use App\Services\NeonHubService;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -23,8 +22,6 @@ class NeonHubController extends Controller
         $props = [
             'canLogin' => Route::has('login'),
             'canRegister' => Route::has('register'),
-            'laravelVersion' => Application::VERSION,
-            'phpVersion' => PHP_VERSION,
             'initialState' => $authId ? $this->neonHubService->getInitialState($authId) : null,
         ];
 

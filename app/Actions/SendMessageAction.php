@@ -98,6 +98,19 @@ class SendMessageAction
 
     private function createNewConversation(int $humanId, ?int $botId = null): string
     {
+        // Never leave agent_user_id NULL. When the caller (a user message)
+        // did not supply a bot ID, fall back to a random AI bot so the human's
+        // identity is never resolved as the agent — this closes the
+        // prompt-injection boundary where getAgentFromConversation would
+        // fall back to user_id (the human) and inject their name/bio into
+        // the LLM system prompt via withPersona().
+        if ($botId === null) {
+            $botId = (int) DB::table('users')
+                ->where('is_ai', true)
+                ->inRandomOrder()
+                ->value('id');
+        }
+
         $newId = (string) Str::uuid();
 
         DB::table('agent_conversations')->insert([

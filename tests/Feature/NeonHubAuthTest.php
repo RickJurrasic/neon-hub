@@ -6,28 +6,25 @@ use function Pest\Laravel\actingAs;
 use function Pest\Laravel\assertAuthenticated;
 
 test('guest can access neon core and automatically get an authenticated session', function (): void {
-    // Vytvoříme testovacího uživatele
-    $user = User::factory()->create([
-        'name' => 'Radim Passer',
-    ]);
+    // Demo human mirroring the identity AutoLoginDemoUser issues (verified,
+    // is_ai=false) - the real entry point to the Neon Hub dashboard.
+    $user = makeDemoUser();
 
-    // Použijeme správný název routy 'dashboard'
-    $response = actingAs($user)->get(route('dashboard'));
+    actingAs($user)
+        ->get(route('dashboard'))
+        ->assertOk();
 
-    // Ověříme, že stránka se v pořádku načte a uživatel je přihlášen
-    $response->assertStatus(200);
     assertAuthenticated();
 });
 
-test('inertia page shares authenticated user data with neon components', function (): void {
-    $user = User::factory()->create([
-        'name' => 'Radim Passer',
-    ]);
+test('inertia page shares authenticated user data with neon components', function () {
+    $user = User::factory()->create(['name' => 'Radim Passer']);
 
-    // Ověříme, že Inertia správně sdílí data přihlášeného uživatele do frontendu
     actingAs($user)
         ->get(route('dashboard'))
+        ->assertOk()
         ->assertInertia(fn ($page) => $page
+            ->component('Welcome')
             ->where('auth.user.name', $user->name)
         );
 });

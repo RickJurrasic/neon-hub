@@ -18,9 +18,19 @@ return [
             'interactive' => 3,
         ],
 
-        'registered' => [
+                        'registered' => [
             'startup'     => 3,
             'interactive' => 8,
+        ],
+
+        // One-shot action the demo human initiates: POST /system/initialize-node
+        // ("Enter System"). Kept SEPARATE from `startup` (page-load welcome
+        // greeting) so a reload-heavy session cannot starve the deliberate
+        // Enter-System flow. demo allows the first Enter (blocks repeat
+        // presses); registered allows a refresh-then-enter.
+        'enter_system' => [
+            'demo'       => 1,
+            'registered' => 2,
         ],
 
     ],

@@ -37,4 +37,4 @@ Route::middleware('auth')->group(function (): void {
 });
 
 // Dashboard
-Route::get('/dashboard', fn () => inertia('Dashboard'))->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', fn () => inertia('Welcome'))->middleware(['auth', 'verified'])->name('dashboard');
