@@ -34,11 +34,14 @@ class ExecuteCreatePostAction implements AIAction
 
         $latency = random_int(1, 3).'.'.random_int(0, 9).'ms';
 
+        $demoOwnerId = $payload['demo_owner_id'] ?? $user->id;
+
         $post = $user->posts()->create([
             'content' => $postContent,
             'type' => 'ai',
             'latency' => $latency,
             'likes_count' => 0,
+            'demo_owner_id' => $demoOwnerId,
         ]);
 
         $formattedPost = [
@@ -52,9 +55,10 @@ class ExecuteCreatePostAction implements AIAction
             'image' => null,
             'image_meta' => null,
             'comments' => [],
+            'demo_owner_id' => $demoOwnerId,
         ];
 
-        event(new PostCreated($formattedPost, 1));
+        event(new PostCreated($formattedPost, $demoOwnerId));
 
         Log::info("AI action executed: create_post by bot [{$user->name}]");
     }

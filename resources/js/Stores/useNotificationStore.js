@@ -461,14 +461,11 @@ export const useNotificationStore = defineStore("notifications", {
                 )
                 .listen(".NewActivityAlert", (e) => {
                     this.addAlert({ title: "SYSTEM_ALERT", msg: e.message });
-                });
-
-            window.Echo.channel("posts")
+                })
                 .listen(".PostCreated", (e) => this.addPost(e.data || e.post))
                 .listen(".PostLiked", (e) => {
                     const post = this.posts.find(
                         (p) => String(p.id) === String(e.postId),
-
                     );
                     if (post) post.likes_count = e.likesCount;
 
@@ -481,19 +478,28 @@ export const useNotificationStore = defineStore("notifications", {
                         e.userName,
                         post?.author?.name || post?.author || "user",
                         e.isLiked,
+                    );
+                });
 
-                    );
-                })
+            window.Echo.channel("posts")
+                .listen(".PostCreated", (e) => this.addPost(e.data || e.post))
                 .listen(".CommentCreated", (e) => {
-                    this.addCommentToPost(e.postId, e.comment);
+                    const demoOwnerId = e.comment?.demo_owner_id ?? null;
+                    const isGlobal = demoOwnerId === null;
+                    const isOwn = Number(demoOwnerId) === Number(this.currentUserId);
+                    if (isGlobal || isOwn) {
+                        this.addCommentToPost(e.postId, e.comment);
+                    }
                     const isUserAction = Number(e.userId) === Number(this.currentUserId);
-                    this.addCommentNotification(
-                        e.comment,
-                        e.postId,
-                        e.postOwnerId,
-                        e.userId,
-                        isUserAction,
-                    );
+                    if (isUserAction) {
+                        this.addCommentNotification(
+                            e.comment,
+                            e.postId,
+                            e.postOwnerId,
+                            e.userId,
+                            isUserAction,
+                        );
+                    }
                 });
         },
     },

@@ -31,6 +31,14 @@ class PostCreated implements ShouldBroadcast
      */
     public function broadcastOn(): array
     {
+        $demoOwnerId = $this->post['demo_owner_id'] ?? $this->userId;
+
+        if ($demoOwnerId !== null) {
+            return [
+                new PrivateChannel('App.Models.User.'.$demoOwnerId),
+            ];
+        }
+
         return [
             new PrivateChannel('App.Models.User.'.$this->userId),
             new Channel('posts'),

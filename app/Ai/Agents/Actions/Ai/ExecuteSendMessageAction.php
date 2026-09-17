@@ -18,7 +18,22 @@ class ExecuteSendMessageAction implements AIAction
 
     public function execute(User $user, array $payload): void
     {
-        $recipientId = (int) ($payload['recipient_id'] ?? 1);
+        $recipientId = $payload['recipient_id'] ?? null;
+
+        if (! $recipientId) {
+            Log::warning('send_message: missing recipient_id in payload.');
+
+            return;
+        }
+
+        $recipient = User::find($recipientId);
+
+        if (! $recipient || $recipient->is_ai) {
+            Log::warning("send_message: recipient_id [{$recipientId}] is not a valid human user.");
+
+            return;
+        }
+
         $agent = (new AIAgent())->withPersona($user->name);
 
         $conversation = DB::table('agent_conversations')

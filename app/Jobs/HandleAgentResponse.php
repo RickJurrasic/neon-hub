@@ -7,7 +7,6 @@ use App\Events\MessageReceived;
 use App\Events\NewActivityAlert;
 use App\Events\PostCreated;
 use App\Models\Post;
-use App\Models\SeedPostImage;
 use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -248,7 +247,7 @@ class HandleAgentResponse implements ShouldQueue
             return;
         }
 
-        $imageUrl = class_exists('\App\Models\SeedPostImage')
+        $imageUrl = class_exists('\App\Jobs\SeedPostImage')
             ? SeedPostImage::generate()
             : null;
 
@@ -259,6 +258,7 @@ class HandleAgentResponse implements ShouldQueue
             'latency' => random_int(1, 4).'.'.random_int(0, 9).'ms',
             'likes_count' => 0,
             'image_url' => $imageUrl,
+            'demo_owner_id' => $user->id,
         ]);
 
         event(new PostCreated([
@@ -272,6 +272,7 @@ class HandleAgentResponse implements ShouldQueue
             'image' => $post->image_url,
             'image_meta' => null,
             'comments' => [],
+            'demo_owner_id' => $user->id,
         ], $user->id));
 
         event(new NewActivityAlert($user->id, "{$agentUser->name} has created a post"));

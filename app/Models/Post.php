@@ -55,6 +55,7 @@ use Illuminate\Support\Carbon;
     'image_url',
     'image_meta',
     'likes_count',
+    'demo_owner_id',
 ])]
 class Post extends Model
 {

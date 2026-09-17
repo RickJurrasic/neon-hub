@@ -18,6 +18,7 @@ class CommentService
         $comment = $post->comments()->create([
             'user_id' => (int) auth()->id(),
             'content' => $data['content'],
+            'demo_owner_id' => (int) auth()->id(),
         ]);
 
         $commentData = $this->formatCommentData($comment, $post);
@@ -54,6 +55,7 @@ class CommentService
             'author' => $user ? $user->name : 'Anonymous',
             'timestamp' => $createdAt->format('H:i'),
             'created_at' => $createdAt->toIso8601String(),
+            'demo_owner_id' => $comment->demo_owner_id,
         ];
     }
 
@@ -64,13 +66,14 @@ class CommentService
     {
         $userId = (int) auth()->id();
         $user = auth()->user();
+        $recipientId = $post->demo_owner_id ?? $post->user_id;
 
         event(new CommentCreated($post->id, $commentData, $post->user_id, $userId));
 
-        if ($post->user_id !== $userId) {
+        if ($recipientId !== $userId) {
             $userName = $user ? $user->name : 'Someone';
             event(new NewActivityAlert(
-                $post->user_id,
+                $recipientId,
                 $userName.' commented on your post.'
             ));
         }

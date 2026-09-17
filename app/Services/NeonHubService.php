@@ -72,6 +72,10 @@ class NeonHubService
                     });
                 },
             ])
+            ->where(function ($query) use ($authId): void {
+                $query->where('demo_owner_id', $authId)
+                    ->orWhereNull('demo_owner_id');
+            })
             ->latest()
             ->get()
             ->map(function ($post) use ($authId) {
@@ -107,7 +111,9 @@ class NeonHubService
      */
     private function transformComments(Collection $comments, int $authId): array
     {
-        return $comments->map(fn ($comment) => [
+        return $comments->filter(fn ($comment) =>
+            is_null($comment->demo_owner_id) || (int) $comment->demo_owner_id === $authId
+        )->map(fn ($comment) => [
             'id' => $comment->id,
             'author' => $comment->author->name ?? 'ANONYMOUS',
             'text' => $comment->content,
