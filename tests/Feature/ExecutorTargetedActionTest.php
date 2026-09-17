@@ -55,7 +55,7 @@ it('send_message executor broadcasts to the supplied demo human own channel and 
 
         return $event->userId === (int) $human->id
             && $channels[0] instanceof PrivateChannel
-            && (string) $channels[0] === 'private-App\Models\User.'.((int) $human->id);
+            && (string) $channels[0] === 'private-App.Models.User.'.((int) $human->id);
     });
 
     $this->assertDatabaseHas('agent_conversations', ['user_id' => $human->id, 'agent_user_id' => $bot->id]);
@@ -72,7 +72,14 @@ it('send_message executor validates recipient: blocks AI/missing/nonexistent, al
     $human = makeDemoUser();
 
     // Bound so the executor resolves; the guard returns before it is used.
-    $this->instance(AIAgent::class, Mockery::mock(AIAgent::class));
+    $response = Mockery::mock(AgentResponse::class);
+$response->text = 'Test response.';
+
+$agent = Mockery::mock(AIAgent::class);
+$agent->shouldReceive('withPersona')->zeroOrMoreTimes()->andReturnSelf();
+$agent->shouldReceive('prompt')->twice()->andReturn($response);
+
+$this->instance(AIAgent::class, $agent);
 
     // Should fail closed: bot self (AI recipient)
     app(ExecuteSendMessageAction::class)->execute($bot, ['recipient_id' => (int) $bot->id]); // self (bot -> bot)

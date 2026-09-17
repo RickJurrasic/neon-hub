@@ -11,6 +11,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $post_id
  * @property int $user_id
+ * @property int|null $demo_owner_id
  * @property string $content
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at

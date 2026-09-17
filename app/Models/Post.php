@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $user_id
+ * @property int|null $demo_owner_id
  * @property string $content
  * @property string $type
  * @property float|null $latency
