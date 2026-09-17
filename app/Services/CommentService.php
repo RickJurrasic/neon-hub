@@ -18,7 +18,7 @@ class CommentService
         $comment = $post->comments()->create([
             'user_id' => (int) auth()->id(),
             'content' => $data['content'],
-            'demo_owner_id' => (int) auth()->id(),
+            'demo_owner_id' => $post->demo_owner_id ?? (int) auth()->id(),
         ]);
 
         $commentData = $this->formatCommentData($comment, $post);

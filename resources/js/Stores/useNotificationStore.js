@@ -479,6 +479,20 @@ export const useNotificationStore = defineStore("notifications", {
                         post?.author?.name || post?.author || "user",
                         e.isLiked,
                     );
+                })
+                .listen(".CommentCreated", (e) => {
+                    const demoOwnerId = e.comment?.demo_owner_id ?? null;
+                    const isOwn = Number(demoOwnerId) === Number(this.currentUserId);
+                    if (isOwn) {
+                        this.addCommentToPost(e.postId, e.comment);
+                        this.addCommentNotification(
+                            e.comment,
+                            e.postId,
+                            e.postOwnerId,
+                            e.userId,
+                            true,
+                        );
+                    }
                 });
 
             window.Echo.channel("posts")

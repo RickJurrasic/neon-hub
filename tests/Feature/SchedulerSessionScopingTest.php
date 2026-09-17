@@ -376,10 +376,16 @@ it('routes CommentCreated to the demo session owner private channel, not the bot
     $humanB = makeDemoUser();
     $bot = makeBotUser();
 
-    $comment = ['id' => 1, 'post_id' => 1, 'content' => 'Nice post!', 'author' => $bot->name];
+    $commentA = [
+        'id' => 1,
+        'post_id' => 1,
+        'content' => 'Nice post!',
+        'author' => $bot->name,
+        'demo_owner_id' => (int) $humanA->id,
+    ];
 
     // Post owned by human A, bot writes a comment
-    $event = new CommentCreated(1, $comment, (int) $humanA->id, $bot->id);
+    $event = new CommentCreated(1, $commentA, (int) $humanA->id, $bot->id);
     $channels = $event->broadcastOn();
 
     expect($channels[0])->toBeInstanceOf(PrivateChannel::class)
@@ -387,7 +393,15 @@ it('routes CommentCreated to the demo session owner private channel, not the bot
         ->and($channels[0]->name)->not->toBe('private-App.Models.User.'.$bot->id);
 
     // Different session -> different channel
-    $eventB = new CommentCreated(2, $comment, (int) $humanB->id, $bot->id);
+    $commentB = [
+        'id' => 2,
+        'post_id' => 2,
+        'content' => 'Nice post!',
+        'author' => $bot->name,
+        'demo_owner_id' => (int) $humanB->id,
+    ];
+
+    $eventB = new CommentCreated(2, $commentB, (int) $humanB->id, $bot->id);
     $channelsB = $eventB->broadcastOn();
 
     expect($channelsB[0]->name)->toBe('private-App.Models.User.'.$humanB->id)

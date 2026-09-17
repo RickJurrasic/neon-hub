@@ -13,7 +13,8 @@ use Illuminate\Support\Str;
 class ExecuteSendMessageAction implements AIAction
 {
     public function __construct(
-        private readonly SendMessageAction $sendMessageAction
+        private readonly SendMessageAction $sendMessageAction,
+        private AIAgent $agent
     ) {}
 
     public function execute(User $user, array $payload): void
@@ -34,7 +35,7 @@ class ExecuteSendMessageAction implements AIAction
             return;
         }
 
-        $agent = (new AIAgent())->withPersona($user->name);
+        $this->agent->withPersona($user->name);
 
         $conversation = DB::table('agent_conversations')
             ->where('agent_user_id', $user->id)
@@ -50,7 +51,7 @@ class ExecuteSendMessageAction implements AIAction
                 ->orderBy('created_at', 'desc')
                 ->first();
 
-            $agent->loadConversation((string) $conversationId);
+            $this->agent->loadConversation((string) $conversationId);
         }
 
         // Pokud poslední zprávu poslal bot a uživatel neodpověděl, akci přeskočíme
@@ -60,7 +61,7 @@ class ExecuteSendMessageAction implements AIAction
             return;
         }
 
-        $response = $agent->prompt(
+        $response = $this->agent->prompt(
             'Generate the next short message reply to the user. Keep it strictly under 2 short sentences. Do not wrap in quotes. Speak completely in English matching your exact persona.',
             provider: ['groq']
         );
