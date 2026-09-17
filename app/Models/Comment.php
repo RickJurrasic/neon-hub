@@ -33,6 +33,7 @@ use Illuminate\Support\Carbon;
     'post_id',
     'user_id',
     'content',
+    'demo_owner_id',
 ])]
 class Comment extends Model
 {

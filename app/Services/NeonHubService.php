@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Comment;
 use App\Models\Friendship;
 use App\Models\Post;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -25,12 +27,14 @@ class NeonHubService
     /**
      * @return array<int, array<string, mixed>>
      */
-   public function getMessagesData(int $authId): array
+    public function getMessagesData(int $authId): array
     {
         return DB::table('agent_conversation_messages')
             ->where('agent_conversation_messages.user_id', $authId)
             ->leftJoin('agent_conversations', 'agent_conversation_messages.conversation_id', '=', 'agent_conversations.id')
-            ->leftJoin('users as agents', 'agent_conversations.user_id', '=', 'agents.id')
+            ->leftJoin('users as agents', function ($join) {
+                $join->on(DB::raw('COALESCE(agent_conversations.agent_user_id, agent_conversations.user_id)'), '=', 'agents.id');
+            })
             ->select([
                 'agent_conversation_messages.*',
                 'agents.name as agent_name',
@@ -39,20 +43,21 @@ class NeonHubService
             ->get()
             ->map(function ($msg) {
                 $isAssistant = $msg->role === 'assistant';
-                
+
                 return [
                     'id' => $msg->id,
                     'conversation_id' => $msg->conversation_id,
                     'sender' => $isAssistant ? ($msg->agent_name ?? 'SYSTEM') : 'User',
                     'text' => $msg->content ?? '',
-                    'time' => $msg->created_at ? \Carbon\Carbon::parse($msg->created_at)->toTimeString() : '00:00',
-                    'timestamp' => $msg->created_at ? \Carbon\Carbon::parse($msg->created_at)->format('H:i') : '00:00',
+                    'time' => $msg->created_at ? Carbon::parse($msg->created_at)->toTimeString() : '00:00',
+                    'timestamp' => $msg->created_at ? Carbon::parse($msg->created_at)->format('H:i') : '00:00',
                     'created_at' => $msg->created_at,
                     'role' => $msg->role,
                 ];
             })
             ->toArray();
     }
+
     /**
      * @return array<int, array<string, mixed>>
      */
@@ -67,6 +72,10 @@ class NeonHubService
                     });
                 },
             ])
+            ->where(function ($query) use ($authId): void {
+                $query->where('demo_owner_id', $authId)
+                    ->orWhereNull('demo_owner_id');
+            })
             ->latest()
             ->get()
             ->map(function ($post) use ($authId) {
@@ -102,7 +111,9 @@ class NeonHubService
      */
     private function transformComments(Collection $comments, int $authId): array
     {
-        return $comments->map(fn ($comment) => [
+        return $comments->filter(fn ($comment) =>
+            is_null($comment->demo_owner_id) || (int) $comment->demo_owner_id === $authId
+        )->map(fn ($comment) => [
             'id' => $comment->id,
             'author' => $comment->author->name ?? 'ANONYMOUS',
             'text' => $comment->content,

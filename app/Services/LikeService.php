@@ -41,12 +41,14 @@ class LikeService
 
     private function notifyAndBroadcast(Post $post, int $likesCount, bool $isLiked): void
     {
+        $postOwnerId = (int) auth()->id();
         event(new PostLiked(
             $post->id,
             $likesCount,
             (int) auth()->id(),
             auth()->user()?->name,
-            $isLiked
+            $isLiked,
+            $postOwnerId
         ));
     }
 }

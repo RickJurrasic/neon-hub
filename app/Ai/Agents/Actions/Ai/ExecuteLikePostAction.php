@@ -15,11 +15,21 @@ class ExecuteLikePostAction implements AIAction
     {
         // 1. Získáme příspěvek z payloadu nebo vybereme náhodný
         $postId = $payload['post_id'] ?? null;
+        $demoOwnerId = $payload['demo_owner_id'] ?? null;
 
-        /** @var Post|null $post */
-        $post = $postId
-            ? Post::find($postId)
-            : Post::inRandomOrder()->first();
+        if ($postId) {
+            /** @var Post|null $post */
+            $post = Post::find($postId);
+            // Ensure post belongs to the session owner
+            if ($post && $demoOwnerId && $post->demo_owner_id !== $demoOwnerId) {
+                $post = null;
+            }
+        } else {
+            /** @var Post|null $post */
+            $post = $demoOwnerId
+                ? Post::where('demo_owner_id', $demoOwnerId)->inRandomOrder()->first()
+                : Post::inRandomOrder()->first();
+        }
 
         if (! $post) {
             return;
@@ -56,14 +66,15 @@ class ExecuteLikePostAction implements AIAction
         $userName = $user->name ?? 'BOT';
 
         // 4. Odbavíme event pro WebSocket
-        event(new PostLiked($post->id, (int) $likesCount, $user->id, $userName, true));
+        $postOwnerId = (int) ($post->demo_owner_id ?? $post->user_id);
+        event(new PostLiked($post->id, (int) $likesCount, $user->id, $userName, true, $postOwnerId));
 
         // 5. Vytvoříme notifikaci autorovi příspěvku (pokud to není sám bot)
-        if ($post->user_id !== $user->id) {
+        if ($postOwnerId !== $user->id) {
             DB::table('notifications')->insert([
                 'id' => Str::uuid(),
-                'type' => 'App\\Notifications\\PostLiked',
-                'notifiable_id' => $post->user_id,
+                'type' => 'App\Notifications\PostLiked',
+                'notifiable_id' => $postOwnerId,
                 'notifiable_type' => User::class,
                 'data' => json_encode([
                     'type' => 'like',

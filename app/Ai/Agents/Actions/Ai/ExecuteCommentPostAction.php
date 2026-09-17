@@ -63,6 +63,7 @@ class ExecuteCommentPostAction implements AIAction
             'content' => $comment->content,
             'author' => $user->name ?? 'BOT',
             'created_at' => $comment->created_at?->toIso8601String() ?? now()->toIso8601String(),
+            'demo_owner_id' => null,
         ], $post->user_id, $user->id));
     }
 }

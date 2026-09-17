@@ -1,15 +1,14 @@
 <?php
 
+use App\Ai\Agents\AIActionScheduler;
 use App\Http\Middleware\AutoLoginDemoUser;
 use App\Http\Middleware\HandleInertiaRequests;
-use App\Jobs\ProcessAIAction;
-use App\Models\User;
+use App\Http\Middleware\RegisterDemoActivity;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -22,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
             AutoLoginDemoUser::class,
+            RegisterDemoActivity::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
@@ -29,49 +29,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule): void {
         Log::info('Scheduler: Initializing AI profiles scheduler.');
 
-        $aiUsers = User::where('is_ai', true)->get();
-
-        if ($aiUsers->isEmpty()) {
-            Log::warning('Scheduler: No AI users found.');
-
-            return;
-        }
-
-        // Scheduler běží každou minutu, ale vybírá náhodného bota
-        // A každý bot má svou náhodnou prodlevu 15-45 sekund mezi voláními
-        $schedule->call(function () use ($aiUsers): void {
-            // Vybereme náhodného bota
-            $user = $aiUsers->random();
-
-            // Získání poslední akce pro tohoto bota
-            $lastAction = DB::table('ai_profile_events')
-                ->where('user_id', $user->id)
-                ->orderBy('executed_at', 'desc')
-                ->value('action_type');
-
-            $actions = config('ai_actions.actions');
-            $available = array_keys($actions);
-
-            if ($lastAction) {
-                $available = array_filter($available, fn ($a) => $a !== $lastAction);
-            }
-
-            if (! empty($available)) {
-                $action = $available[array_rand($available)];
-                Log::info("Scheduler: Dispatching job [{$action}] for user [{$user->id}] ({$user->name}).");
-                ProcessAIAction::dispatch($user->id, $action);
-            } else {
-                // Všechny actiony byly použity, použijeme jakoukoliv
-                $action = array_keys($actions)[array_rand(array_keys($actions))];
-                Log::info("Scheduler: Dispatching job [{$action}] for user [{$user->id}] ({$user->name}) - reset.");
-                ProcessAIAction::dispatch($user->id, $action);
-            }
+        $schedule->call(function (): void {
+            AIActionScheduler::tick();
         })
-            ->everyThirtySeconds() // Běží každých 30 sekund
+            ->everyThirtySeconds()
             ->name('ai-profile-scheduler')
             ->withoutOverlapping();
-
-        Log::info('Scheduler: AI profiles scheduler initialized for '.$aiUsers->count().' bots.');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

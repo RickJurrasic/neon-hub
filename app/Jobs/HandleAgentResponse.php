@@ -7,7 +7,6 @@ use App\Events\MessageReceived;
 use App\Events\NewActivityAlert;
 use App\Events\PostCreated;
 use App\Models\Post;
-use App\Models\SeedPostImage;
 use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -54,7 +53,7 @@ class HandleAgentResponse implements ShouldQueue
             return;
         }
 
-        $activeConversationId = $this->conversationId ?? $this->ensureConversationId($agentUser);
+        $activeConversationId = $this->conversationId ?? $this->ensureConversationId($user, $agentUser);
 
         if ($this->isLastMessageFromAssistant($activeConversationId)) {
             Log::info("HandleAgentResponse skipped: Last message in conversation {$activeConversationId} was already from assistant.");
@@ -72,6 +71,17 @@ class HandleAgentResponse implements ShouldQueue
 
         $aiChatResponse = $this->generateChatResponse($agentInstance, $user, $lastMessage, $activeConversationId);
 
+        // The agent was resolved above, but the conversation may have been
+        // purged (MessageService::destroyConversation) while this job was
+        // queued or during the LLM call. Re-check immediately before writing
+        // so we never orphan an assistant message into a deleted conversation
+        // or fire a stale MessageReceived to a purged channel.
+        if (! $this->conversationExists($activeConversationId)) {
+            Log::info("HandleAgentResponse skipped: Conversation {$activeConversationId} no longer exists (purged).");
+
+            return;
+        }
+
         if (filled($aiChatResponse)) {
             $this->saveAndBroadcastMessage($agentUser, $user, $activeConversationId, $aiChatResponse);
         }
@@ -87,6 +97,19 @@ class HandleAgentResponse implements ShouldQueue
             ->value('role') === 'assistant';
     }
 
+    /**
+     * Whether the conversation still exists (i.e. has not been purged by
+     * MessageService::destroyConversation while this job was queued or
+     * executing). Guards the write path so a queued job cannot re-insert
+     * an orphaned assistant message or broadcast to a purged channel.
+     */
+    private function conversationExists(string $conversationId): bool
+    {
+        return DB::table('agent_conversations')
+            ->where('id', $conversationId)
+            ->exists();
+    }
+
     private function resolveAgentUser(): ?User
     {
         if ($this->conversationId) {
@@ -97,7 +120,7 @@ class HandleAgentResponse implements ShouldQueue
             return User::where('name', $this->agentName)->first();
         }
 
-        return User::where('id', '>', 1)->inRandomOrder()->first();
+        return User::where('is_ai', true)->inRandomOrder()->first();
     }
 
     private function getAgentFromConversation(string $conversationId): ?User
@@ -111,13 +134,14 @@ class HandleAgentResponse implements ShouldQueue
         }
 
         /** @var User|null */
-        return User::find($conversation->user_id);
+        return User::find($conversation->agent_user_id ?? $conversation->user_id);
     }
 
-    private function ensureConversationId(User $agentUser): string
+    private function ensureConversationId(User $user, User $agentUser): string
     {
         $existingId = DB::table('agent_conversations')
-            ->where('user_id', $agentUser->id)
+            ->where('user_id', $user->id)
+            ->where('agent_user_id', $agentUser->id)
             ->value('id');
 
         if ($existingId) {
@@ -128,7 +152,8 @@ class HandleAgentResponse implements ShouldQueue
 
         DB::table('agent_conversations')->insert([
             'id' => $newId,
-            'user_id' => $agentUser->id,
+            'user_id' => $user->id,
+            'agent_user_id' => $agentUser->id,
             'title' => 'SYSTEM_GREETING',
             'created_at' => now(),
             'updated_at' => now(),
@@ -222,7 +247,7 @@ class HandleAgentResponse implements ShouldQueue
             return;
         }
 
-        $imageUrl = class_exists('\App\Models\SeedPostImage')
+        $imageUrl = class_exists('\App\Jobs\SeedPostImage')
             ? SeedPostImage::generate()
             : null;
 
@@ -233,6 +258,7 @@ class HandleAgentResponse implements ShouldQueue
             'latency' => random_int(1, 4).'.'.random_int(0, 9).'ms',
             'likes_count' => 0,
             'image_url' => $imageUrl,
+            'demo_owner_id' => $user->id,
         ]);
 
         event(new PostCreated([
@@ -246,6 +272,7 @@ class HandleAgentResponse implements ShouldQueue
             'image' => $post->image_url,
             'image_meta' => null,
             'comments' => [],
+            'demo_owner_id' => $user->id,
         ], $user->id));
 
         event(new NewActivityAlert($user->id, "{$agentUser->name} has created a post"));

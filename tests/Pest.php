@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /*
@@ -42,7 +44,30 @@ expect()->extend('toBeOne', fn () => $this->toBe(1));
 |
 */
 
-function something(): void
+/**
+ * A demo human behaves exactly like AutoLoginDemoUser issues: its handle is
+ * demo-<uuid>. This is the ONLY signal LlmRateLimiter::isDemo() honours, so it
+ * is also the only handle prefix a test should mint to exercise the demo tier.
+ */
+function makeDemoUser(array $overrides = []): User
 {
-    // ..
+    $handle = 'demo-'.Str::uuid()->toString();
+
+    return User::factory()->create(array_merge([
+        'handle' => $handle,
+        'email'  => $handle.'@neonhub.io',
+        'is_ai'  => false,
+    ], $overrides));
+}
+
+/**
+ * A global AI bot (is_ai = true). Bots are never classified as demo and share a
+ * single global rate-limit bucket keyed by handle.
+ */
+function makeBotUser(array $overrides = []): User
+{
+    return User::factory()->create(array_merge([
+        'name'  => 'SENTINEL_01',
+        'is_ai' => true,
+    ], $overrides));
 }

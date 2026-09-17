@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Actions\SendMessageAction;
 use App\Jobs\HandleAgentResponse;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use stdClass;
@@ -22,10 +24,27 @@ class MessageService
     public function getIndexMessages(int $userId): Collection
     {
         /** @var Collection<int, stdClass> */
-        return DB::table('agent_conversations')
-            ->where('user_id', $userId)
-            ->latest()
+        $messages = DB::table('agent_conversation_messages')
+            ->join('agent_conversations', 'agent_conversation_messages.conversation_id', '=', 'agent_conversations.id')
+            ->leftJoin('users', 'agent_conversations.agent_user_id', '=', 'users.id')
+            ->where('agent_conversation_messages.user_id', $userId)
+            ->select(
+                'agent_conversation_messages.id',
+                'agent_conversation_messages.conversation_id',
+                'agent_conversation_messages.agent',
+                'agent_conversation_messages.content as text',
+                'agent_conversation_messages.role',
+                'agent_conversation_messages.created_at',
+                'users.name as bot_real_name',
+            )
+            ->latest('agent_conversation_messages.created_at')
             ->get();
+
+        return $messages->map(function (stdClass $message): stdClass {
+            $message->created_at = Carbon::parse($message->created_at);
+
+            return $message;
+        });
     }
 
     /**
@@ -64,11 +83,28 @@ class MessageService
     /**
      * Smaže konverzaci včetně zpráv.
      */
-    public function destroyConversation(int $conversationId): void
+    public function destroyConversation(string $conversationId): void
     {
-        DB::transaction(function () use ($conversationId): void {
-            DB::table('agent_conversation_messages')->where('conversation_id', $conversationId)->delete();
-            DB::table('agent_conversations')->where('id', $conversationId)->delete();
+        $userId = (int) auth()->id();
+
+        $owned = DB::table('agent_conversations')
+            ->where('id', $conversationId)
+            ->where('user_id', $userId)
+            ->exists();
+
+        if (! $owned) {
+            throw new AuthorizationException();
+        }
+
+        DB::transaction(function () use ($conversationId, $userId): void {
+            DB::table('agent_conversation_messages')
+                ->where('conversation_id', $conversationId)
+                ->delete();
+
+            DB::table('agent_conversations')
+                ->where('id', $conversationId)
+                ->where('user_id', $userId)
+                ->delete();
         });
     }
 

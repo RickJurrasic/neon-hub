@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Ai\Agents\AIAgent;
 use App\Events\MessageReceived;
 use App\Models\User;
+use App\Services\LlmRateLimiter;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -40,13 +41,23 @@ class AutoSendAgentMessage implements ShouldQueue
         public readonly string $agentName = 'SENTINEL_01'
     ) {}
 
-    public function handle(): void
+        public function handle(LlmRateLimiter $limiter): void
     {
         $user = User::find($this->userId);
         $bot = User::where('name', $this->agentName)->first();
 
         if (! $user || ! $bot) {
             Log::warning("AutoSendAgentMessage skipped: User {$this->userId} or Bot {$this->agentName} not found.");
+
+            return;
+        }
+
+        // STARTUP budget gate — consumed here, the sole agent-initiated entry
+        // point, so no upstream consumer competes (no double-count). Returning
+        // before generateGreeting guarantees no LLM call (and no DB write) once
+        // the startup budget is exhausted.
+        if (! $limiter->consume(LlmRateLimiter::STARTUP, $user)) {
+            Log::info("AI_RATE_LIMITED: startup greeting skipped for User {$user->id} (budget exhausted).");
 
             return;
         }

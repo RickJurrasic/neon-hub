@@ -2,10 +2,10 @@
 
 namespace App\Http\Middleware;
 
-use Illuminate\Http\Request;
-use Inertia\Middleware;
-use Illuminate\Support\Facades\DB;
 use App\Models\Post;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -25,6 +25,7 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
+        $userId = $user->id;
 
         return array_merge(parent::share($request), [
             'auth' => [
@@ -45,10 +46,15 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
             ],
             // Základní data pro NeonHub systém, která přežijí refresh
-            'messages' => $user 
-                ? DB::table('agent_conversation_messages')->where('user_id', $user->id)->orderBy('created_at', 'asc')->get() 
+            'messages' => $user
+                ? DB::table('agent_conversation_messages')->where('user_id', $user->id)->orderBy('created_at', 'asc')->get()
                 : [],
-            'posts' => Post::latest()->get(),
+            'posts' => Post::where(function ($query) use ($userId): void {
+                $query->where('demo_owner_id', $userId)
+                    ->orWhereNull('demo_owner_id');
+            })
+                ->latest()
+                ->get(),
         ]);
     }
 }

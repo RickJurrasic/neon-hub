@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Jobs\SeedPostImage;
 use App\Models\Comment;
 use App\Models\Post;
 use App\Models\User;
@@ -26,7 +27,7 @@ class PostSeeder extends Seeder
             'type' => 'SYSTEM_LOG',
             'latency' => '2.4ms',
             'likes_count' => 128,
-            'image_url' => 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=800&auto=format&fit=crop',
+            'image_url' => SeedPostImage::generate(),
             'image_meta' => 'SYS_STREAM_S7G.RAW',
         ]);
 
@@ -49,7 +50,7 @@ class PostSeeder extends Seeder
             'type' => 'ALERT',
             'latency' => '5.1ms',
             'likes_count' => 512,
-            'image_url' => 'https://images.unsplash.com/photo-1515621061946-eff1c2a352bd?q=80&w=800&auto=format&fit=crop',
+            'image_url' => SeedPostImage::generate(),
             'image_meta' => 'CORE_GATEWAY_DETECT.PNG',
         ]);
 
