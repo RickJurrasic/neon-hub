@@ -52,9 +52,8 @@ const removeLink = async (id) => {
 
             <div
                 v-for="req in friendRequests" :key="req.id" class="flex items-center justify-between p-3 border border-purple-500/30 bg-purple-900/10 cursor-pointer active:bg-purple-500/10 transition-all group"
-                @click="$emit('view-profile', req.id)">
-
-                <div class="flex items-center gap-4">
+            >
+                <button type="button" class="flex items-center gap-4 flex-1 text-left" @click="$emit('view-profile', req.id)">
                     <div
                         class="w-8 h-8 border border-purple-500/50 flex items-center justify-center bg-purple-900/30 text-purple-400 group-hover:border-purple-400">
                         <span
@@ -64,7 +63,7 @@ const removeLink = async (id) => {
                         <span class="text-white text-xs uppercase tracking-wider">{{ req.name }}</span>
                         <span class="text-[8px] text-purple-400/60">REQUEST_PENDING</span>
                     </div>
-                </div>
+                </button>
 
                 <div v-if="req.status === 'pending'" class="flex gap-2 shrink-0">
                     <template v-if="decliningRequestId === req.id">
@@ -100,14 +99,16 @@ const removeLink = async (id) => {
 
                 <div
                     v-for="friend in friends" :key="friend.id" class="flex items-center justify-between p-3 border border-purple-500/10 mt-2 bg-white/[0.01] cursor-pointer active:bg-purple-500/5 transition-all group"
-                    @click="$emit('view-profile', friend.id)">
+                >
 
-                    <div class="flex items-center gap-4">
-                        <div class="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_#a855f7] animate-pulse"></div>
-                        <span
-                            class="text-white text-xs uppercase tracking-wider group-hover:text-purple-300 transition-colors">{{
-                            friend.name }}</span>
-                    </div>
+                    <button type="button" class="flex-1" @click="$emit('view-profile', friend.id)">
+                        <div class="flex items-center gap-4">
+                            <div class="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_#a855f7] animate-pulse"></div>
+                            <span
+                                class="text-white text-xs uppercase tracking-wider group-hover:text-purple-300 transition-colors">{{
+                                friend.name }}</span>
+                        </div>
+                    </button>
 
                     <div v-if="unlinkingFriendId === friend.id" class="flex items-center gap-2 shrink-0" @click.stop>
                         <span class="text-[8px] text-red-500 animate-pulse font-bold">UNLINK?</span>

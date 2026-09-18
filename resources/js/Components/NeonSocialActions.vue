@@ -43,18 +43,20 @@ v-if="!isMobile"
                 <div
                     :class="isMobile ? 'flex flex-row w-full h-full justify-around items-center' : 'flex-1 h-full flex flex-col justify-around w-full items-center relative'">
 
-                    <div
-class="action-item group"
+                    <button
+    type="button"
+    class="action-item group"
                         :class="{ 'is-active': activeTab === 'feed', 'is-mobile-item': isMobile }"
                         @click="$emit('change-view', 'feed')">
                         <span class="label">SYSTEM</span>
                         <div class="icon-style">
                             <Home :size="isMobile ? 22 : 32" :stroke-width="1.5" />
                         </div>
-                    </div>
+                    </button>
 
-                    <div
-class="action-item group"
+                    <button
+    type="button"
+                    class="action-item group"
                         :class="{ 'is-active': activeTab === 'friends' || activeTab === 'profile', 'is-mobile-item': isMobile }"
                         @click="$emit('change-view', 'friends')">
                         <span class="label">FRIENDS</span>
@@ -68,10 +70,11 @@ v-if="unreadRequestsCount > 0"
                                 {{ unreadRequestsCount }}
                             </div>
                         </div>
-                    </div>
+                    </button>
 
-                    <div
-class="action-item group"
+                    <button
+    type="button"
+                    class="action-item group"
                         :class="{ 'is-active': activeTab === 'messages', 'is-mobile-item': isMobile }"
                         @click="$emit('change-view', 'messages')">
                         <span class="label">MESSAGES</span>
@@ -85,10 +88,11 @@ v-if="unreadMessagesCount > 0"
                                 {{ unreadMessagesCount }}
                             </div>
                         </div>
-                    </div>
+                    </button>
 
-                    <div
-class="action-item group"
+                    <button
+    type="button"
+                    class="action-item group"
                         :class="{ 'is-active': activeTab === 'notifications', 'is-mobile-item': isMobile }"
                         @click="$emit('change-view', { view: 'notifications', fromMobile: isMobile })">
                         <span class="label">ALERTS</span>
@@ -102,7 +106,7 @@ v-if="unreadAlertsCount > 0"
                                 {{ unreadAlertsCount }}
                             </div>
                         </div>
-                    </div>
+                    </button>
 
                 </div>
             </div>

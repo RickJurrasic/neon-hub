@@ -26,9 +26,10 @@ defineEmits(['open-cv']);
 
                 <div class="flex flex-1 justify-center items-center px-1 md:px-10 lg:px-20 min-w-0">
 
-                    <div
+                    <button
+type="button"
 class="hidden md:flex items-center gap-3.5 bg-slate-950/80 border border-sky-500/30 px-5 py-1.5 rounded-full shadow-[0_0_15px_rgba(56,189,248,0.12)] hover:border-fuchsia-500/60 hover:shadow-[0_0_25px_rgba(192,43,155,0.3)] transition-all duration-300 cursor-pointer group active:scale-98"
-                        @click="$emit('open-cv')">
+    @click="$emit('open-cv')">
                         <div class="flex items-center gap-2.5">
                             <span class="relative flex h-1.5 w-1.5 shrink-0">
                                 <span
@@ -50,7 +51,7 @@ class="hidden md:flex items-center gap-3.5 bg-slate-950/80 border border-sky-500
                             class="text-[10px] font-mono font-bold text-sky-400 group-hover:text-fuchsia-400 transition-colors uppercase tracking-wide">
                             [ View CV ]
                         </span>
-                    </div>
+                    </button>
 
                     <button
                         type="button"
