@@ -25,7 +25,7 @@ class TableLogCollector
 
         return [
             'timestamp' => isset($last->created_at) ? Carbon::parse($last->created_at)->format('H:i:s') : now()->format('H:i:s'),
-            'system' => 'AGENT_SENTINEL',
+            'system' => 'BOT_ACTIVITY',
         ];
     }
 }
