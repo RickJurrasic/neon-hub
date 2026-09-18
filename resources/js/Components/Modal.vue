@@ -17,7 +17,9 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close']);
+
 const dialog = ref();
+const backdrop = ref();
 const showSlot = ref(props.show);
 
 watch(
@@ -26,11 +28,9 @@ watch(
         if (props.show) {
             document.body.style.overflow = 'hidden';
             showSlot.value = true;
-
             dialog.value?.showModal();
         } else {
             document.body.style.overflow = '';
-
             setTimeout(() => {
                 dialog.value?.close();
                 showSlot.value = false;
@@ -55,11 +55,26 @@ const closeOnEscape = (e) => {
     }
 };
 
-onMounted(() => document.addEventListener('keydown', closeOnEscape));
+const closeOnDocumentClick = (e) => {
+    if (!props.show) {
+        return;
+    }
+
+    const target = e.target;
+
+    if (backdrop.value?.contains(target)) {
+        close();
+    }
+};
+
+onMounted(() => {
+    document.addEventListener('keydown', closeOnEscape);
+    document.addEventListener('click', closeOnDocumentClick);
+});
 
 onUnmounted(() => {
     document.removeEventListener('keydown', closeOnEscape);
-
+    document.removeEventListener('click', closeOnDocumentClick);
     document.body.style.overflow = '';
 });
 
@@ -93,12 +108,12 @@ const maxWidthClass = computed(() => {
             >
                 <div
                     v-show="show"
+                    ref="backdrop"
                     class="fixed inset-0 transform transition-all"
-                    @click="close"
                 >
                     <div
                         class="absolute inset-0 bg-gray-500 opacity-75 dark:bg-gray-900"
-                    />
+                    ></div>
                 </div>
             </Transition>
 
