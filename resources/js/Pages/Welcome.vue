@@ -21,6 +21,12 @@ const openSystem = () => {
     }
 };
 
+// Initialize listeners as early as possible, so startup/WOW events
+// are not gated behind the user opening the overlay.
+if (page.props.auth?.user) {
+    store.initListeners(page.props.auth.user.id);
+}
+
 // Watcher hlídá, kdy se brána otevře, a tehdy spustí listenery
 watch(isOpened, (newVal) => {
     if (newVal && page.props.auth?.user) {
