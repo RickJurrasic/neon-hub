@@ -110,7 +110,7 @@ v-if="$page.props.auth?.user?.faction"
 </template>
 
 <style scoped>
-@reference "C:\Laradev\neon-hub\resources\css\app.css"
+@reference "../../css/app.css";
 
 .nav-wrapper {
     padding: 0;

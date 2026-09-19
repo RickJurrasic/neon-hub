@@ -115,7 +115,7 @@ v-if="unreadAlertsCount > 0"
 </template>
 
 <style scoped>
-@reference "C:\Laradev\neon-hub\resources\css\app.css"
+@reference "../../css/app.css";
 
 .mobile-dock-position {
     position: fixed !important;
