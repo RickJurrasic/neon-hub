@@ -1,4 +1,4 @@
-name: CI
+name: NeonHub CI
 
 on:
   pull_request:
