@@ -469,9 +469,6 @@ export const useNotificationStore = defineStore("notifications", {
                     );
                     if (post) post.likes_count = e.likesCount;
 
-                    const isUserAction =
-                        e.userId != null && Number(e.userId) === Number(this.currentUserId);
-
                     this.addLikeNotification(
                         e.postId,
                         e.userId,
