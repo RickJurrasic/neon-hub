@@ -4,17 +4,21 @@ import vue from '@vitejs/plugin-vue'; // Nezapomeň na tyto importy
 import Components from 'unplugin-vue-components/vite';
 import fs from 'fs';
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
     // Tady načteme env proměnné
     const env = loadEnv(mode, process.cwd(), '');
 
     return {
         server: {
-            https: {
-                key: fs.readFileSync(env.REVERB_TLS_KEY),
-                cert: fs.readFileSync(env.REVERB_TLS_CERT),
-            },
             host: 'neon-hub.test',
+            ...(command === 'serve'
+                ? {
+                      https: {
+                          key: fs.readFileSync(env.REVERB_TLS_KEY),
+                          cert: fs.readFileSync(env.REVERB_TLS_CERT),
+                      },
+                  }
+                : {}),
         },
         plugins: [
             laravel({
