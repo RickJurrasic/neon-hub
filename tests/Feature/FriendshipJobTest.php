@@ -4,6 +4,8 @@ use App\Actions\SendFriendRequestAction;
 use App\Events\FriendRequestReceived;
 use App\Models\Friendship;
 use App\Models\User;
+use App\Jobs\HandleAgentResponse;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +30,9 @@ it('holds the correct user and bot data', function (): void {
 // 2. FEATURE TEST: Ověříme, že celý řetězec z frontendu funguje
 it('dispatches the friend request action when system is initialized via route', function (): void {
     Event::fake();
+    Queue::fake([
+        HandleAgentResponse::class,
+    ]);
 
     $user = User::factory()->create();
     $bot = User::factory()->create(['name' => 'SENTINEL_01']);
@@ -36,7 +41,6 @@ it('dispatches the friend request action when system is initialized via route', 
         ->post(route('system.initialize'))
         ->assertStatus(200);
 
-    // Ověříme, že byl vyvolán event
     Event::assertDispatched(FriendRequestReceived::class);
 });
 

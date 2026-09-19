@@ -1,5 +1,6 @@
 <?php
 
+use App\Ai\Agents\AIAgent;
 use App\Events\PostCreated;
 use App\Jobs\HandleAgentResponse;
 use App\Models\User;
@@ -7,6 +8,11 @@ use Illuminate\Support\Facades\Event;
 
 it('generates agent post and broadcasts event successfully', function (): void {
     Event::fake([PostCreated::class]);
+
+    AIAgent::fake([
+        'Test greeting response',
+        'Test feed post response',
+    ]);
 
     $user = User::factory()->create([
         'name' => 'Test_User',
