@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\HandleAgentResponse;
 use App\Services\NeonHubService;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -24,10 +23,6 @@ class NeonHubController extends Controller
             'canRegister' => Route::has('register'),
             'initialState' => $authId ? $this->neonHubService->getInitialState($authId) : null,
         ];
-
-        if ($authId) {
-            HandleAgentResponse::dispatch($authId)->delay(now()->addSeconds(7));
-        }
 
         return Inertia::render('Welcome', $props);
     }
