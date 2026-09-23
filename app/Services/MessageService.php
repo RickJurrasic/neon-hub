@@ -62,7 +62,7 @@ class MessageService
 
         $newMessageId = $this->sendMessageAction->execute(
             (int) auth()->id(),
-            (int) $conversation->user_id,
+            (int) $conversation->agent_user_id,
             $text,
             (string) $original->agent,
             'user'

@@ -37,7 +37,7 @@ class SendMessageAction
 
         $conversationId = $this->ensureConversationExists(
             $humanId,
-            $role === 'assistant' ? $botId : null
+            $botId
         );
 
         $agentClass = $this->resolveAgentClass($agentName, $conversationId);
