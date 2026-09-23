@@ -1,42 +1,72 @@
 <?php
 
 use App\Ai\Agents\AIAgent;
+use App\Events\MessageReceived;
 use App\Events\PostCreated;
 use App\Jobs\HandleAgentResponse;
 use App\Models\User;
 use Illuminate\Support\Facades\Event;
 
-it('generates agent post and broadcasts event successfully', function (): void {
-    Event::fake([PostCreated::class]);
+describe('HandleAgentResponse', function (): void {
+    beforeEach(function (): void {
+        $this->user = User::factory()->create(['name' => 'Test_User']);
+        $this->agent = User::factory()->create(['name' => 'SENTINEL_01', 'is_ai' => true]);
+    });
 
-    AIAgent::fake([
-        'Test greeting response',
-        'Test feed post response',
-    ]);
+    it('generates chat response only (no feed post) in normal mode', function (): void {
+        Event::fake([MessageReceived::class, PostCreated::class]);
 
-    $user = User::factory()->create([
-        'name' => 'Test_User',
-    ]);
+        AIAgent::fake(['Test chat response']);
 
-    $agent = User::factory()->create([
-        'name' => 'SENTINEL_01',
-    ]);
+        $job = new HandleAgentResponse(
+            userId: $this->user->id,
+            conversationId: null,
+            agentName: 'SENTINEL_01',
+            createFeedPost: false
+        );
 
-    $job = new HandleAgentResponse(
-        userId: $user->id,
-        conversationId: null,
-        agentName: 'SENTINEL_01',
-    );
+        app()->call($job->handle(...));
 
-    app()->call($job->handle(...));
+        // Chat response should be broadcast
+        Event::assertDispatched(MessageReceived::class);
 
-    $this->assertDatabaseHas('posts', [
-        'user_id' => $agent->id,
-    ]);
+        // No feed post should be created
+        $this->assertDatabaseMissing('posts', [
+            'user_id' => $this->agent->id,
+        ]);
 
-    Event::assertDispatched(
-        PostCreated::class,
-        fn (PostCreated $event) => $event->userId === $user->id
-            && $event->post['author'] === $agent->name
-    );
+        Event::assertNotDispatched(PostCreated::class);
+    });
+
+    it('generates chat response AND feed post in startup mode', function (): void {
+        Event::fake([MessageReceived::class, PostCreated::class]);
+
+        AIAgent::fake([
+            'Test chat response',
+            'Test feed post response',
+        ]);
+
+        $job = new HandleAgentResponse(
+            userId: $this->user->id,
+            conversationId: null,
+            agentName: 'SENTINEL_01',
+            createFeedPost: true
+        );
+
+        app()->call($job->handle(...));
+
+        // Chat response should be broadcast
+        Event::assertDispatched(MessageReceived::class);
+
+        // Feed post should be created
+        $this->assertDatabaseHas('posts', [
+            'user_id' => $this->agent->id,
+        ]);
+
+        Event::assertDispatched(
+            PostCreated::class,
+            fn (PostCreated $event) => $event->userId === $this->user->id
+                && $event->post['author'] === $this->agent->name
+        );
+    });
 });

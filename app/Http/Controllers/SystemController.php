@@ -54,7 +54,7 @@ class SystemController extends Controller
                 }
             })->delay(now()->addSeconds(4));
 
-            HandleAgentResponse::dispatch($userId, null, 'SENTINEL_01')
+            HandleAgentResponse::dispatch($userId, null, 'SENTINEL_01', true)
                 ->delay(now()->addSeconds(7));
 
             return response()->json(['status' => 'NODE_INITIALIZED']);

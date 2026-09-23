@@ -246,12 +246,12 @@ it('never creates a conversation with a null agent_user_id (prompt-injection gua
     // with no pre-existing conversation. createNewConversation must resolve a
     // fallback bot instead of writing agent_user_id = NULL.
     app(SendMessageAction::class)->execute(
-        $human->id,
-        $human->id,
-        'Hello, agent!',
-        'SentinelAgent',
-        'user'
-    );
+    $human->id,
+    $bot->id,
+    'Hello, agent!',
+    'SentinelAgent',
+    'user'
+);
 
     $conversation = DB::table('agent_conversations')
         ->where('user_id', $human->id)

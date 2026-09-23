@@ -39,7 +39,8 @@ class HandleAgentResponse implements ShouldQueue
     public function __construct(
         public readonly int $userId,
         public readonly ?string $conversationId = null,
-        public readonly ?string $agentName = null
+        public readonly ?string $agentName = null,
+        public readonly bool $createFeedPost = false
     ) {}
 
     public function handle(AIAgent $agent): void
@@ -86,7 +87,9 @@ class HandleAgentResponse implements ShouldQueue
             $this->saveAndBroadcastMessage($agentUser, $user, $activeConversationId, $aiChatResponse);
         }
 
-        $this->createFeedPost($agentInstance, $agentUser, $user, $lastMessage);
+        if ($this->createFeedPost) {
+            $this->createFeedPost($agentInstance, $agentUser, $user, $lastMessage);
+        }
     }
 
     private function isLastMessageFromAssistant(string $conversationId): bool
