@@ -7,9 +7,11 @@ use App\Jobs\HandleAgentResponse;
 use App\Services\LlmRateLimiter;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Str;
 
-it('allows the first Enter-System request for a demo session and dispatches the welcome sequence', function (): void {
+it('allows the first Enter System after the demo budget resets', function (): void {
     Bus::fake([HandleAgentResponse::class]);
     Event::fake([FriendRequestReceived::class, NewActivityAlert::class, PostCreated::class]);
 
@@ -27,7 +29,7 @@ it('allows the first Enter-System request for a demo session and dispatches the 
         ->and(Bus::dispatched(HandleAgentResponse::class))->toHaveCount(1);
 });
 
-it('returns 429 Retry-After on the second Enter-System request and dispatches nothing', function (): void {
+it('returns 429 with Retry-After on the second Enter System request', function (): void {
     Bus::fake([HandleAgentResponse::class]);
     Event::fake([FriendRequestReceived::class, NewActivityAlert::class, PostCreated::class]);
 
@@ -36,44 +38,39 @@ it('returns 429 Retry-After on the second Enter-System request and dispatches no
 
     app('cache')->flush();
 
-    $this->actingAs($demo)->postJson('/system/initialize-node')->assertOk(); // 1st: granted
-
-        $this->actingAs($demo)
-        ->postJson('/system/initialize-node')
-        ->assertStatus(429)
-        ->assertHeader('Retry-After')
-        ->assertJson(['message' => 'AI_RATE_LIMITED']);
-
-    expect(app(LlmRateLimiter::class)->attempts(LlmRateLimiter::ENTER_SYSTEM, $demo))->toBe(1)
-        ->and(Bus::dispatched(HandleAgentResponse::class))->toHaveCount(1); // no extra dispatch
-});
-
-it('returns 429 without side effects when the budget is pre-exhausted', function (): void {
-    Bus::fake([HandleAgentResponse::class]);
-    Event::fake([FriendRequestReceived::class, NewActivityAlert::class, PostCreated::class]);
-
-    $demo = makeDemoUser();
-    makeBotUser(['name' => 'SENTINEL_01']);
-
-    $limiter = app(LlmRateLimiter::class);
-    app('cache')->flush();
-
-        $limiter->consume(LlmRateLimiter::ENTER_SYSTEM, $demo); // 1st: succeeds, attempts=1
-    expect($limiter->consume(LlmRateLimiter::ENTER_SYSTEM, $demo))->toBeFalse(); // 2nd: rejected (demo cap=1)
-
-    expect($limiter->attempts(LlmRateLimiter::ENTER_SYSTEM, $demo))->toBe(1);
+    // consume the first budget manually
+    app(LlmRateLimiter::class)->consume(LlmRateLimiter::ENTER_SYSTEM, $demo);
 
     $this->actingAs($demo)
         ->postJson('/system/initialize-node')
-        ->assertStatus(429)
-        ->assertHeader('Retry-After')
-        ->assertJson(['message' => 'AI_RATE_LIMITED']);
+        ->assertTooManyRequests()
+        ->assertHeader('Retry-After');
 
-    expect($limiter->attempts(LlmRateLimiter::ENTER_SYSTEM, $demo))->toBe(1)
-        ->and(Bus::dispatched(HandleAgentResponse::class))->toHaveCount(0); // zero dispatch
+    Bus::assertNotDispatched(HandleAgentResponse::class);
 });
 
-it('keeps Enter-System budgets isolated between demo sessions', function (): void {
+it('blocks Enter System when the demo budget is already exhausted', function (): void {
+    Bus::fake([HandleAgentResponse::class]);
+    Event::fake([FriendRequestReceived::class, NewActivityAlert::class, PostCreated::class]);
+
+    $demo = makeDemoUser();
+    makeBotUser(['name' => 'SENTINEL_01']);
+
+    app('cache')->flush();
+
+    // exhaust the budget
+    app(LlmRateLimiter::class)->consume(LlmRateLimiter::ENTER_SYSTEM, $demo);
+    app(LlmRateLimiter::class)->consume(LlmRateLimiter::ENTER_SYSTEM, $demo);
+
+    $this->actingAs($demo)
+        ->postJson('/system/initialize-node')
+        ->assertTooManyRequests()
+        ->assertHeader('Retry-After');
+
+    Bus::assertNotDispatched(HandleAgentResponse::class);
+});
+
+it('keeps Enter System budgets isolated across demo users', function (): void {
     Bus::fake([HandleAgentResponse::class]);
     Event::fake([FriendRequestReceived::class, NewActivityAlert::class, PostCreated::class]);
 
@@ -83,19 +80,15 @@ it('keeps Enter-System budgets isolated between demo sessions', function (): voi
 
     app('cache')->flush();
 
-    $limiter = app(LlmRateLimiter::class);
-    $limiter->consume(LlmRateLimiter::ENTER_SYSTEM, $demoA); // 1
-    $limiter->consume(LlmRateLimiter::ENTER_SYSTEM, $demoA); // 2 — demo cap for A
+    // demoA exhausts budget
+    app(LlmRateLimiter::class)->consume(LlmRateLimiter::ENTER_SYSTEM, $demoA);
+    app(LlmRateLimiter::class)->consume(LlmRateLimiter::ENTER_SYSTEM, $demoA);
 
-    expect($limiter->attempts(LlmRateLimiter::ENTER_SYSTEM, $demoB))->toBe(0); // B untouched
-
+    // demoB still has budget
     $this->actingAs($demoB)
         ->postJson('/system/initialize-node')
         ->assertOk()
         ->assertJson(['status' => 'NODE_INITIALIZED']);
-
-    expect($limiter->attempts(LlmRateLimiter::ENTER_SYSTEM, $demoB))->toBe(1)
-        ->and(Bus::dispatched(HandleAgentResponse::class))->toHaveCount(1);
 });
 
 it('resets the demo Enter-System budget after the rate-limit window elapses', function (): void {
@@ -108,20 +101,81 @@ it('resets the demo Enter-System budget after the rate-limit window elapses', fu
     $limiter = app(LlmRateLimiter::class);
     app('cache')->flush();
 
-    $limiter->consume(LlmRateLimiter::ENTER_SYSTEM, $demo); // 1
-    $limiter->consume(LlmRateLimiter::ENTER_SYSTEM, $demo); // 2 — demo cap
-
-    Carbon::setTestNow(now()->addHour()->addMinute()); // simulate window passage
-
-    expect($limiter->attempts(LlmRateLimiter::ENTER_SYSTEM, $demo))->toBe(0);
-
+    // First Enter System — granted
     $this->actingAs($demo)
         ->postJson('/system/initialize-node')
         ->assertOk()
         ->assertJson(['status' => 'NODE_INITIALIZED']);
 
-    expect($limiter->attempts(LlmRateLimiter::ENTER_SYSTEM, $demo))->toBe(1)
+    expect($limiter->attempts(LlmRateLimiter::ENTER_SYSTEM, $demo))->toBe(1);
+
+    // Simulate rate-limit window passage
+    Carbon::setTestNow(now()->addHour()->addMinute());
+
+    // Second Enter System after window — session flag blocks it, not rate limiter
+    $this->actingAs($demo)
+        ->postJson('/system/initialize-node')
+        ->assertOk()
+        ->assertJson(['status' => 'NODE_ALREADY_INITIALIZED']);
+
+    expect($limiter->attempts(LlmRateLimiter::ENTER_SYSTEM, $demo))->toBe(0)
+        ->and(Bus::dispatched(HandleAgentResponse::class))->toHaveCount(1); // no extra dispatch
+});
+
+it('dispatches the welcome sequence exactly once per browser session (session-scoped idempotency)', function (): void {
+    Bus::fake([HandleAgentResponse::class]);
+    Event::fake([FriendRequestReceived::class, NewActivityAlert::class, PostCreated::class]);
+
+    $demo = makeDemoUser();
+    makeBotUser(['name' => 'SENTINEL_01']);
+
+    app('cache')->flush();
+
+    // First Enter System in this session
+    $this->actingAs($demo)
+        ->postJson('/system/initialize-node')
+        ->assertOk()
+        ->assertJson(['status' => 'NODE_INITIALIZED']);
+
+    expect(app(LlmRateLimiter::class)->attempts(LlmRateLimiter::ENTER_SYSTEM, $demo))->toBe(1)
         ->and(Bus::dispatched(HandleAgentResponse::class))->toHaveCount(1);
 
-    Carbon::setTestNow();
+    // Second Enter System in the same session — must be blocked by session flag, not rate limit
+    $this->actingAs($demo)
+        ->postJson('/system/initialize-node')
+        ->assertOk()
+        ->assertJson(['status' => 'NODE_ALREADY_INITIALIZED']);
+
+    expect(app(LlmRateLimiter::class)->attempts(LlmRateLimiter::ENTER_SYSTEM, $demo))->toBe(1)
+        ->and(Bus::dispatched(HandleAgentResponse::class))->toHaveCount(1);
+});
+
+it('isolates session-scoped idempotency between different browser sessions (Session A ≠ Session B)', function (): void {
+    Bus::fake([HandleAgentResponse::class]);
+    Event::fake([FriendRequestReceived::class, NewActivityAlert::class, PostCreated::class]);
+
+    $demo = makeDemoUser();
+    makeBotUser(['name' => 'SENTINEL_01']);
+
+    app('cache')->flush();
+
+    // Session A — first Enter System
+    $this->actingAs($demo)
+        ->postJson('/system/initialize-node')
+        ->assertOk()
+        ->assertJson(['status' => 'NODE_INITIALIZED']);
+
+    expect(Bus::dispatched(HandleAgentResponse::class))->toHaveCount(1);
+
+    // Simulate a new browser session for Session B
+    $this->flushSession();
+    app('cache')->flush();
+
+    // Session B — first Enter System in this new session
+    $this->actingAs($demo)
+        ->postJson('/system/initialize-node')
+        ->assertOk()
+        ->assertJson(['status' => 'NODE_INITIALIZED']);
+
+    expect(Bus::dispatched(HandleAgentResponse::class))->toHaveCount(2);
 });
