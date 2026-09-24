@@ -31,7 +31,7 @@ class PostCreated implements ShouldBroadcast
      */
     public function broadcastOn(): array
     {
-        $demoOwnerId = $this->post['demo_owner_id'] ?? $this->userId;
+        $demoOwnerId = $this->post['demo_owner_id'] ?? null;
 
         if ($demoOwnerId !== null) {
             return [
