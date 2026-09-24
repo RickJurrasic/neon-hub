@@ -28,6 +28,12 @@ class SystemController extends Controller
                 return response()->json(['error' => 'Uživatel není přihlášen.'], 401);
             }
 
+            // Session-scoped idempotency: if already initialized in this browser session,
+            // return early without touching the rate limiter
+            if (session('system.initialized')) {
+                return response()->json(['status' => 'NODE_ALREADY_INITIALIZED']);
+            }
+
             // Enter-System-specific budget. SEPARATE from `startup` (page-load
             // greeting) and `interactive` (POST /messages), so repeated Enter
             // presses cannot re-trigger the welcome friend-request + bot message
@@ -56,6 +62,9 @@ class SystemController extends Controller
 
             HandleAgentResponse::dispatch($userId, null, 'SENTINEL_01', true)
                 ->delay(now()->addSeconds(7));
+
+            // Mark this session as initialized after the startup sequence is dispatched
+            session()->put('system.initialized', true);
 
             return response()->json(['status' => 'NODE_INITIALIZED']);
         } catch (Throwable $e) {
