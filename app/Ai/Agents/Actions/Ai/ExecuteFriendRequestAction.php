@@ -25,7 +25,7 @@ class ExecuteFriendRequestAction implements AIAction
 
         $recipient = User::find($recipientId);
 
-        if (! $recipient || $recipient->is_ai) {
+        if (! $recipient instanceof User || $recipient->is_ai) {
             Log::warning("friend_request: recipient_id [{$recipientId}] is not a valid human user.");
 
             return;
