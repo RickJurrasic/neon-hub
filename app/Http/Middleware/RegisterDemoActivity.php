@@ -23,16 +23,21 @@ class RegisterDemoActivity
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $response = $next($request);
-
         $user = $request->user();
 
+        // Record heartbeat BEFORE controller runs.
+        // This ensures the lifecycle lock prevents cleanup from
+        // deleting this session while the incoming request is processing.
         if ($user instanceof User
             && ! $user->is_ai
             && $user->id !== 1
             && str_starts_with((string) ($user->handle ?? ''), 'demo-')) {
-            ActiveDemoUsers::record((int) $user->id);
+            if (! ActiveDemoUsers::record((int) $user->id)) {
+                abort(409, 'Session conflict - please refresh.');
+            }
         }
+
+        $response = $next($request);
 
         return $response;
     }

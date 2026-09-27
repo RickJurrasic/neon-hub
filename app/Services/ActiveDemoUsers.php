@@ -64,13 +64,31 @@ class ActiveDemoUsers
     /**
      * Refresh this demo human's activity heartbeat (called from the web stack).
      */
-    public static function record(int $userId): void
+    public const string LIFECYCLE_KEY = 'demo:lifecycle';
+
+    public static function record(int $userId): bool
     {
-        Cache::put(
-            self::ACTIVE_KEY.':'.$userId,
-            true,
-            now()->addSeconds(self::TTL_SECONDS),
-        );
+        $lock = Cache::lock(self::LIFECYCLE_KEY.':'.$userId, 5);
+
+        if (! $lock->get()) {
+            return false;
+        }
+
+        try {
+            if (! User::where('id', $userId)->exists()) {
+                return false;
+            }
+
+            Cache::put(
+                self::ACTIVE_KEY.':'.$userId,
+                true,
+                now()->addSeconds(self::TTL_SECONDS),
+            );
+
+            return true;
+        } finally {
+            $lock->release();
+        }
     }
 
     /**
