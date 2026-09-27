@@ -71,7 +71,17 @@ class AutoLoginDemoUser
             }
         }
 
-        // 4. Přihlásíme unikátního demo uživatele a obnovíme session proti fixation.
+        // 4. Ověření, že uživatel nebyl mezi časem lookupu a přihlášení
+        //    odstraněn cleanupem (race condition: stale session).
+        //    Pokud ano — vytvoříme novou izolovanou demo session.
+        if (! User::where('id', $demoUser->id)->exists()) {
+            $demoUid = 'demo-'.Str::uuid()->toString();
+            Cache::put($cacheKey, $demoUid, 3600);
+            $request->session()->put('demo_uid', $demoUid);
+            $demoUser = $this->getOrCreateDemoUser($demoUid, $lockKey);
+        }
+
+        // 5. Přihlásíme unikátního demo uživatele a obnovíme session proti fixation.
         Auth::login($demoUser);
         $request->session()->regenerate();
 

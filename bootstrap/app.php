@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\CleanupStaleDemoSessions;
 use App\Ai\Agents\AIActionScheduler;
 use App\Http\Middleware\AutoLoginDemoUser;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -34,6 +35,11 @@ return Application::configure(basePath: dirname(__DIR__))
         })
             ->everyThirtySeconds()
             ->name('ai-profile-scheduler')
+            ->withoutOverlapping();
+
+        $schedule->command(CleanupStaleDemoSessions::class)
+            ->everyFiveMinutes()
+            ->name('cleanup-stale-demo-sessions')
             ->withoutOverlapping();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
