@@ -8,8 +8,10 @@ use Illuminate\Support\Str;
 
 class LlmRateLimiter
 {
-        public const STARTUP     = 'startup';
+    public const STARTUP = 'startup';
+
     public const INTERACTIVE = 'interactive';
+
     public const ENTER_SYSTEM = 'enter_system';
 
     /**
@@ -50,7 +52,7 @@ class LlmRateLimiter
         return ! $user->is_ai && Str::startsWith((string) ($user->handle ?? ''), 'demo-');
     }
 
-        public function max(string $bucket, User $user): int
+    public function max(string $bucket, User $user): int
     {
         $limits = config('neon.llm_limits', [
             'window_seconds' => 60,
@@ -63,7 +65,7 @@ class LlmRateLimiter
         // Bucket-level lookup (matches config structure: 'enter_system' => ['demo' => 1, 'registered' => 2]).
         // Falls back to tier-level lookup (legacy buckets like 'startup'/'interactive' are tiered)
         // and finally to a sane default.
-                return (int) ($limits[$bucket][$tier]
+        return (int) ($limits[$bucket][$tier]
             ?? $limits[$tier][$bucket]
             ?? $limits[$bucket]['registered']
             ?? 6);
@@ -78,7 +80,7 @@ class LlmRateLimiter
      * Atomically consume one token for the user + bucket.
      * Returns true if the turn is allowed, false if the bucket is exhausted.
      */
-        public function consume(string $bucket, User $user): bool
+    public function consume(string $bucket, User $user): bool
     {
         // Canonical Laravel consume pattern (tooManyAttempts + hit).
         // RateLimiter::attempt() in Laravel 13 requires a Closure callback as
@@ -99,7 +101,7 @@ class LlmRateLimiter
         return RateLimiter::attempts($this->keyFor($user, $bucket));
     }
 
-        public function retryAfter(string $bucket, User $user): int
+    public function retryAfter(string $bucket, User $user): int
     {
         // Laravel's RateLimiter exposes "seconds until the window resets" as
         // availableIn() (there is no retryAfter() method on this class).

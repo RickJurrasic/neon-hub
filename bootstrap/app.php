@@ -1,7 +1,7 @@
 <?php
 
-use App\Console\Commands\CleanupStaleDemoSessions;
 use App\Ai\Agents\AIActionScheduler;
+use App\Console\Commands\CleanupStaleDemoSessions;
 use App\Http\Middleware\AutoLoginDemoUser;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RegisterDemoActivity;

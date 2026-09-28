@@ -125,7 +125,7 @@ class AIActionScheduler
         }
 
         $action = self::pickAction($available, (int) $bot->id);
-                // Every action carries the session's demo human id, so executors
+        // Every action carries the session's demo human id, so executors
         // (e.g. create_post on the public feed) can attribute demo posts to
         // the correct session even when no HTTP context is available.
         $payload = [

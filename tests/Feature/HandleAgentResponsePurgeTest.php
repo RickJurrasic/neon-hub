@@ -80,7 +80,7 @@ it('does not write or broadcast when its conversation is purged mid-response', f
 
     (new HandleAgentResponse($human->id, $conversationId, null))->handle($agent);
 
-        // No stale broadcast to the purged channel, and no orphaned assistant
+    // No stale broadcast to the purged channel, and no orphaned assistant
     // message is persisted. (Both fail without the guard: the LLM response
     // that would otherwise be written is suppressed by the purge guard.)
     Event::assertNotDispatched(MessageReceived::class);

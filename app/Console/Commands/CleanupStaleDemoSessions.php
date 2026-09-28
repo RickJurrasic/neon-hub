@@ -87,6 +87,7 @@ class CleanupStaleDemoSessions extends Command
 
         if (! $lock->block(3)) {
             $this->line("  [skipped] Lock held by another process: {$label}");
+
             return;
         }
 
@@ -94,6 +95,7 @@ class CleanupStaleDemoSessions extends Command
             // Double-check heartbeat status after acquiring lock
             if (Cache::has(ActiveDemoUsers::ACTIVE_KEY.':'.$userId)) {
                 $this->line("  [skipped] Heartbeat refreshed during wait: {$label}");
+
                 return;
             }
 
@@ -106,75 +108,75 @@ class CleanupStaleDemoSessions extends Command
             Log::channel('stack')->info('Cleaning stale demo session.', ['user_id' => $userId]);
 
             DB::transaction(function () use ($userId): void {
-            // 1. Delete agent_conversation_messages for conversations owned by this user
-            $conversationIds = DB::table('agent_conversations')
-                ->where('user_id', $userId)
-                ->pluck('id')
-                ->toArray();
+                // 1. Delete agent_conversation_messages for conversations owned by this user
+                $conversationIds = DB::table('agent_conversations')
+                    ->where('user_id', $userId)
+                    ->pluck('id')
+                    ->toArray();
 
-            if (! empty($conversationIds)) {
-                DB::table('agent_conversation_messages')
-                    ->whereIn('conversation_id', $conversationIds)
+                if (! empty($conversationIds)) {
+                    DB::table('agent_conversation_messages')
+                        ->whereIn('conversation_id', $conversationIds)
+                        ->delete();
+
+                    DB::table('agent_conversations')
+                        ->whereIn('id', $conversationIds)
+                        ->delete();
+                }
+
+                // 2. Friendships, where this user is sender OR recipient
+                Friendship::query()
+                    ->where(function ($q) use ($userId): void {
+                        $q->where('sender_id', $userId)
+                            ->orWhere('recipient_id', $userId);
+                    })
                     ->delete();
 
-                DB::table('agent_conversations')
-                    ->whereIn('id', $conversationIds)
+                // 3. Posts owned by this demo session OR authored by this user
+                $postIds = Post::query()
+                    ->where('demo_owner_id', $userId)
+                    ->orWhere('user_id', $userId)
+                    ->pluck('id')
+                    ->toArray();
+
+                if (! empty($postIds)) {
+                    // Delete likes on these posts
+                    Like::query()->whereIn('post_id', $postIds)->delete();
+                    // Delete comments on these posts
+                    Comment::query()->whereIn('post_id', $postIds)->delete();
+                    // Delete the posts themselves
+                    Post::query()->whereIn('id', $postIds)->delete();
+                }
+
+                // 4. Likes made by this demo user on other posts
+                Like::query()->where('user_id', $userId)->delete();
+
+                // 5. Comments made by this demo user
+                Comment::query()->where('user_id', $userId)->delete();
+
+                // 6. Notifications where this user is the notifiable
+                DB::table('notifications')
+                    ->where('notifiable_type', User::class)
+                    ->where('notifiable_id', $userId)
                     ->delete();
+
+                // 7. Finally, delete the demo user themselves
+                DB::table('users')
+                    ->where('id', $userId)
+                    ->delete();
+            });
+
+            // Cleanup cache keys for this user
+            try {
+                Cache::forget(ActiveDemoUsers::ACTIVE_KEY.':'.$userId);
+                Cache::forget(ActiveDemoUsers::SCHED_NEXT_KEY.':'.$userId);
+            } catch (\Exception $e) {
+                Log::channel('stack')->warning('Failed to cleanup cache keys for demo user '.$userId, [
+                    'exception' => $e,
+                ]);
             }
 
-            // 2. Friendships, where this user is sender OR recipient
-            Friendship::query()
-                ->where(function ($q) use ($userId): void {
-                    $q->where('sender_id', $userId)
-                        ->orWhere('recipient_id', $userId);
-                })
-                ->delete();
-
-            // 3. Posts owned by this demo session OR authored by this user
-            $postIds = Post::query()
-                ->where('demo_owner_id', $userId)
-                ->orWhere('user_id', $userId)
-                ->pluck('id')
-                ->toArray();
-
-            if (! empty($postIds)) {
-                // Delete likes on these posts
-                Like::query()->whereIn('post_id', $postIds)->delete();
-                // Delete comments on these posts
-                Comment::query()->whereIn('post_id', $postIds)->delete();
-                // Delete the posts themselves
-                Post::query()->whereIn('id', $postIds)->delete();
-            }
-
-            // 4. Likes made by this demo user on other posts
-            Like::query()->where('user_id', $userId)->delete();
-
-            // 5. Comments made by this demo user
-            Comment::query()->where('user_id', $userId)->delete();
-
-            // 6. Notifications where this user is the notifiable
-            DB::table('notifications')
-                ->where('notifiable_type', User::class)
-                ->where('notifiable_id', $userId)
-                ->delete();
-
-            // 7. Finally, delete the demo user themselves
-            DB::table('users')
-                ->where('id', $userId)
-                ->delete();
-        });
-
-        // Cleanup cache keys for this user
-        try {
-            Cache::forget(ActiveDemoUsers::ACTIVE_KEY.':'.$userId);
-            Cache::forget(ActiveDemoUsers::SCHED_NEXT_KEY.':'.$userId);
-        } catch (\Exception $e) {
-            Log::channel('stack')->warning('Failed to cleanup cache keys for demo user '.$userId, [
-                'exception' => $e,
-            ]);
-        }
-
-        $this->info("  Cleaned: {$label}");
+            $this->info("  Cleaned: {$label}");
         } finally {
             $lock->release();
         }

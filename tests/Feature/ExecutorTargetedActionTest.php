@@ -7,6 +7,7 @@ use App\Events\AIActionPerformed;
 use App\Events\FriendRequestReceived;
 use App\Events\MessageReceived;
 use App\Jobs\ProcessAIAction;
+use App\Models\Friendship;
 use App\Models\User;
 use App\Services\ActiveDemoUsers;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -73,13 +74,13 @@ it('send_message executor validates recipient: blocks AI/missing/nonexistent, al
 
     // Bound so the executor resolves; the guard returns before it is used.
     $response = Mockery::mock(AgentResponse::class);
-$response->text = 'Test response.';
+    $response->text = 'Test response.';
 
-$agent = Mockery::mock(AIAgent::class);
-$agent->shouldReceive('withPersona')->zeroOrMoreTimes()->andReturnSelf();
-$agent->shouldReceive('prompt')->twice()->andReturn($response);
+    $agent = Mockery::mock(AIAgent::class);
+    $agent->shouldReceive('withPersona')->zeroOrMoreTimes()->andReturnSelf();
+    $agent->shouldReceive('prompt')->twice()->andReturn($response);
 
-$this->instance(AIAgent::class, $agent);
+    $this->instance(AIAgent::class, $agent);
 
     // Should fail closed: bot self (AI recipient)
     app(ExecuteSendMessageAction::class)->execute($bot, ['recipient_id' => (int) $bot->id]); // self (bot -> bot)
@@ -204,7 +205,7 @@ it('friend_request executor uses demo_owner_id fallback when recipient_id is abs
     $this->assertDatabaseHas('friendships', [
         'sender_id' => $bot->id,
         'recipient_id' => $human->id,
-        'status' => 'pending'
+        'status' => 'pending',
     ]);
 });
 
@@ -221,9 +222,9 @@ it('friend_request executor prevents duplicate pending requests for same bot/hum
     $this->assertDatabaseHas('friendships', [
         'sender_id' => $bot->id,
         'recipient_id' => $human->id,
-        'status' => 'pending'
+        'status' => 'pending',
     ]);
-    $this->assertEquals(1, \App\Models\Friendship::where('sender_id', $bot->id)
+    $this->assertEquals(1, Friendship::where('sender_id', $bot->id)
         ->where('recipient_id', $human->id)
         ->where('status', 'pending')
         ->count());
@@ -232,11 +233,11 @@ it('friend_request executor prevents duplicate pending requests for same bot/hum
     app(ExecuteFriendRequestAction::class)->execute($bot, ['recipient_id' => (int) $human->id]);
 
     // Count remains exactly 1 - no duplicate created
-    $this->assertEquals(1, \App\Models\Friendship::where('sender_id', $bot->id)
+    $this->assertEquals(1, Friendship::where('sender_id', $bot->id)
         ->where('recipient_id', $human->id)
         ->where('status', 'pending')
         ->count());
 
     // Verify the Friendship model's between() method would still return true for existing pair
-    $this->assertTrue(\App\Models\Friendship::between($bot->id, $human->id, 'pending')->exists());
+    $this->assertTrue(Friendship::between($bot->id, $human->id, 'pending')->exists());
 });

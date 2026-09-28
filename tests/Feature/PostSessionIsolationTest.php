@@ -1,11 +1,12 @@
 <?php
 
 use App\Models\Post;
+use App\Models\User;
 use App\Services\NeonHubService;
 
 // Seed ID 1 as a legacy human for factory-created users to get id >= 2.
 beforeEach(function (): void {
-    \App\Models\User::query()->insert([
+    User::query()->insert([
         'id' => 1,
         'name' => 'Legacy Human',
         'email' => 'legacy@neonhub.io',

@@ -1,9 +1,5 @@
 <?php
 
-use App\Models\Comment;
-use App\Models\Friendship;
-use App\Models\Like;
-use App\Models\Post;
 use App\Models\User;
 use App\Services\ActiveDemoUsers;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -76,6 +72,7 @@ class CleanupStaleDemoSessionsTest extends TestCase
                 'updated_at' => now(),
             ], $overrides));
         }
+
         return $ids;
     }
 
@@ -92,6 +89,7 @@ class CleanupStaleDemoSessionsTest extends TestCase
                 'updated_at' => now(),
             ], $overrides));
         }
+
         return $ids;
     }
 
@@ -107,6 +105,7 @@ class CleanupStaleDemoSessionsTest extends TestCase
                 'updated_at' => now(),
             ], $overrides));
         }
+
         return $ids;
     }
 
@@ -157,6 +156,7 @@ class CleanupStaleDemoSessionsTest extends TestCase
                 'updated_at' => now(),
             ], $overrides));
         }
+
         return $ids;
     }
 

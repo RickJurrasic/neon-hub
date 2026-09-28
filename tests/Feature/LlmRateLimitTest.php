@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Event;
 it('classifies demo humans by handle prefix only and applies tiered caps', function (): void {
     $limiter = app(LlmRateLimiter::class);
 
-    $demo  = makeDemoUser();                              // demo-<uuid> handle -> demo
+    $demo = makeDemoUser();                              // demo-<uuid> handle -> demo
     $human = User::factory()->create(['is_ai' => false]); // no demo- handle -> registered
 
     expect($limiter->isDemo($demo))->toBeTrue()
@@ -57,7 +57,7 @@ it('treats the legacy id-1 Recruiter Phantom as registered (not demo)', function
     $limiter = app(LlmRateLimiter::class);
 
     expect($limiter->isDemo($legacy))->toBeFalse()
-                ->and($limiter->isDemo(makeDemoUser()))->toBeTrue();
+        ->and($limiter->isDemo(makeDemoUser()))->toBeTrue();
 });
 
 it('returns 429 with Retry-After and writes nothing when the interactive budget is exhausted', function (): void {
@@ -65,7 +65,7 @@ it('returns 429 with Retry-After and writes nothing when the interactive budget 
     Event::fake([MessageReceived::class]);
 
     $demo = makeDemoUser();
-    $bot  = makeBotUser(['name' => 'SENTINEL_01']);
+    $bot = makeBotUser(['name' => 'SENTINEL_01']);
 
     // Seed a real, replyable assistant message owned by $demo.
     $msgId = app(SendMessageAction::class)->execute(
@@ -78,7 +78,7 @@ it('returns 429 with Retry-After and writes nothing when the interactive budget 
     $limiter->consume(LlmRateLimiter::INTERACTIVE, $demo); // 3 — demo cap
     expect($limiter->attempts(LlmRateLimiter::INTERACTIVE, $demo))->toBe(3);
 
-        $before = DB::table('agent_conversation_messages')->count();
+    $before = DB::table('agent_conversation_messages')->count();
 
     $this->actingAs($demo)
         ->postJson('/messages', ['message_id' => $msgId, 'text' => 'hi'])
@@ -98,7 +98,7 @@ it('stores the human message and dispatches the agent job when under the cap', f
     Event::fake([MessageReceived::class]);
 
     $demo = makeDemoUser();
-    $bot  = makeBotUser(['name' => 'SENTINEL_01']);
+    $bot = makeBotUser(['name' => 'SENTINEL_01']);
 
     $msgId = app(SendMessageAction::class)->execute(
         $bot->id, $demo->id, 'Welcome.', 'SENTINEL_01', 'assistant'
@@ -106,9 +106,9 @@ it('stores the human message and dispatches the agent job when under the cap', f
     $convId = DB::table('agent_conversations')->where('user_id', $demo->id)->value('id');
 
     $limiter = app(LlmRateLimiter::class);
-    $before  = DB::table('agent_conversation_messages')->count();
+    $before = DB::table('agent_conversation_messages')->count();
 
-        $this->actingAs($demo)
+    $this->actingAs($demo)
         ->postJson('/messages', ['message_id' => $msgId, 'text' => 'hi there'])
         ->assertOk();
 
@@ -122,7 +122,7 @@ it('does not double-count: exactly one success then 429 until the window resets'
     Event::fake([MessageReceived::class]);
 
     $demo = makeDemoUser();
-    $bot  = makeBotUser(['name' => 'SENTINEL_01']);
+    $bot = makeBotUser(['name' => 'SENTINEL_01']);
 
     $msgId = app(SendMessageAction::class)->execute(
         $bot->id, $demo->id, 'Welcome.', 'SENTINEL_01', 'assistant'
@@ -134,7 +134,7 @@ it('does not double-count: exactly one success then 429 until the window resets'
 
     $codes = [];
     foreach (['a', 'b', 'c'] as $suffix) {
-                $codes[] = $this->actingAs($demo)
+        $codes[] = $this->actingAs($demo)
             ->postJson('/messages', ['message_id' => $msgId, 'text' => "msg {$suffix}"])
             ->status();
     }
@@ -147,7 +147,7 @@ it('does not double-count: exactly one success then 429 until the window resets'
 
 it('gates startup greetings: an exhausted STARTUP budget blocks the job with no DB write', function (): void {
     $demo = makeDemoUser();
-    $bot  = makeBotUser(['name' => 'SENTINEL_01']);
+    $bot = makeBotUser(['name' => 'SENTINEL_01']);
 
     $limiter = app(LlmRateLimiter::class);
     $limiter->consume(LlmRateLimiter::STARTUP, $demo); // 1

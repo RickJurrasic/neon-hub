@@ -7,9 +7,7 @@ use App\Jobs\HandleAgentResponse;
 use App\Services\LlmRateLimiter;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Str;
 
 it('allows the first Enter System after the demo budget resets', function (): void {
     Bus::fake([HandleAgentResponse::class]);

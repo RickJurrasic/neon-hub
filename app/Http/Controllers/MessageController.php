@@ -25,7 +25,7 @@ class MessageController extends Controller
         return MessageResource::collection($messages);
     }
 
-        public function store(StoreMessageRequest $request, LlmRateLimiter $limiter): MessageResource|JsonResponse
+    public function store(StoreMessageRequest $request, LlmRateLimiter $limiter): MessageResource|JsonResponse
     {
         // AUTHORITY GATE — INTERACTIVE bucket (server-side, atomic via cache store).
         // POST /messages is the sole human -> agent reply entry point, so this is
@@ -42,10 +42,10 @@ class MessageController extends Controller
                 ['message' => 'AI_RATE_LIMITED'],
                 429,
                 [
-                    'Retry-After'         => $retryAfter,
-                    'X-RateLimit-Limit'   => $limiter->max(LlmRateLimiter::INTERACTIVE, $user),
+                    'Retry-After' => $retryAfter,
+                    'X-RateLimit-Limit' => $limiter->max(LlmRateLimiter::INTERACTIVE, $user),
                     'X-RateLimit-Remaining' => max(0, $limiter->max(LlmRateLimiter::INTERACTIVE, $user) - $limiter->attempts(LlmRateLimiter::INTERACTIVE, $user)),
-                    'X-RateLimit-Reset'   => now()->addSeconds($retryAfter)->timestamp,
+                    'X-RateLimit-Reset' => now()->addSeconds($retryAfter)->timestamp,
                 ]
             );
         }
