@@ -13,13 +13,13 @@ return [
 
         'demo' => [
             // Agent-initiated (startup) greetings — AutoSendAgentMessage.
-            'startup'     => 2,
+            'startup' => 2,
             // Human -> agent replies — POST /messages (MessageController::store).
             'interactive' => 3,
         ],
 
-                        'registered' => [
-            'startup'     => 3,
+        'registered' => [
+            'startup' => 3,
             'interactive' => 8,
         ],
 
@@ -29,7 +29,7 @@ return [
         // Enter-System flow. demo allows the first Enter (blocks repeat
         // presses); registered allows a refresh-then-enter.
         'enter_system' => [
-            'demo'       => 1,
+            'demo' => 1,
             'registered' => 2,
         ],
 

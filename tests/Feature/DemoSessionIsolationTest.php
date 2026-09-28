@@ -40,7 +40,7 @@ it('issues a distinct demo human per browser session and never reuses id 1 or bo
     ]);
 
     $bot = User::factory()->create(['name' => 'SENTINEL_01', 'is_ai' => true]);
-    $gate = new AutoLoginDemoUser;
+    $gate = new AutoLoginDemoUser();
 
     // Build a fresh, isolated Session store simulating one browser session.
     $start = function (string $name, string $sid): Store {
@@ -88,7 +88,7 @@ it('issues a distinct demo human per browser session and never reuses id 1 or bo
         ->and($userB->id)->not->toBe(1)
         ->and($userA->id)->not->toBe($userB->id);
 
-        expect(User::find(1)->email)->toBe('demo@neonhub.io'); // seed intact
+    expect(User::find(1)->email)->toBe('demo@neonhub.io'); // seed intact
     expect($bot->fresh()->is_ai)->toBeTrue();              // bot stays shared/global
 });
 

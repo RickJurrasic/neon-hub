@@ -2,14 +2,14 @@
 
 use App\Actions\SendFriendRequestAction;
 use App\Events\FriendRequestReceived;
+use App\Jobs\HandleAgentResponse;
 use App\Models\Friendship;
 use App\Models\User;
-use App\Jobs\HandleAgentResponse;
-use Illuminate\Support\Facades\Queue;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 
 uses(RefreshDatabase::class);
 

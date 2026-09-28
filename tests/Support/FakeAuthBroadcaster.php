@@ -38,7 +38,7 @@ final class FakeAuthBroadcaster extends Broadcaster
 
             if ($this->isGuardedChannel($channel) &&
                 ! $this->retrieveUser($request, $name)) {
-                throw new AccessDeniedHttpException;
+                throw new AccessDeniedHttpException();
             }
 
             // verifyUserCanAccessChannel() invokes the registered channels.php

@@ -41,7 +41,7 @@ class AutoSendAgentMessage implements ShouldQueue
         public readonly string $agentName = 'SENTINEL_01'
     ) {}
 
-        public function handle(LlmRateLimiter $limiter): void
+    public function handle(LlmRateLimiter $limiter): void
     {
         $user = User::find($this->userId);
         $bot = User::where('name', $this->agentName)->first();

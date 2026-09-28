@@ -17,7 +17,7 @@ use Tests\Support\FakeAuthBroadcaster;
  * routes/channels.php so the real owner-gate is registered onto that broadcaster.
  */
 beforeEach(function () {
-        Config::set('broadcasting.default', 'auth_gate');
+    Config::set('broadcasting.default', 'auth_gate');
     Config::set('broadcasting.connections.auth_gate', ['driver' => 'auth_gate']);
     Broadcast::extend('auth_gate', fn () => new FakeAuthBroadcaster());
     Broadcast::forgetDrivers();                       // drop the cached null driver
@@ -29,7 +29,7 @@ it('allows an authenticated user to authorize their own private user channel', f
 
     $this->actingAs($user)
         ->post('/broadcasting/auth', [
-            'channels'  => ['private-App.Models.User.'.$user->id],
+            'channels' => ['private-App.Models.User.'.$user->id],
             'socket_id' => '127.0.0.1.123.1',
         ])
         ->assertSuccessful();
@@ -41,7 +41,7 @@ it('denies an authenticated user access to another users private channel', funct
 
     $this->actingAs($other)
         ->post('/broadcasting/auth', [
-            'channels'  => ['private-App.Models.User.'.$owner->id],
+            'channels' => ['private-App.Models.User.'.$owner->id],
             'socket_id' => '127.0.0.1.123.2',
         ])
         ->assertForbidden();
@@ -59,7 +59,7 @@ it('lets a demo session authorize its own channel but not another demo sessions 
     // Demo session A cannot subscribe to demo session B's private channel.
     $this->actingAs($sessionA)
         ->post('/broadcasting/auth', [
-            'channels'  => ['private-App.Models.User.'.$sessionB->id],
+            'channels' => ['private-App.Models.User.'.$sessionB->id],
             'socket_id' => '127.0.0.1.123.3',
         ])
         ->assertForbidden();
@@ -67,7 +67,7 @@ it('lets a demo session authorize its own channel but not another demo sessions 
     // Demo session A's OWN channel still authorizes (positive control).
     $this->actingAs($sessionA)
         ->post('/broadcasting/auth', [
-            'channels'  => ['private-App.Models.User.'.$sessionA->id],
+            'channels' => ['private-App.Models.User.'.$sessionA->id],
             'socket_id' => '127.0.0.1.123.3',
         ])
         ->assertSuccessful();
@@ -77,7 +77,7 @@ it('denies an unauthenticated request for any private channel', function () {
     $user = makeDemoUser();
 
     $this->post('/broadcasting/auth', [
-        'channels'  => ['private-App.Models.User.'.$user->id],
+        'channels' => ['private-App.Models.User.'.$user->id],
         'socket_id' => '127.0.0.1.123.4',
     ])->assertForbidden();
 });
@@ -91,7 +91,7 @@ it('rejects authorization for an unregistered private channel (negative control)
     // rather than no-op authorizing (as NullBroadcaster would under BROADCAST_CONNECTION=null).
     $this->actingAs($user)
         ->post('/broadcasting/auth', [
-            'channels'  => ['private-App.Models.Nonexistent.'.$user->id],
+            'channels' => ['private-App.Models.Nonexistent.'.$user->id],
             'socket_id' => '127.0.0.1.123.5',
         ])
         ->assertForbidden();

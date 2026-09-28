@@ -55,8 +55,8 @@ function makeDemoUser(array $overrides = []): User
 
     return User::factory()->create(array_merge([
         'handle' => $handle,
-        'email'  => $handle.'@neonhub.io',
-        'is_ai'  => false,
+        'email' => $handle.'@neonhub.io',
+        'is_ai' => false,
     ], $overrides));
 }
 
@@ -67,7 +67,7 @@ function makeDemoUser(array $overrides = []): User
 function makeBotUser(array $overrides = []): User
 {
     return User::factory()->create(array_merge([
-        'name'  => 'SENTINEL_01',
+        'name' => 'SENTINEL_01',
         'is_ai' => true,
     ], $overrides));
 }

@@ -44,7 +44,7 @@ it('returns a generic NODE_INIT_FAILED message instead of the raw exception text
 
     $response->assertStatus(500)
         ->assertJson([
-            'status'  => 'ERROR',
+            'status' => 'ERROR',
             'message' => 'NODE_INIT_FAILED',
         ]);
 

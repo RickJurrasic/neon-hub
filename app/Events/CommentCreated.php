@@ -51,6 +51,7 @@ class CommentCreated implements ShouldBroadcast
         if ($demoOwnerId !== null) {
             return [new PrivateChannel('App.Models.User.'.$demoOwnerId)];
         }
+
         return [new Channel('posts')];
     }
 
