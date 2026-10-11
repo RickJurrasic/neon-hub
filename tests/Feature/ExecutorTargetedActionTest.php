@@ -17,6 +17,8 @@ use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Support\Facades\Event;
 use Laravel\Ai\Responses\AgentResponse;
 
+const EXECUTOR_TARGETED_ACTION_TEST_POST_LATENCY = '2.0ms';
+
 // Seed the legacy Recruiter Phantom (id 1) so factory-created demo humans/bots
 // get id >= 2, matching production where id 1 is the shared global identity.
 beforeEach(function (): void {
@@ -288,7 +290,7 @@ it('creates AI comments only on posts owned by the active demo session', functio
         'user_id' => $bot->id,
         'content' => 'Post owned by session A',
         'type' => 'AI_FEED',
-        'latency' => '2.0ms',
+        'latency' => EXECUTOR_TARGETED_ACTION_TEST_POST_LATENCY,
         'likes_count' => 0,
         'demo_owner_id' => $humanA->id,
     ]);
@@ -297,7 +299,7 @@ it('creates AI comments only on posts owned by the active demo session', functio
         'user_id' => $bot->id,
         'content' => 'Post owned by session B',
         'type' => 'AI_FEED',
-        'latency' => '2.0ms',
+        'latency' => EXECUTOR_TARGETED_ACTION_TEST_POST_LATENCY,
         'likes_count' => 0,
         'demo_owner_id' => $humanB->id,
     ]);
@@ -306,7 +308,7 @@ it('creates AI comments only on posts owned by the active demo session', functio
         'user_id' => $bot->id,
         'content' => 'Global seeded post',
         'type' => 'SYSTEM_LOG',
-        'latency' => '2.0ms',
+        'latency' => EXECUTOR_TARGETED_ACTION_TEST_POST_LATENCY,
         'likes_count' => 0,
         'demo_owner_id' => null,
     ]);
@@ -351,7 +353,7 @@ it('does not comment on a post owned by another demo session', function () {
         'user_id' => $bot->id,
         'content' => 'Private post belonging to session B',
         'type' => 'AI_FEED',
-        'latency' => '2.0ms',
+        'latency' => EXECUTOR_TARGETED_ACTION_TEST_POST_LATENCY,
         'likes_count' => 0,
         'demo_owner_id' => $humanB->id,
     ]);
