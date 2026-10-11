@@ -171,7 +171,7 @@ export const useNotificationStore = defineStore("notifications", {
                 return true;
             } catch (error) {
                 console.error("Failed to purge conversation node:", error);
-                this.fetchMessages();
+                await this.fetchMessages();
                 return false;
             }
         },
