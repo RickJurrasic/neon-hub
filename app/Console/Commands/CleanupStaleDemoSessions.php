@@ -151,16 +151,23 @@ class CleanupStaleDemoSessions extends Command
                 // 4. Likes made by this demo user on other posts
                 Like::query()->where('user_id', $userId)->delete();
 
-                // 5. Comments made by this demo user
-                Comment::query()->where('user_id', $userId)->delete();
+                // 5. Comments created by AI on behalf of this demo session
+                Comment::query()
+                    ->where('demo_owner_id', $userId)
+                    ->delete();
 
-                // 6. Notifications where this user is the notifiable
+                // 6. Comments authored by this demo user
+                Comment::query()
+                    ->where('user_id', $userId)
+                    ->delete();
+
+                // 7. Notifications where this user is the notifiable
                 DB::table('notifications')
                     ->where('notifiable_type', User::class)
                     ->where('notifiable_id', $userId)
                     ->delete();
 
-                // 7. Finally, delete the demo user themselves
+                // 8. Finally, delete the demo user themselves
                 DB::table('users')
                     ->where('id', $userId)
                     ->delete();

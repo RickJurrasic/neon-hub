@@ -29,9 +29,10 @@ class RegisterDemoActivity
         // This ensures the lifecycle lock prevents cleanup from
         // deleting this session while the incoming request is processing.
         if ($user instanceof User
-            && ! $user->is_ai
-            && $user->id !== 1
-            && str_starts_with((string) ($user->handle ?? ''), 'demo-')) {
+          && ! $user->is_ai
+          && $user->id !== ActiveDemoUsers::LEGACY_GLOBAL_USER_ID
+          && str_starts_with((string) ($user->handle ?? ''), 'demo-')
+          && (bool) $request->session()->get('system.initialized', false)) {
             if (! ActiveDemoUsers::record((int) $user->id)) {
                 abort(409, 'Session conflict - please refresh.');
             }

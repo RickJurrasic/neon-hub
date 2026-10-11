@@ -8,6 +8,8 @@ use App\Events\CommentCreated;
 use App\Models\Comment;
 use App\Models\Post;
 use App\Models\User;
+use App\Services\ActiveDemoUsers;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class ExecuteCommentPostAction implements AIAction
@@ -15,14 +17,34 @@ class ExecuteCommentPostAction implements AIAction
     public function execute(User $user, array $payload): void
     {
         // 1. Pokud je v payloadu post_id, použijeme ho, jinak vybereme náhodný
+        // Comments are allowed only for an active demo session.
+        $demoOwnerId = (int) ($payload['demo_owner_id'] ?? 0);
+
+        if (! ActiveDemoUsers::isActiveSession($demoOwnerId)) {
+            Log::info('AI comment skipped: demo session is not active.', [
+                'demo_owner_id' => $demoOwnerId ?: null,
+                'actor_user_id' => $user->id,
+            ]);
+
+            return;
+        }
+
+        // Restrict the target post to the current demo session.
         $postId = $payload['post_id'] ?? null;
 
-        /** @var Post|null $post */
+        $postQuery = Post::query()
+            ->where('demo_owner_id', $demoOwnerId);
+
         $post = $postId
-            ? Post::find($postId)
-            : Post::inRandomOrder()->first();
+            ? $postQuery->whereKey((int) $postId)->first()
+            : $postQuery->inRandomOrder()->first();
 
         if (! $post) {
+            Log::info('AI comment skipped: no post belongs to the active demo session.', [
+                'demo_owner_id' => $demoOwnerId,
+                'actor_user_id' => $user->id,
+            ]);
+
             return;
         }
 
@@ -44,11 +66,37 @@ class ExecuteCommentPostAction implements AIAction
             return;
         }
 
+        // The AI request may take long enough for the session to expire.
+        if (! ActiveDemoUsers::isActiveSession($demoOwnerId)) {
+            Log::info('AI comment skipped: demo session expired during generation.', [
+                'demo_owner_id' => $demoOwnerId,
+                'actor_user_id' => $user->id,
+            ]);
+
+            return;
+        }
+
+        // Ensure the target post still exists and belongs to this session.
+        $post = Post::query()
+            ->whereKey($post->id)
+            ->where('demo_owner_id', $demoOwnerId)
+            ->first();
+
+        if (! $post) {
+            Log::info('AI comment skipped: target post no longer exists for this session.', [
+                'demo_owner_id' => $demoOwnerId,
+                'actor_user_id' => $user->id,
+            ]);
+
+            return;
+        }
+
         // 3. Uložíme komentář přes Eloquent relaci
         /** @var Comment $comment */
         $comment = $post->comments()->create([
             'user_id' => $user->id,
             'content' => $commentContent,
+            'demo_owner_id' => $demoOwnerId,
         ]);
 
         // Inkrementujeme počet komentářů, pokud sloupec v modelu existuje

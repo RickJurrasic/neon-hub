@@ -4,6 +4,7 @@ use App\Events\FriendRequestReceived;
 use App\Events\NewActivityAlert;
 use App\Events\PostCreated;
 use App\Jobs\HandleAgentResponse;
+use App\Services\ActiveDemoUsers;
 use App\Services\LlmRateLimiter;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
@@ -22,6 +23,9 @@ it('allows the first Enter System after the demo budget resets', function (): vo
         ->postJson('/system/initialize-node')
         ->assertOk()
         ->assertJson(['status' => 'NODE_INITIALIZED']);
+    expect(app('cache')->has(
+        ActiveDemoUsers::ACTIVE_KEY.':'.$demo->id
+    ))->toBeTrue();
 
     expect(app(LlmRateLimiter::class)->attempts(LlmRateLimiter::ENTER_SYSTEM, $demo))->toBe(1)
         ->and(Bus::dispatched(HandleAgentResponse::class))->toHaveCount(1);
