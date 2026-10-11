@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Actions\SendFriendRequestAction;
 use App\Jobs\HandleAgentResponse;
 use App\Models\User;
+use App\Services\ActiveDemoUsers;
 use App\Services\LlmRateLimiter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -63,8 +64,15 @@ class SystemController extends Controller
             HandleAgentResponse::dispatch($userId, null, 'SENTINEL_01', true)
                 ->delay(now()->addSeconds(7));
 
-            // Mark this session as initialized after the startup sequence is dispatched
+            // Activate the demo session only after startup actions are dispatched.
             session()->put('system.initialized', true);
+
+            if (! ActiveDemoUsers::record($userId)) {
+                Log::warning(
+                    'System initialized but active demo heartbeat could not be recorded.',
+                    ['user_id' => $userId],
+                );
+            }
 
             return response()->json(['status' => 'NODE_INITIALIZED']);
         } catch (Throwable $e) {

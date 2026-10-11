@@ -9,6 +9,7 @@ use App\Ai\Agents\Actions\Ai\ExecuteLikePostAction;
 use App\Ai\Agents\Actions\Ai\ExecuteSendMessageAction;
 use App\Events\AIActionPerformed;
 use App\Models\User;
+use App\Services\ActiveDemoUsers;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -66,6 +67,19 @@ class ProcessAIAction implements ShouldQueue
 
         if (! $user) {
             Log::warning("ProcessAIAction skipped: User {$this->userId} not found.");
+
+            return;
+        }
+
+        // A queued action is valid only while its owning demo session is active.
+        $demoOwnerId = (int) ($this->payload['demo_owner_id'] ?? 0);
+
+        if (! ActiveDemoUsers::isActiveSession($demoOwnerId)) {
+            Log::info('ProcessAIAction skipped: demo session is no longer active.', [
+                'actor_user_id' => $user->id,
+                'action' => $this->actionType,
+                'demo_owner_id' => $demoOwnerId ?: null,
+            ]);
 
             return;
         }

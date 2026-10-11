@@ -251,4 +251,66 @@ class CleanupStaleDemoSessionsTest extends TestCase
 
         $lock->release();
     }
+
+    public function test_it_removes_stale_session_owned_ai_comments_but_preserves_other_and_seed_comments(): void
+    {
+        $bot = $this->makeBotUser();
+
+        $staleUser = $this->makeDemoUser([
+            'handle' => 'demo-comment-stale',
+        ]);
+
+        $activeUser = $this->makeDemoUser([
+            'handle' => 'demo-comment-active',
+        ]);
+
+        ActiveDemoUsers::record((int) $activeUser->id);
+
+        // Keep the post global so cleanup must delete the comment by its owner.
+        $globalPostId = $this->insertPosts(1, [
+            'user_id' => $bot->id,
+            'demo_owner_id' => null,
+        ])[0];
+
+        $staleCommentId = $this->insertComments(1, [
+            'post_id' => $globalPostId,
+            'user_id' => $bot->id,
+            'demo_owner_id' => $staleUser->id,
+        ])[0];
+
+        $activeCommentId = $this->insertComments(1, [
+            'post_id' => $globalPostId,
+            'user_id' => $bot->id,
+            'demo_owner_id' => $activeUser->id,
+        ])[0];
+
+        $seedCommentId = $this->insertComments(1, [
+            'post_id' => $globalPostId,
+            'user_id' => $bot->id,
+            'demo_owner_id' => null,
+        ])[0];
+
+        $this->artisan('cleanup:stale-demo-sessions')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseMissing('comments', [
+            'id' => $staleCommentId,
+        ]);
+
+        $this->assertDatabaseHas('comments', [
+            'id' => $activeCommentId,
+        ]);
+
+        $this->assertDatabaseHas('comments', [
+            'id' => $seedCommentId,
+        ]);
+
+        $this->assertDatabaseMissing('users', [
+            'id' => $staleUser->id,
+        ]);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $activeUser->id,
+        ]);
+    }
 }

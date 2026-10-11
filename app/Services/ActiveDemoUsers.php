@@ -92,6 +92,27 @@ class ActiveDemoUsers
     }
 
     /**
+     * Determine whether a demo session has a live heartbeat.
+     *
+     * @phpstan-impure
+     */
+    public static function isActiveSession(int $userId): bool
+    {
+        if ($userId <= 0 || $userId === self::LEGACY_GLOBAL_USER_ID) {
+            return false;
+        }
+
+        $isDemoHuman = User::query()
+            ->whereKey($userId)
+            ->where('is_ai', false)
+            ->where('handle', 'like', 'demo-%')
+            ->exists();
+
+        return $isDemoHuman
+            && Cache::has(self::ACTIVE_KEY.':'.$userId);
+    }
+
+    /**
      * The authoritative set of currently active demo sessions: demo humans
      * (is_ai = false, handle like 'demo-%', id != legacy global) that still
      * hold a live heartbeat. One id per active browser session.

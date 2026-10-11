@@ -1,18 +1,23 @@
 <?php
 
+use App\Ai\Agents\Actions\Ai\ExecuteCommentPostAction;
 use App\Ai\Agents\Actions\Ai\ExecuteFriendRequestAction;
 use App\Ai\Agents\Actions\Ai\ExecuteSendMessageAction;
 use App\Ai\Agents\AIAgent;
 use App\Events\AIActionPerformed;
+use App\Events\CommentCreated;
 use App\Events\FriendRequestReceived;
 use App\Events\MessageReceived;
 use App\Jobs\ProcessAIAction;
 use App\Models\Friendship;
+use App\Models\Post;
 use App\Models\User;
 use App\Services\ActiveDemoUsers;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Support\Facades\Event;
 use Laravel\Ai\Responses\AgentResponse;
+
+const EXECUTOR_TARGETED_ACTION_TEST_POST_LATENCY = '2.0ms';
 
 // Seed the legacy Recruiter Phantom (id 1) so factory-created demo humans/bots
 // get id >= 2, matching production where id 1 is the shared global identity.
@@ -181,7 +186,10 @@ it('end-to-end: ProcessAIAction runs a scheduled friend_request for the active h
     $human = makeDemoUser();
     ActiveDemoUsers::record((int) $human->id);
 
-    ProcessAIAction::dispatch($bot->id, 'friend_request', ['recipient_id' => (int) $human->id]);
+    ProcessAIAction::dispatch($bot->id, 'friend_request', [
+        'demo_owner_id' => (int) $human->id,
+        'recipient_id' => (int) $human->id,
+    ]);
 
     Event::assertDispatched(FriendRequestReceived::class, fn (FriendRequestReceived $event) => $event->userId === (int) $human->id);
     $this->assertDatabaseHas('friendships', ['sender_id' => $bot->id, 'recipient_id' => $human->id, 'status' => 'pending']);
@@ -240,4 +248,124 @@ it('friend_request executor prevents duplicate pending requests for same bot/hum
 
     // Verify the Friendship model's between() method would still return true for existing pair
     $this->assertTrue(Friendship::between($bot->id, $human->id, 'pending')->exists());
+});
+
+it('skips scheduled AI actions when the owning demo session is inactive', function () {
+    Event::fake([FriendRequestReceived::class, AIActionPerformed::class]);
+
+    $bot = makeBotUser();
+    $human = makeDemoUser();
+
+    // Deliberately do not register an active heartbeat.
+    ProcessAIAction::dispatch($bot->id, 'friend_request', [
+        'demo_owner_id' => (int) $human->id,
+        'recipient_id' => (int) $human->id,
+    ]);
+
+    Event::assertNotDispatched(FriendRequestReceived::class);
+    Event::assertNotDispatched(AIActionPerformed::class);
+
+    $this->assertDatabaseMissing('friendships', [
+        'sender_id' => $bot->id,
+        'recipient_id' => $human->id,
+        'status' => 'pending',
+    ]);
+
+    $this->assertDatabaseMissing('ai_profile_events', [
+        'user_id' => $bot->id,
+        'action_type' => 'friend_request',
+    ]);
+});
+
+it('creates AI comments only on posts owned by the active demo session', function () {
+    Event::fake([CommentCreated::class]);
+
+    $bot = makeBotUser();
+    $humanA = makeDemoUser();
+    $humanB = makeDemoUser();
+
+    ActiveDemoUsers::record((int) $humanA->id);
+
+    $ownPost = Post::create([
+        'user_id' => $bot->id,
+        'content' => 'Post owned by session A',
+        'type' => 'AI_FEED',
+        'latency' => EXECUTOR_TARGETED_ACTION_TEST_POST_LATENCY,
+        'likes_count' => 0,
+        'demo_owner_id' => $humanA->id,
+    ]);
+
+    $otherPost = Post::create([
+        'user_id' => $bot->id,
+        'content' => 'Post owned by session B',
+        'type' => 'AI_FEED',
+        'latency' => EXECUTOR_TARGETED_ACTION_TEST_POST_LATENCY,
+        'likes_count' => 0,
+        'demo_owner_id' => $humanB->id,
+    ]);
+
+    $globalPost = Post::create([
+        'user_id' => $bot->id,
+        'content' => 'Global seeded post',
+        'type' => 'SYSTEM_LOG',
+        'latency' => EXECUTOR_TARGETED_ACTION_TEST_POST_LATENCY,
+        'likes_count' => 0,
+        'demo_owner_id' => null,
+    ]);
+
+    AIAgent::fake(['A concise comment for session A.'])
+        ->preventStrayPrompts();
+
+    app(ExecuteCommentPostAction::class)->execute($bot, [
+        'demo_owner_id' => (int) $humanA->id,
+    ]);
+
+    $this->assertDatabaseHas('comments', [
+        'post_id' => $ownPost->id,
+        'user_id' => $bot->id,
+        'demo_owner_id' => $humanA->id,
+        'content' => 'A concise comment for session A.',
+    ]);
+
+    $this->assertDatabaseMissing('comments', [
+        'post_id' => $otherPost->id,
+    ]);
+
+    $this->assertDatabaseMissing('comments', [
+        'post_id' => $globalPost->id,
+    ]);
+
+    $this->assertDatabaseCount('comments', 1);
+
+    Event::assertDispatched(CommentCreated::class);
+});
+
+it('does not comment on a post owned by another demo session', function () {
+    Event::fake([CommentCreated::class]);
+
+    $bot = makeBotUser();
+    $humanA = makeDemoUser();
+    $humanB = makeDemoUser();
+
+    ActiveDemoUsers::record((int) $humanA->id);
+
+    $postB = Post::create([
+        'user_id' => $bot->id,
+        'content' => 'Private post belonging to session B',
+        'type' => 'AI_FEED',
+        'latency' => EXECUTOR_TARGETED_ACTION_TEST_POST_LATENCY,
+        'likes_count' => 0,
+        'demo_owner_id' => $humanB->id,
+    ]);
+
+    AIAgent::fake()->preventStrayPrompts();
+
+    app(ExecuteCommentPostAction::class)->execute($bot, [
+        'demo_owner_id' => (int) $humanA->id,
+        'post_id' => (int) $postB->id,
+    ]);
+
+    AIAgent::assertNeverPrompted();
+    Event::assertNotDispatched(CommentCreated::class);
+    $this->assertDatabaseCount('comments', 0);
 });
